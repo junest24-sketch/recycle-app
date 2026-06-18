@@ -3669,7 +3669,6 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       {modal && modal.mode === "view" && (
         <SalesInvoiceModal inv={modal.item} customer={customers.find((c) => c.id === modal.item.customerId)} products={products} storeBankAccounts={storeBankAccounts} companySettings={companySettings} onClose={() => setModal(null)} />
       )}
-      </div>{/* end tab-export-sales */}
     </div>
   );
 }
