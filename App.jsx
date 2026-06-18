@@ -923,7 +923,7 @@ export default function App() {
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" />
 
       {/* Sidebar — fixed, independent scroll */}
-      <div style={{ width: sidebarOpen ? 220 : 64, background: "#0c443c", color: "#e1f5ee", display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.2s ease", height: "100vh", overflowY: "auto", overflowX: "hidden", position: "fixed", top: 0, left: 0, zIndex: 10 }}>
+      <div style={{ width: sidebarOpen ? 220 : 64, background: "#0c443c", color: "#e1f5ee", display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.2s ease", height: "100vh", overflowY: "auto", overflowX: "auto", position: "fixed", top: 0, left: 0, zIndex: 10 }}>
         <div style={{ padding: sidebarOpen ? "16px 18px" : "16px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           {sidebarOpen ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
