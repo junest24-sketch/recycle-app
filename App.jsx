@@ -1988,7 +1988,7 @@ function ProductsTab({ products, setProducts }) {
 
   const filtered = products.filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search));
 
-  const openAdd  = () => { setForm({ id: genId("P", products), name: "", type: PRODUCT_TYPES[0], unit: UNIT_OPTIONS[0], openingQty: 0, openingCost: 0 }); setModal({ mode: "add" }); };
+  const openAdd  = () => { setForm({ id: genSeqId("P", products), name: "", type: PRODUCT_TYPES[0], unit: UNIT_OPTIONS[0], openingQty: 0, openingCost: 0 }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, ...item }); setModal({ mode: "edit", item }); };
   const remove   = (id) => setProducts(products.filter((p) => p.id !== id));
 
@@ -2127,7 +2127,7 @@ function CustomersTab({ customers, setCustomers }) {
 
   const filtered = customers.filter((c) => c.name.includes(search) || c.id.includes(search) || (c.phone || "").includes(search));
 
-  const openAdd = () => { setForm({ ...blank, id: genId("C", customers) }); setModal({ mode: "add" }); };
+  const openAdd const openAdd = () => { setForm({ ...blank, id: genSeqId("C", customers) }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm(JSON.parse(JSON.stringify({ ...blank, ...item }))); setModal({ mode: "edit", item }); };
 
   const save = () => {
