@@ -3452,7 +3452,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลข Invoice หรือชื่อลูกค้า..." />
-      <div id="tab-export-sales">
+      <div id="tab-export-sales" style={{ overflowX: "auto" }}>
 <div style={{ overflowX: "auto" }}>
 <Card>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
