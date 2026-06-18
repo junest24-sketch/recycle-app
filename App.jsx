@@ -919,11 +919,11 @@ export default function App() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'Noto Sans Thai', 'Inter', system-ui, sans-serif", background: "#f3f4f1", color: "#1f2937", overflow: "hidden" }}>
+    <div style={{ display: "flex", minHeight: "100vh", fontFamily: "'Noto Sans Thai', 'Inter', system-ui, sans-serif", background: "#f3f4f1", color: "#1f2937" }}>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" />
 
       {/* Sidebar — fixed, independent scroll */}
-      <div style={{ width: sidebarOpen ? 220 : 64, background: "#0c443c", color: "#e1f5ee", display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.2s ease", height: "100vh", overflowY: "auto", overflowX: "hidden", position: "sticky", top: 0 }}>
+      <div style={{ width: sidebarOpen ? 220 : 64, background: "#0c443c", color: "#e1f5ee", display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.2s ease", height: "100vh", overflowY: "auto", overflowX: "hidden", position: "fixed", top: 0, left: 0, zIndex: 10 }}>
         <div style={{ padding: sidebarOpen ? "16px 18px" : "16px 10px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           {sidebarOpen ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
@@ -1051,7 +1051,7 @@ export default function App() {
       </div>
 
       {/* Main content — independently scrollable */}
-      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", height: "100vh", transition: "all 0.2s ease", boxSizing: "border-box" }}>
+      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box" }}>
         {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
