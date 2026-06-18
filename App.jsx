@@ -472,7 +472,7 @@ function SearchBar({ value, onChange, placeholder }) {
 
 function Card({ children, style }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden", ...style }}>
+    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto", ...style }}>
       {children}
     </div>
   );
@@ -2026,7 +2026,7 @@ function ProductsTab({ products, setProducts }) {
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อสินค้า, รหัส หรือประเภท..." />
 
-      <div id="products-print" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+      <div id="products-print" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
