@@ -2127,7 +2127,7 @@ function CustomersTab({ customers, setCustomers }) {
 
   const filtered = customers.filter((c) => c.name.includes(search) || c.id.includes(search) || (c.phone || "").includes(search));
 
-  const openAdd const openAdd = () => { setForm({ ...blank, id: genSeqId("C", customers) }); setModal({ mode: "add" }); };
+  const openAdd = () => { setForm({ ...blank, id: genSeqId("C", customers) }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm(JSON.parse(JSON.stringify({ ...blank, ...item }))); setModal({ mode: "edit", item }); };
 
   const save = () => {
