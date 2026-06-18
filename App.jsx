@@ -1516,9 +1516,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </table>
             </div>
 
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px" }}>
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
               <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามรายการสินค้า</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>สินค้า</th>
@@ -1557,9 +1557,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             {renderCard(salesCard)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px" }}>
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
               <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามประเภทสินค้า</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>ประเภท</th>
@@ -1582,9 +1582,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </table>
             </div>
 
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px" }}>
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
               <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามรายการสินค้า</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500  }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>สินค้า</th>
