@@ -7,7 +7,8 @@ import {
   CheckCircle2, XCircle, Clock, CreditCard, PackageMinus, ArrowRight, Wallet, Receipt,
   Image, FileSpreadsheet, FileDown, Truck
 } from "lucide-react";
-import { isSupabaseReady, loadAllFromSupabase, useSupabaseSync } from './useSupabaseSync.js';
+import { isSupabaseReady } from './supabase'
+import { loadAllFromSupabase, useSupabaseSync } from './useSupabaseSync.js'
 
 // ---------- Seed data ----------
 const initialProducts = [
