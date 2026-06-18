@@ -517,6 +517,17 @@ function genId(prefix, list) {
   }).length;
   return `${todayPrefix}${String(todayCount + 1).padStart(3, "0")}`;
 }
+function genSeqId(prefix, list) {
+  const nums = list
+    .map((item) => {
+      const id = typeof item === "string" ? item : (item.id || "");
+      const match = id.match(new RegExp(`^${prefix}(\\d+)$`));
+      return match ? parseInt(match[1]) : 0;
+    })
+    .filter((n) => n > 0);
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  return `${prefix}${String(next).padStart(3, "0")}`;
+}
 
 // ---------- Searchable product select (type to filter) ----------
 function ProductSelect({ products, value, onChange, disabled, minWidth = 170, labelWithId = true }) {
