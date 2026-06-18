@@ -3501,7 +3501,6 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
         </table>
       </Card>
 </div>
-</div>{/* end tab-export-sales */}
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
