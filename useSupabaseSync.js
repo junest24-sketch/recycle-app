@@ -20,13 +20,17 @@ export async function loadAllFromSupabase() {
 export function useSupabaseSync(key, value, setValue, loaded) {
   const saveTimer = useRef(null)
   const isFirstRender = useRef(true)
+  const isSaving = useRef(false)  // ← เพิ่ม
 
   useEffect(() => {
     if (!loaded || !isSupabaseReady) return
     if (isFirstRender.current) { isFirstRender.current = false; return }
     clearTimeout(saveTimer.current)
+    isSaving.current = true  // ← เพิ่ม
     saveTimer.current = setTimeout(() => {
-      saveToSupabase(key, value)
+      saveToSupabase(key, value).finally(() => {
+        setTimeout(() => { isSaving.current = false }, 2000)  // ← เพิ่ม
+      })
     }, 1500)
     return () => clearTimeout(saveTimer.current)
   }, [key, value, loaded])
@@ -41,7 +45,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
         table: 'app_data',
         filter: `key=eq.${key}`
       }, (payload) => {
-        if (payload.new?.value !== undefined && loaded) {
+        if (payload.new?.value !== undefined && loaded && !isSaving.current) {  // ← เพิ่ม !isSaving.current
           setValue(payload.new.value)
         }
       })
