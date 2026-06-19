@@ -11,81 +11,16 @@ import { isSupabaseReady } from './supabase'
 import { loadAllFromSupabase, useSupabaseSync } from './useSupabaseSync.js'
 
 // ---------- Seed data ----------
-const initialProducts = [
-  { id: "P001", name: "เศษกระดาษ A4", type: "กระดาษ", unit: "กก." },
-  { id: "P002", name: "เศษกระดาษลูกฟูก", type: "กระดาษ", unit: "กก." },
-  { id: "P003", name: "พลาสติก PET ใส", type: "พลาสติก", unit: "กก." },
-  { id: "P004", name: "เหล็กเส้น", type: "เหล็ก", unit: "กก." },
-  { id: "P005", name: "อลูมิเนียมกระป๋อง", type: "อลูมิเนียม", unit: "กก." },
-  { id: "P006", name: "ทองแดงสายไฟ", type: "ทองแดง", unit: "กก." },
-];
-
-// ลูกค้าแต่ละคนสามารถมีบัญชีธนาคารได้หลายบัญชี: bankAccounts = [{id, bankName, accountNo, accountName}]
-const initialCustomers = [
-  { id: "C001", name: "บริษัท กรีนรีไซเคิล จำกัด", taxId: "0105561000111", address: "123 ถ.สุขุมวิท กรุงเทพฯ", phone: "081-234-5678", line: "@greenrecycle", email: "contact@green.co.th", deliveries: 12,
-    bankAccounts: [
-      { id: "CB001", bankName: "กสิกรไทย", accountNo: "123-4-56789-0", accountName: "บริษัท กรีนรีไซเคิล จำกัด" },
-    ] },
-  { id: "C002", name: "สมชาย วงศ์สุข", taxId: "1100500123456", address: "45/2 ม.3 ต.บางพลี อ.บางพลี สมุทรปราการ", phone: "089-111-2222", line: "somchai_w", email: "somchai@email.com", deliveries: 5,
-    bankAccounts: [
-      { id: "CB002", bankName: "ไทยพาณิชย์", accountNo: "234-5-67890-1", accountName: "สมชาย วงศ์สุข" },
-      { id: "CB003", bankName: "กรุงเทพ", accountNo: "987-6-54321-0", accountName: "สมชาย วงศ์สุข" },
-    ] },
-  { id: "C003", name: "ร้านรับซื้อของเก่าใจดี", taxId: "0205559999999", address: "78 ถ.พระราม 2 กรุงเทพฯ", phone: "02-555-1234", line: "jaidee_shop", email: "jaidee@shop.com", deliveries: 30,
-    bankAccounts: [
-      { id: "CB004", bankName: "กรุงไทย", accountNo: "345-6-78901-2", accountName: "ร้านรับซื้อของเก่าใจดี" },
-    ] },
-];
-
-// บัญชีธนาคารของร้าน (store's own bank accounts)
-const initialStoreBankAccounts = [
-  { id: "SB001", bankName: "กสิกรไทย", accountNo: "111-2-22333-4", accountName: "บริษัท วงจรกรีน จำกัด", branch: "สาขาสุขุมวิท" },
-  { id: "SB002", bankName: "ไทยพาณิชย์", accountNo: "222-3-44555-6", accountName: "บริษัท วงจรกรีน จำกัด", branch: "สาขาบางนา" },
-];
-
-// payments = [{id, date, amount, fromStoreBankId ("CASH" หรือ id บัญชีร้าน), method}]
+const initialProducts = [];
+ // ลูกค้าแต่ละคนสามารถมีบัญชีธนาคารได้หลายบัญชี: bankAccounts = [{id, bankName, accountNo, accountName}]
+const initialCustomers = [];
+  // บัญชีธนาคารของร้าน (store's own bank accounts)
+const initialStoreBankAccounts = [];
+ // payments = [{id, date, amount, fromStoreBankId ("CASH" หรือ id บัญชีร้าน), method}]
 // receivingCustomerBankId = บัญชีลูกค้าที่จะรับเงิน (เลือกครั้งเดียวต่อใบ)
-const initialPurchases = [
-  {
-    id: "PO-20260601-001", date: "2026-06-01", customerId: "C001", status: "อนุมัติแล้ว", paymentMethod: "โอนเงิน", receivingCustomerBankId: "CB001",
-    items: [
-      { productId: "P001", qty: 100, deduct: 2, net: 98, price: 6 },
-      { productId: "P003", qty: 50, deduct: 1, net: 49, price: 12 },
-    ],
-    payments: [
-      { id: "PM001", date: "2026-06-01", amount: 1176, fromStoreBankId: "SB001", method: "โอนเงิน" },
-    ],
-  },
-  {
-    id: "PO-20260605-001", date: "2026-06-05", customerId: "C002", status: "อนุมัติแล้ว", paymentMethod: "โอนเงิน", receivingCustomerBankId: "CB002",
-    items: [
-      { productId: "P004", qty: 200, deduct: 5, net: 195, price: 11 },
-    ],
-    payments: [
-      { id: "PM002", date: "2026-06-05", amount: 1500, fromStoreBankId: "SB001", method: "โอนเงิน" },
-      { id: "PM003", date: "2026-06-10", amount: 645, fromStoreBankId: "SB002", method: "โอนเงิน" },
-    ],
-  },
-  {
-    id: "PO-20260612-001", date: "2026-06-12", customerId: "C003", status: "รออนุมัติ", paymentMethod: "โอนเงิน", receivingCustomerBankId: "CB004",
-    items: [
-      { productId: "P005", qty: 60, deduct: 0, net: 60, price: 35 },
-    ],
-    payments: [],
-  },
-];
-
-const initialSales = [
-  {
-    id: "INV-2606-001", date: "2026-06-08", customerId: "C003",
-    items: [
-      { productId: "P001", qty: 80, deduct: 0, net: 80, price: 8.5 },
-    ],
-    discount: 50, vatRate: 7, paymentMethod: "โอนเงิน", paymentStatus: "ชำระแล้ว",
-  },
-];
-
-// เบิกสินค้าเพื่อขาย: เบิกสินค้าต้นทางออกจากสต๊อก (ตัดสต๊อกทันทีตามต้นทุน FIFO)
+const initialPurchases = [];
+const initialSales = [];
+  // เบิกสินค้าเพื่อขาย: เบิกสินค้าต้นทางออกจากสต๊อก (ตัดสต๊อกทันทีตามต้นทุน FIFO)
 // แล้วนำยอด (จำนวน + มูลค่า) ไปรวมเป็นต้นทุนของสินค้าเป้าหมายในใบขาย (sales invoice) ที่ระบุ
 // value/avgCost คำนวณจากต้นทุน FIFO ของสต๊อกต้นทาง ณ ตอนที่บันทึกการเบิก
 const initialWithdrawals = [];
