@@ -515,9 +515,11 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
         marginTop: 4, maxHeight: 220, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
       }}
     >
-      {filtered.length === 0 && <div style={{ padding: "8px 10px", fontSize: 13, color: "#9ca3af" }}>ไม่พบสินค้า</div>}
-      {filtered.map((p) => (
-        <div
+      {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบใบขายสินค้า</td></tr>}
+          </tbody>
+        </table>
+      </div>
+</div>
           key={p.id}
           onMouseDown={(e) => { e.preventDefault(); onChange(p.id); setOpen(false); setQuery(""); }}
           style={{
@@ -2180,6 +2182,7 @@ function CustomersTab({ customers, setCustomers }) {
         </Modal>
       )}
 
+     </div>{/* end scroll area */}
       {modal && (
         <Modal title={modal.mode === "add" ? "เพิ่มลูกค้าใหม่" : "แก้ไขข้อมูลลูกค้า"} onClose={() => setModal(null)} wide>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
@@ -2380,7 +2383,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบรับ หรือชื่อลูกค้า..." />
       </div>
-     <div id="tab-export-purchases" style={{ flex: 1, overflow: "auto" }}
+     <div id="tab-export-purchases" style={{ flex: 1, overflow: "auto" }}>
 <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 700 }}>
         {filtered.map((po) => {
           const sb = statusBadge(po.status || "รออนุมัติ");
