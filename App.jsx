@@ -1948,9 +1948,10 @@ function ProductsTab({ products, setProducts }) {
 
   const totalOpeningValue = products.reduce((s, p) => s + (Number(p.openingQty) || 0) * (Number(p.openingCost) || 0), 0);
 
-  return (
-    <div>
-      <Header title="ข้อมูลสินค้า (Product Master)" subtitle="ฐานข้อมูลสินค้า — ระบุยอดยกมาเพื่อให้สต๊อกเริ่มต้นถูกต้อง">
+ return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div style={{ flexShrink: 0 }}>
+      <Header title="ข้อมูลสินค้า (Product Master)"" subtitle="ฐานข้อมูลสินค้า — ระบุยอดยกมาเพื่อให้สต๊อกเริ่มต้นถูกต้อง">
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <ExportToolbar
             onPDF={() => printAsPDF("products-print", "ข้อมูลสินค้า")}
@@ -1970,9 +1971,9 @@ function ProductsTab({ products, setProducts }) {
         </div>
       </Header>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อสินค้า, รหัส หรือประเภท..." />
-
-      <div id="products-print" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto" }}>
+     <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อสินค้า, รหัส หรือประเภท..." />
+      </div>
+      <div id="products-print" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto", flex: 1 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -2110,13 +2111,15 @@ function CustomersTab({ customers, setCustomers }) {
   };
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div style={{ flexShrink: 0 }}>
       <Header title="ข้อมูลลูกค้า" subtitle="รายชื่อลูกค้าและผู้ส่งของรีไซเคิล">
         <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> เพิ่มลูกค้า</button>
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหารหัส, ชื่อ หรือเบอร์โทร..." />
-
+      </div>
+      <div style={{ flex: 1, overflow: "auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((c) => (
           <div key={c.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
@@ -2351,7 +2354,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   };
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div style={{ flexShrink: 0 }}>
       <Header title="ใบรับสินค้า (รับซื้อของเก่า)" subtitle="บันทึกการรับซื้อสินค้าจากลูกค้า">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <ExportToolbar
@@ -2375,7 +2379,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบรับ หรือชื่อลูกค้า..." />
-     <div id="tab-export-purchases" style={{ overflowX: "auto" }}>
+      </div>
+     <div id="tab-export-purchases" style={{ flex: 1, overflow: "auto" }}
 <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 700 }}>
         {filtered.map((po) => {
           const sb = statusBadge(po.status || "รออนุมัติ");
@@ -3079,13 +3084,15 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   );
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div style={{ flexShrink: 0 }}>
       <Header title="เบิกสินค้าเพื่อขาย" subtitle="เบิกสินค้าเป็น LOT (ตัดสต๊อกทันทีตามต้นทุน FIFO) เพื่อนำไปเปิดบิลขาย — 1 LOT เบิกได้หลายรายการ">
         <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> สร้างใบเบิกสินค้า (LOT)</button>
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ LOT, สินค้า หรือเลข Invoice..." />
-
+      </div>
+      <div style={{ flex: 1, overflow: "auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((lot) => {
           const isExpanded = expanded === lot.id;
@@ -3375,7 +3382,8 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   };
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+      <div style={{ flexShrink: 0 }}>
       <Header title="ระบบขายสินค้า (Sales)" subtitle="ออกใบ Invoice และบันทึกการขายสินค้ารีไซเคิล">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <ExportToolbar
@@ -3399,8 +3407,8 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลข Invoice หรือชื่อลูกค้า..." />
-      <div id="tab-export-sales">
-<Card style={{ overflowX: "auto" }}>
+      </div>
+      <div id="tab-export-sales" style={{ flex: 1, overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
           <thead>
             <tr>
