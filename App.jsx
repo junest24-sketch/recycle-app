@@ -1951,7 +1951,7 @@ function ProductsTab({ products, setProducts }) {
  return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
       <div style={{ flexShrink: 0 }}>
-      <Header title="ข้อมูลสินค้า (Product Master)"" subtitle="ฐานข้อมูลสินค้า — ระบุยอดยกมาเพื่อให้สต๊อกเริ่มต้นถูกต้อง">
+      <Header title="ข้อมูลสินค้า (Product Master)" subtitle="ฐานข้อมูลสินค้า — ระบุยอดยกมาเพื่อให้สต๊อกเริ่มต้นถูกต้อง">
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <ExportToolbar
             onPDF={() => printAsPDF("products-print", "ข้อมูลสินค้า")}
