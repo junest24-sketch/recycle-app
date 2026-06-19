@@ -3320,7 +3320,6 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     </div>
   );
 }
-
 function SalesTab({ products, customers, sales, setSales, inventory, withdrawals, storeBankAccounts, companySettings }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
@@ -3476,7 +3475,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบใบขายสินค้า</td></tr>}
           </tbody>
         </table>
-      </Card>
+      </div>
 </div>
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide fullscreen>
