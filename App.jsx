@@ -426,10 +426,10 @@ function computeAmortizationSchedule(loan) {
 }
 
 // ---------- Generic small UI bits ----------
-function Modal({ title, onClose, children, wide }) {
+function Modal({ title, onClose, children, wide, fullscreen }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: "1rem" }}>
-      <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: 12, width: wide ? "min(900px, 95vw)" : "min(520px, 95vw)", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 8px 30px rgba(0,0,0,0.15)" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: fullscreen ? 0 : "1rem" }}>
+      <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: fullscreen ? 0 : 12, width: fullscreen ? "100vw" : wide ? "min(900px, 95vw)" : "min(520px, 95vw)", height: fullscreen ? "100vh" : undefined, maxHeight: fullscreen ? "100vh" : "90vh", overflowY: "auto", boxShadow: "0 8px 30px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{title}</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#6b7280" }}><X size={20} /></button>
@@ -2573,7 +2573,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
       </div>
 
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
-        <Modal title={`${modal.mode === "add" ? "สร้างใบรับสินค้า" : "แก้ไขใบรับสินค้า"}${modal.mode === "edit" ? " · " + form.id : ""}`} onClose={() => setModal(null)} wide>
+        <Modal title={`${modal.mode === "add" ? "สร้างใบรับสินค้า" : "แก้ไขใบรับสินค้า"}${modal.mode === "edit" ? " · " + form.id : ""}`} onClose={() => setModal(null)} wide fullscreen>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 16px" }}>
             <Field label="เลขที่ใบรับสินค้า">
               <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
@@ -3264,7 +3264,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
       )}
 
       {modal && (
-        <Modal title={modal.mode === "add" ? "สร้างใบเบิกสินค้า (LOT)" : `แก้ไขใบเบิกสินค้า · ${form.id}`} onClose={() => setModal(null)} wide>
+        <Modal title={modal.mode === "add" ? "สร้างใบเบิกสินค้า (LOT)" : `แก้ไขใบเบิกสินค้า · ${form.id}`} onClose={() => setModal(null)} wide fullscreen>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.6fr", gap: "0 16px" }}>
             <Field label="เลขที่ใบเบิก (LOT)">
               <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
@@ -3512,7 +3512,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       </Card>
 </div>
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
-        <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide>
+        <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide fullscreen>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
             <Field label="เลข Invoice (กำหนดเอง)">
               <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="เช่น INV-2606-002" />
@@ -4852,7 +4852,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
       </div>
 
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
-        <Modal title={modal.mode === "add" ? "บันทึกค่าใช้จ่าย" : `แก้ไขค่าใช้จ่าย · ${form.refNo || form.id}`} onClose={() => setModal(null)} wide>
+        <Modal title={modal.mode === "add" ? "บันทึกค่าใช้จ่าย" : `แก้ไขค่าใช้จ่าย · ${form.refNo || form.id}`} onClose={() => setModal(null)} wide fullscreen>
           {unpaidInstallments.length > 0 && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
               <button style={btnSecondary} onClick={() => { setPickerLoanId(""); setInstallmentPicker(true); }}><CreditCard size={14} /> ดึงจากงวดผ่อน</button>
