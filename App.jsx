@@ -515,25 +515,44 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
         marginTop: 4, maxHeight: 220, overflowY: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
       }}
     >
-      {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบใบขายสินค้า</td></tr>}
-          </tbody>
-        </table>
-      </div>
-</div>
-          key={p.id}
-          onMouseDown={(e) => { e.preventDefault(); onChange(p.id); setOpen(false); setQuery(""); }}
-          style={{
-            padding: "8px 10px", fontSize: 13, cursor: "pointer",
-            background: p.id === value ? "#eeedfe" : "#fff",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "#f3f4f6"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = p.id === value ? "#eeedfe" : "#fff"; }}
-        >
-          {display(p)}
-        </div>
-      ))}
+      {filtered.length === 0 ? (
+  <div
+    style={{
+      padding: "8px 10px",
+      fontSize: 13,
+      color: "#9ca3af",
+    }}
+  >
+    ไม่พบสินค้า
+  </div>
+) : (
+  filtered.map((p) => (
+    <div
+      key={p.id}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onChange(p.id);
+        setOpen(false);
+        setQuery("");
+      }}
+      style={{
+        padding: "8px 10px",
+        fontSize: 13,
+        cursor: "pointer",
+        background: p.id === value ? "#eeedfe" : "#fff",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "#f3f4f6";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background =
+          p.id === value ? "#eeedfe" : "#fff";
+      }}
+    >
+      {display(p)}
     </div>
-  );
+  ))
+)}
 
   return (
     <div ref={wrapRef} style={{ position: "relative", minWidth }}>
