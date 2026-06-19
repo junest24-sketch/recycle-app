@@ -2057,9 +2057,10 @@ function ProductsTab({ products, setProducts }) {
   </datalist>
 </Field>
             <Field label="หน่วย">
-              <select style={inputStyle} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
-                {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
+              <input style={inputStyle} list="unit-options" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="เลือกหรือพิมพ์หน่วยใหม่" />
+              <datalist id="unit-options">
+                {UNIT_OPTIONS.map((u) => <option key={u} value={u} />)}
+              </datalist>
             </Field>
           </div>
           <div style={{ background: "#f0f9f5", borderRadius: 8, padding: "12px 16px", marginTop: 8 }}>
