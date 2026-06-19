@@ -584,7 +584,7 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
       {dropdown}
     </div>
   );
-}}
+}
 // ---------- Searchable customer select (type to filter) ----------
 function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, labelWithId = true }) {
   const [open, setOpen] = useState(false);
