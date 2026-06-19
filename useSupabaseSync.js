@@ -21,6 +21,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const saveTimer = useRef(null)
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
+  const lastSaveTime = useRef(0)  // ← เวลาที่ save ล่าสุด
 
   // Auto-save เมื่อ value เปลี่ยน
   useEffect(() => {
@@ -29,6 +30,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       isSaving.current = true
+      lastSaveTime.current = Date.now()  // ← บันทึกเวลา
       saveToSupabase(key, value).finally(() => {
         isSaving.current = false
       })
@@ -36,11 +38,12 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     return () => clearTimeout(saveTimer.current)
   }, [key, value, loaded])
 
-  // Polling: โหลดข้อมูลใหม่ทุก 10 วินาที
+  // Polling ทุก 10 วินาที
   useEffect(() => {
     if (!isSupabaseReady || !loaded) return
     const interval = setInterval(async () => {
-      if (isSaving.current) return // ถ้ากำลัง save อยู่ ข้ามรอบนี้ไป
+      // ถ้า save ไปไม่ถึง 15 วินาที ให้รอก่อน
+      if (isSaving.current || Date.now() - lastSaveTime.current < 15000) return
       const { data, error } = await supabase
         .from('app_data')
         .select('value')
@@ -49,7 +52,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       if (!error && data) {
         setValue(data.value)
       }
-    }, 10000) // ทุก 10 วินาที
+    }, 10000)
     return () => clearInterval(interval)
   }, [key, setValue, loaded])
 }
