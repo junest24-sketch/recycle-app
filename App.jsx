@@ -5411,10 +5411,11 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
       {modal && (
         <Modal title={modal.mode === "add" ? "เพิ่มบัญชีธนาคารของร้าน" : "แก้ไขบัญชีธนาคารของร้าน"} onClose={() => setModal(null)}>
           <Field label="ธนาคาร">
-            <select style={inputStyle} value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })}>
-              {BANK_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </Field>
+  <input style={inputStyle} list="bank-name-options" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="เลือกหรือพิมพ์ชื่อธนาคาร" />
+  <datalist id="bank-name-options">
+    {BANK_NAMES.map((n) => <option key={n} value={n} />)}
+  </datalist>
+</Field>
           <Field label="เลขที่บัญชี"><input style={inputStyle} value={form.accountNo} onChange={(e) => setForm({ ...form, accountNo: e.target.value })} /></Field>
           <Field label="ชื่อบัญชี"><input style={inputStyle} value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} /></Field>
           <Field label="สาขา"><input style={inputStyle} value={form.branch} onChange={(e) => setForm({ ...form, branch: e.target.value })} /></Field>
