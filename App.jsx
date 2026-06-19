@@ -2093,10 +2093,11 @@ function ProductsTab({ products, setProducts }) {
             <Field label="รหัสสินค้า"><input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} disabled={modal.mode === "edit"} /></Field>
             <Field label="ชื่อสินค้า"><input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
             <Field label="ประเภท">
-              <select style={inputStyle} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                {PRODUCT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </Field>
+  <input style={inputStyle} list="product-type-options" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="เลือกหรือพิมพ์ประเภทใหม่" />
+  <datalist id="product-type-options">
+    {PRODUCT_TYPES.map((t) => <option key={t} value={t} />)}
+  </datalist>
+</Field>
             <Field label="หน่วย">
               <select style={inputStyle} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
                 {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
