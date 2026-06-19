@@ -549,10 +549,9 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
           p.id === value ? "#eeedfe" : "#fff";
       }}
     >
-      {display(p)}
+      {display(p)}}
     </div>
-  ))
-)}
+  );
 
   return (
     <div ref={wrapRef} style={{ position: "relative", minWidth }}>
