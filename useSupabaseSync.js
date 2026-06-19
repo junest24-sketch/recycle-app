@@ -21,15 +21,24 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const saveTimer = useRef(null)
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
+  const lastSavedValue = useRef(null)  // ← เก็บค่าล่าสุดที่ save ไป
 
   useEffect(() => {
     if (!loaded || !isSupabaseReady) return
-    if (isFirstRender.current) { isFirstRender.current = false; return }
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      lastSavedValue.current = JSON.stringify(value)  // ← จำค่าตอนโหลด
+      return
+    }
+    // ถ้าค่าไม่เปลี่ยนจากที่โหลดมา ไม่ต้อง save
+    const serialized = JSON.stringify(value)
+    if (serialized === lastSavedValue.current) return  // ← เพิ่ม
     clearTimeout(saveTimer.current)
     isSaving.current = true
     saveTimer.current = setTimeout(() => {
       saveToSupabase(key, value).finally(() => {
-        isSaving.current = false  // ← ปิดทันทีหลัง save เสร็จ ไม่ต้องรอ 2000
+        lastSavedValue.current = serialized  // ← อัพเดทค่าล่าสุด
+        isSaving.current = false
       })
     }, 1500)
     return () => clearTimeout(saveTimer.current)
@@ -46,6 +55,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
         filter: `key=eq.${key}`
       }, (payload) => {
         if (payload.new?.value !== undefined && loaded && !isSaving.current) {
+          lastSavedValue.current = JSON.stringify(payload.new.value)  // ← อัพเดทด้วย
           setValue(payload.new.value)
         }
       })
