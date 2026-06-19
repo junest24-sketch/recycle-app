@@ -2440,8 +2440,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบรับ หรือชื่อลูกค้า..." />
-      <div id="tab-export-purchases">
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+     <div id="tab-export-purchases" style={{ overflowX: "auto" }}>
+<div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 700 }}>
         {filtered.map((po) => {
           const sb = statusBadge(po.status || "รออนุมัติ");
           const SIcon = sb.icon;
