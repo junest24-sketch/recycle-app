@@ -46,7 +46,7 @@ const EXPENSE_SUBCATEGORIES_DEFAULT = {
   "สินเชื่อ": ["ชำระเงินกู้ (เงินต้น)", "ชำระดอกเบี้ย", "ค่าธรรมเนียมสินเชื่อ", "อื่นๆ"],
 };
 
-const UNIT_OPTIONS = ["กก.", "ตัน", "ชิ้น", "ม้วน", "ใบ"];
+const UNIT_OPTIONS_DEFAULT = ["กก.", "ตัน", "ชิ้น", "ม้วน", "ใบ"];
 const PRODUCT_TYPES = ["กระดาษ", "พลาสติก", "เหล็ก", "อลูมิเนียม", "ทองแดง", "อื่นๆ"];
 const PAYMENT_METHODS = ["เงินสด", "โอนเงิน", "เช็ค", "พร้อมเพย์"];
 // ช่องทางชำระเงินสำหรับใบรับสินค้า (ไม่มีเงินสด เพราะต้องระบุบัญชีลูกค้าที่รับเงิน)
@@ -748,6 +748,7 @@ export default function App() {
   const [deliveries, setDeliveries] = useState([]);
   const [expenses, setExpenses] = useState(initialExpenses);
   const [loans, setLoans] = useState(initialLoans);
+  const [unitOptions, setUnitOptions] = useState(UNIT_OPTIONS_DEFAULT);
 
   const inventory = useMemo(() => computeInventory(products, purchases, sales, withdrawals), [products, purchases, sales, withdrawals]);
 
@@ -773,6 +774,7 @@ export default function App() {
         if (data.shopProfile)   setShopProfile(data.shopProfile)
         if (data.companySettings) setCompanySettings(data.companySettings)
         if (data.users)         setUsers(data.users)
+        if (data.unitOptions)   setUnitOptions(data.unitOptions)
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -791,6 +793,7 @@ export default function App() {
   useSupabaseSync('storeBankAccounts', storeBankAccounts, setStoreBankAccounts, dbLoaded)
   useSupabaseSync('shopProfile',       shopProfile,       setShopProfile,       dbLoaded)
   useSupabaseSync('companySettings',   companySettings,   setCompanySettings,   dbLoaded)
+  useSupabaseSync('unitOptions',       unitOptions,       setUnitOptions,       dbLoaded)
 
   const navItems = [
     { key: "dashboard", label: "แดชบอร์ด", icon: TrendingUp },
@@ -1020,7 +1023,7 @@ export default function App() {
 
       {/* Main content — independently scrollable */}
       <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
-        {tab === "products" && <ProductsTab products={products} setProducts={setProducts} />}
+        {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} />}
@@ -1949,7 +1952,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 // ===================================================================
 // PRODUCTS TAB
 // ===================================================================
-function ProductsTab({ products, setProducts }) {
+function ProductsTab({ products, setProducts, unitOptions, setUnitOptions }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ id: "", name: "", type: PRODUCT_TYPES[0], unit: UNIT_OPTIONS[0], openingQty: 0, openingCost: 0 });
@@ -2057,9 +2060,21 @@ function ProductsTab({ products, setProducts }) {
   </datalist>
 </Field>
             <Field label="หน่วย">
-              <input style={inputStyle} list="unit-options" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="เลือกหรือพิมพ์หน่วยใหม่" />
+              <input
+                style={inputStyle}
+                list="unit-options"
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val && !unitOptions.includes(val)) {
+                    setUnitOptions([...unitOptions, val]);
+                  }
+                }}
+                placeholder="เลือกหรือพิมพ์หน่วยใหม่"
+              />
               <datalist id="unit-options">
-                {UNIT_OPTIONS.map((u) => <option key={u} value={u} />)}
+                {unitOptions.map((u) => <option key={u} value={u} />)}
               </datalist>
             </Field>
           </div>
