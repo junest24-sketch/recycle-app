@@ -246,7 +246,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
     });
   });
   // เรียงตามวันที่ แล้วให้ "withdraw" มาก่อน "in"/"out" ในวันเดียวกัน เพื่อให้ลำดับสอดคล้องกับการตัดสต๊อกทันที
-  const typeOrder = { withdraw: 0, out: 1, in: 2 };
+  const typeOrder = { in: 0, withdraw: 1, out: 2 };
   events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (typeOrder[a.type] ?? 1) - (typeOrder[b.type] ?? 1)));
 
   events.forEach((ev) => {
