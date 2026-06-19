@@ -1,13 +1,6 @@
-// useSupabaseSync.js
-// Hook สำหรับ sync ข้อมูลกับ Supabase แบบ Real-time
-// ใช้ key-value store ใน table app_data
-
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { supabase, isSupabaseReady } from './supabase'
 
-/**
- * บันทึกข้อมูลไปยัง Supabase
- */
 export async function saveToSupabase(key, value) {
   if (!isSupabaseReady) return
   await supabase
@@ -15,9 +8,6 @@ export async function saveToSupabase(key, value) {
     .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
 }
 
-/**
- * โหลดข้อมูลจาก Supabase ทั้งหมด
- */
 export async function loadAllFromSupabase() {
   if (!isSupabaseReady) return null
   const { data, error } = await supabase.from('app_data').select('key, value')
@@ -27,18 +17,10 @@ export async function loadAllFromSupabase() {
   return result
 }
 
-/**
- * Hook: sync state กับ Supabase + real-time listener
- * @param {string} key - ชื่อ key ใน app_data
- * @param {any} value - ค่าปัจจุบัน (state)
- * @param {function} setValue - setter ของ state
- * @param {boolean} loaded - โหลดข้อมูลแรกแล้วหรือยัง
- */
 export function useSupabaseSync(key, value, setValue, loaded) {
   const saveTimer = useRef(null)
   const isFirstRender = useRef(true)
 
-  // Auto-save เมื่อ value เปลี่ยน (debounce 1.5 วินาที)
   useEffect(() => {
     if (!loaded || !isSupabaseReady) return
     if (isFirstRender.current) { isFirstRender.current = false; return }
@@ -49,7 +31,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     return () => clearTimeout(saveTimer.current)
   }, [key, value, loaded])
 
-  // Real-time listener: รับการเปลี่ยนแปลงจากอุปกรณ์อื่น
   useEffect(() => {
     if (!isSupabaseReady) return
     const channel = supabase
@@ -67,3 +48,4 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       .subscribe()
     return () => supabase.removeChannel(channel)
   }, [key, setValue, loaded])
+}
