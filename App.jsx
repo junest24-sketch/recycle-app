@@ -3318,6 +3318,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
         </Modal>
       )}
     </div>
+  </div>
   );
 }
 function SalesTab({ products, customers, sales, setSales, inventory, withdrawals, storeBankAccounts, companySettings }) {
@@ -3476,7 +3477,6 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
           </tbody>
         </table>
       </div>
-</div>
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide fullscreen>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
