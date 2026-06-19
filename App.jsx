@@ -723,7 +723,7 @@ export default function App() {
   const [loginError, setLoginError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [users, setUsers] = useState([
-    { id: "U001", username: "admin", password: "1234", name: "ผู้ดูแลระบบ", role: "admin" },
+    { id: "U001", username: "changlo", password: "0260", name: "ผู้ดูแลระบบ", role: "admin" },
   ]);
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("dashboard");
