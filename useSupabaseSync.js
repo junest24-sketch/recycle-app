@@ -60,11 +60,10 @@ export function useSupabaseSync(key, value, setValue, loaded) {
         table: 'app_data',
         filter: `key=eq.${key}`
       }, (payload) => {
-        if (payload.new?.value !== undefined) {
+        if (payload.new?.value !== undefined && loaded) {
           setValue(payload.new.value)
         }
       })
       .subscribe()
     return () => supabase.removeChannel(channel)
-  }, [key, setValue])
-}
+  }, [key, setValue, loaded])
