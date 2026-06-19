@@ -49,7 +49,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       if (!error && data) {
         setValue(data.value)
       }
-    }, 5000) // ทุก 5 วินาที
+    }, 10000) // ทุก 10 วินาที
     return () => clearInterval(interval)
   }, [key, setValue, loaded])
 }
