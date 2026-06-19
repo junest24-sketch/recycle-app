@@ -1955,7 +1955,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 function ProductsTab({ products, setProducts, unitOptions, setUnitOptions }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ id: "", name: "", type: PRODUCT_TYPES[0], unit: UNIT_OPTIONS[0], openingQty: 0, openingCost: 0 });
+  const [form, setForm] = useState({ id: "", name: "", type: PRODUCT_TYPES[0], unit: UNIT_OPTIONS_DEFAULT[0], openingQty: 0, openingCost: 0 });
 
   const filtered = products.filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search));
 
