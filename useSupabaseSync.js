@@ -43,7 +43,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     if (!isSupabaseReady || !loaded) return
     const interval = setInterval(async () => {
       // ถ้า save ไปไม่ถึง 15 วินาที ให้รอก่อน
-      if (isSaving.current || Date.now() - lastSaveTime.current < 15000) return
+      if (isSaving.current || Date.now() - lastSaveTime.current < 30000) return
       const { data, error } = await supabase
         .from('app_data')
         .select('value')
