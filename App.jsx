@@ -1166,6 +1166,17 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     return out;
   }, [purchases, deposits, expenses]);
 
+  // ---------- ยอดรับเข้าแบงค์ — เงินที่รับเข้าบัญชีร้านแต่ละบัญชีจากการขาย (สะสมทั้งหมด ไม่ขึ้นกับช่วงเวลา) ----------
+  const bankInflows = useMemo(() => {
+    const inn = {}; // bankId -> total
+    const add = (bankId, amount) => {
+      if (!bankId || bankId === "CASH" || bankId === "DEPOSIT") return;
+      inn[bankId] = (inn[bankId] || 0) + amount;
+    };
+    sales.forEach((inv) => (inv.payments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0)));
+    return inn;
+  }, [sales]);
+
   // ---------- ซื้อ/ขาย แบ่งตามประเภทสินค้า และแบ่งตามรายการสินค้า ----------
   const prodInfo = (id) => products.find((p) => p.id === id);
 
@@ -3481,6 +3492,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const [form, setForm] = useState(blankForm());
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
+  const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
 
   const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
