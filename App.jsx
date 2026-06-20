@@ -1777,25 +1777,63 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       )}
 
       {dashSubTab === "cashflow" && (() => {
-        // ===== คำนวณยอดเงินหมุนร้าน =====
-        // 1. เงินในธนาคาร = ยกมา + รับเข้าทั้งหมด - จ่ายออกทั้งหมด
-        const bankInflows = {};
+        // ===== ตัวกรองช่วงเวลาเฉพาะของ "เงินหมุนร้าน" =====
+        // periodMode === "all" => แสดงยอดสะสมทั้งหมด (เหมือนเดิม)
+        // periodMode === "day"/"range" => กรองรับเข้า/จ่ายออกเฉพาะช่วงที่เลือก
+        //   ยอดยกมาจะหมายถึง "คงเหลือก่อนเริ่มช่วงนั้น"
+
+        // รับเข้า: เฉพาะรายการในช่วงเวลาที่เลือก (หรือทั้งหมดถ้า periodMode === "all")
+        const bankInflowsRange = {};
         sales.forEach((inv) => (inv.payments || []).forEach((p) => {
-          if (p.toStoreBankId && p.toStoreBankId !== "CASH") {
-            bankInflows[p.toStoreBankId] = (bankInflows[p.toStoreBankId] || 0) + (Number(p.amount) || 0);
+          if (p.toStoreBankId && p.toStoreBankId !== "CASH" && inRange(p.date)) {
+            bankInflowsRange[p.toStoreBankId] = (bankInflowsRange[p.toStoreBankId] || 0) + (Number(p.amount) || 0);
           }
         }));
 
+        // จ่ายออก: เฉพาะรายการในช่วงเวลาที่เลือก
+        const bankOutflowsRange = {};
+        const addOutflowRange = (bankId, amount, date) => {
+          if (!bankId || bankId === "CASH" || bankId === "DEPOSIT") return;
+          if (!inRange(date)) return;
+          bankOutflowsRange[bankId] = (bankOutflowsRange[bankId] || 0) + amount;
+        };
+        purchases.forEach((po) => (po.payments || []).forEach((p) => addOutflowRange(p.fromStoreBankId, Number(p.amount) || 0, p.date)));
+        (deposits || []).forEach((d) => addOutflowRange(d.fromStoreBankId, Number(d.amount) || 0, d.date));
+        (expenses || []).forEach((e) => (e.payments || []).forEach((p) => addOutflowRange(p.fromStoreBankId, Number(p.amount) || 0, p.date || e.billDate || e.date)));
+
+        // ยอดคงเหลือ "ก่อนเริ่มช่วงที่เลือก" ต่อบัญชี = ยอดยกมา + รับเข้าก่อนช่วง - จ่ายออกก่อนช่วง
+        const beforeRangeBalance = {};
+        if (dateRange) {
+          const beforeDate = (d) => d < dateRange.start;
+          storeBankAccounts.forEach((b) => {
+            let bal = Number(b.openingBalance) || 0;
+            sales.forEach((inv) => (inv.payments || []).forEach((p) => {
+              if (p.toStoreBankId === b.id && beforeDate(p.date)) bal += Number(p.amount) || 0;
+            }));
+            purchases.forEach((po) => (po.payments || []).forEach((p) => {
+              if (p.fromStoreBankId === b.id && beforeDate(p.date)) bal -= Number(p.amount) || 0;
+            }));
+            (deposits || []).forEach((d) => {
+              if (d.fromStoreBankId === b.id && beforeDate(d.date)) bal -= Number(d.amount) || 0;
+            });
+            (expenses || []).forEach((e) => (e.payments || []).forEach((p) => {
+              if (p.fromStoreBankId === b.id && beforeDate(p.date || e.billDate || e.date)) bal -= Number(p.amount) || 0;
+            }));
+            beforeRangeBalance[b.id] = bal;
+          });
+        }
+
+        // 1. เงินในธนาคาร = ยอดยกมา(หรือก่อนช่วง) + รับเข้า(ตามช่วง/ทั้งหมด) - จ่ายออก(ตามช่วง/ทั้งหมด)
         const bankRows = storeBankAccounts.map((b) => {
-          const ob     = Number(b.openingBalance) || 0;
-          const inflow = bankInflows[b.id] || 0;
-          const outflow = bankOutflows[b.id] || 0;
+          const ob      = dateRange ? (beforeRangeBalance[b.id] ?? 0) : (Number(b.openingBalance) || 0);
+          const inflow  = dateRange ? (bankInflowsRange[b.id] || 0)  : (bankInflows[b.id] || 0);
+          const outflow = dateRange ? (bankOutflowsRange[b.id] || 0) : (bankOutflows[b.id] || 0);
           const balance = ob + inflow - outflow;
           return { ...b, ob, inflow, outflow, balance };
         });
         const totalBankBalance = bankRows.reduce((s, b) => s + b.balance, 0);
 
-        // 2. ลูกหนี้ค้างรับ
+        // 2. ลูกหนี้ค้างรับ (ยอดคงค้าง ณ ปัจจุบันเสมอ ไม่กรองตามช่วงเวลา)
         const totalReceivable = sales.reduce((s, inv) => {
           const subtotal = inv.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0);
           const ad = subtotal - (inv.discount || 0);
@@ -1804,7 +1842,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           return s + Math.max(0, total - paid);
         }, 0);
 
-        // 3. เจ้าหนี้ค้างจ่าย
+        // 3. เจ้าหนี้ค้างจ่าย (ยอดคงค้าง ณ ปัจจุบัน)
         const totalPayable = purchases.filter(po => po.status === "อนุมัติแล้ว").reduce((s, po) => {
           const subtotal = po.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0);
           const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
@@ -1813,16 +1851,15 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           return s + Math.max(0, total - paid);
         }, 0);
 
-        // 4. เงินมัดจำคงเหลือ
+        // 4. เงินมัดจำคงเหลือ (ยอดคงค้าง ณ ปัจจุบัน)
         const totalDeposit = (deposits || []).reduce((s, d) => {
           const used = Number(d.usedAmount) || 0;
           return s + Math.max(0, (Number(d.amount) || 0) - used);
         }, 0);
 
-        // 5. สต๊อกสินค้า (มูลค่าทุน)
+        // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
         const stockVal = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
 
-        // สรุปเงินสดสุทธิ (Cash + ลูกหนี้ - เจ้าหนี้)
         const netCash = totalBankBalance + totalReceivable - totalPayable;
 
         const cfCard = (label, value, color, bg, sub) => (
@@ -1835,13 +1872,15 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
         return (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ fontSize: 13, color: "#6b7280" }}>ยอดเงินหมุนเวียน ณ วันที่ {today}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>
+                {dateRange ? `ข้อมูลรับเข้า/จ่ายออกตามช่วงเวลา: ${periodLabel} (ยอดยกมา = คงเหลือก่อนวันที่ ${dateRange.start})` : `ยอดเงินหมุนเวียนสะสมทั้งหมด ณ วันที่ ${today}`}
+              </span>
               <ExportToolbar
                 onPDF={() => printAsPDF("dash-cashflow", "สรุปเงินหมุนร้าน")}
                 onExcel={() => {
                   const rows = [
-                    ["สรุปเงินหมุนร้าน", ""],
+                    ["สรุปเงินหมุนร้าน", dateRange ? periodLabel : "ทั้งหมด"],
                     ["รายการ", "ยอด (บาท)"],
                     ...bankRows.map(b => [`ธนาคาร ${b.bankName} ${b.accountNo}`, b.balance]),
                     ["รวมเงินในธนาคาร", totalBankBalance],
@@ -1860,11 +1899,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             <div id="dash-cashflow">
               {/* การ์ดสรุป */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
-                {cfCard("เงินในธนาคารรวม", totalBankBalance, "#185fa5", "#e6f1fb", `${bankRows.length} บัญชี`)}
-                {cfCard("ลูกหนี้ค้างรับ", totalReceivable, "#0f6e56", "#e1f5ee", "รอรับชำระ")}
-                {cfCard("เจ้าหนี้ค้างจ่าย", totalPayable, "#993c1d", "#faece7", "รอจ่ายชำระ")}
-                {cfCard("เงินมัดจำคงเหลือ", totalDeposit, "#854f0b", "#faeeda", "มัดจำที่ยังไม่ใช้")}
-                {cfCard("มูลค่าสต๊อก (ทุน)", stockVal, "#1d9e75", "#e1f5ee", "สินค้าคงเหลือ")}
+                {cfCard(dateRange ? "เงินในธนาคารรวม (ช่วงที่เลือก)" : "เงินในธนาคารรวม", totalBankBalance, "#185fa5", "#e6f1fb", `${bankRows.length} บัญชี`)}
+                {cfCard("ลูกหนี้ค้างรับ", totalReceivable, "#0f6e56", "#e1f5ee", "รอรับชำระ (ปัจจุบัน)")}
+                {cfCard("เจ้าหนี้ค้างจ่าย", totalPayable, "#993c1d", "#faece7", "รอจ่ายชำระ (ปัจจุบัน)")}
+                {cfCard("เงินมัดจำคงเหลือ", totalDeposit, "#854f0b", "#faeeda", "มัดจำที่ยังไม่ใช้ (ปัจจุบัน)")}
+                {cfCard("มูลค่าสต๊อก (ทุน)", stockVal, "#1d9e75", "#e1f5ee", "สินค้าคงเหลือ (ปัจจุบัน)")}
                 <div style={{ background: netCash >= 0 ? "#e1f5ee" : "#fcebeb", borderRadius: 12, padding: "14px 18px", border: `2px solid ${netCash >= 0 ? "#0f6e56" : "#a32d2d"}` }}>
                   <div style={{ fontSize: 12, color: netCash >= 0 ? "#0f6e56" : "#a32d2d", marginBottom: 4, fontWeight: 700 }}>เงินสดสุทธิ</div>
                   <div style={{ fontWeight: 700, fontSize: 22, color: netCash >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(netCash)}</div>
@@ -1875,13 +1914,13 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               {/* ตารางรายละเอียดธนาคาร */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden", marginBottom: 14 }}>
                 <div style={{ background: "#185fa5", color: "#fff", padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>
-                  ยอดเงินในธนาคารแต่ละบัญชี
+                  ยอดเงินในธนาคารแต่ละบัญชี{dateRange ? ` — ${periodLabel}` : ""}
                 </div>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
                     <th style={thStyle}>ธนาคาร</th>
                     <th style={thStyle}>เลขบัญชี</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
+                    <th style={{ ...thStyle, textAlign: "right" }}>{dateRange ? "ยอดยกมา (ก่อนช่วง)" : "ยอดยกมา"}</th>
                     <th style={{ ...thStyle, textAlign: "right", color: "#0f6e56" }}>รับเข้า</th>
                     <th style={{ ...thStyle, textAlign: "right", color: "#993c1d" }}>จ่ายออก</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
@@ -1891,7 +1930,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                       <tr key={b.id}>
                         <td style={{ ...tdStyle, fontWeight: 600 }}>{b.bankName}</td>
                         <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{b.accountNo}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>{b.ob > 0 ? `฿${fmt(b.ob)}` : "-"}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>{b.ob !== 0 ? `฿${fmt(b.ob)}` : "-"}</td>
                         <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56", fontWeight: 600 }}>฿{fmt(b.inflow)}</td>
                         <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d", fontWeight: 600 }}>฿{fmt(b.outflow)}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 14, color: b.balance >= 0 ? "#185fa5" : "#a32d2d" }}>฿{fmt(b.balance)}</td>
@@ -1909,6 +1948,45 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   )}
                 </table>
               </div>
+
+              {/* ตารางสรุปรวม */}
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+                <div style={{ background: "#0c443c", color: "#fff", padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>
+                  สรุปเงินหมุนเวียนร้าน
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tbody>
+                    {[
+                      { label: "เงินในธนาคารรวม", value: totalBankBalance, color: "#185fa5", sign: "+" },
+                      { label: "ลูกหนี้การค้า (ค้างรับ)", value: totalReceivable, color: "#0f6e56", sign: "+" },
+                      { label: "เจ้าหนี้การค้า (ค้างจ่าย)", value: totalPayable, color: "#993c1d", sign: "−" },
+                      { label: "เงินมัดจำคงเหลือ", value: totalDeposit, color: "#854f0b", sign: "+" },
+                    ].map((r) => (
+                      <tr key={r.label}>
+                        <td style={{ ...tdStyle, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 22, height: 22, borderRadius: "50%", background: r.color + "22", color: r.color, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>{r.sign}</span>
+                          {r.label}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.color }}>฿{fmt(r.value)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: netCash >= 0 ? "#e1f5ee" : "#fcebeb", borderTop: "2px solid #0c443c" }}>
+                      <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15 }}>เงินสดสุทธิ</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 18, color: netCash >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(netCash)}</td>
+                    </tr>
+                    <tr style={{ background: "#f9fafb" }}>
+                      <td style={{ ...tdStyle, color: "#6b7280", fontSize: 12 }}>+ มูลค่าสต๊อกสินค้า (ทุน) — ไม่รวมในเงินสด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280", fontSize: 12 }}>฿{fmt(stockVal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
               {/* ตารางสรุปรวม */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
