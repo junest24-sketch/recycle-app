@@ -8,8 +8,8 @@ import {
   Image, FileSpreadsheet, FileDown, Truck
 } from "lucide-react";
 import { isSupabaseReady } from './supabase'
-import { loadAllFromSupabase, useSupabaseSync } from './useSupabaseSync.js'
-
+import { useSupabaseSync, loadAllFromSupabase } from './useSupabaseSync'
+import { loadProducts, insertProduct, updateProduct, deleteProduct, useProductsRealtime } from './useProductsSync'
 // ---------- Seed data ----------
 const initialProducts = [];
  // ลูกค้าแต่ละคนสามารถมีบัญชีธนาคารได้หลายบัญชี: bankAccounts = [{id, bankName, accountNo, accountName}]
