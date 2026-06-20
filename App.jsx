@@ -708,6 +708,7 @@ export default function App() {
 
 
   const [products, setProducts] = useState(initialProducts);
+  useProductsRealtime(setProducts, dbLoaded);
   const [customers, setCustomers] = useState(initialCustomers);
   const [purchases, setPurchases] = useState(initialPurchases);
   const [sales, setSales] = useState(initialSales);
