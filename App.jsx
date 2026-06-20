@@ -1849,10 +1849,15 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         }, 0);
 
         // 4. เงินมัดจำคงเหลือ (ยอดคงค้าง ณ ปัจจุบัน)
-        const totalDeposit = (deposits || []).reduce((s, d) => {
-          const used = Number(d.usedAmount) || 0;
-          return s + Math.max(0, (Number(d.amount) || 0) - used);
-        }, 0);
+        // ยอดมัดจำคงเหลือ = มัดจำที่จ่ายทั้งหมด - มัดจำที่ถูกหักในใบรับสินค้า (payments ที่ fromStoreBankId === "DEPOSIT")
+        // เดิมใช้ d.usedAmount ซึ่งไม่เคยถูกตั้งค่าที่ไหนเลย ทำให้ยอดคงเหลือไม่เคยลดลง (overstated)
+        const totalDeposit = (() => {
+          const given = (deposits || []).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+          const used = purchases.reduce((s, po) => s + (po.payments || [])
+            .filter((p) => p.fromStoreBankId === "DEPOSIT")
+            .reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
+          return Math.max(0, given - used);
+        })();
 
         // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
         const stockVal = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
@@ -2007,48 +2012,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   )}
                 </table>
               </div>
-
-              {/* ตารางสรุปรวม */}
-              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-                <div style={{ background: "#0c443c", color: "#fff", padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>
-                  สรุปเงินหมุนเวียนร้าน
-                </div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <tbody>
-                    {[
-                      { label: "เงินในธนาคารรวม", value: totalBankBalance, color: "#185fa5", sign: "+" },
-                      { label: "ลูกหนี้การค้า (ค้างรับ)", value: totalReceivable, color: "#0f6e56", sign: "+" },
-                      { label: "เจ้าหนี้การค้า (ค้างจ่าย)", value: totalPayable, color: "#993c1d", sign: "−" },
-                      { label: "เงินมัดจำคงเหลือ", value: totalDeposit, color: "#854f0b", sign: "+" },
-                    ].map((r) => (
-                      <tr key={r.label}>
-                        <td style={{ ...tdStyle, display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ width: 22, height: 22, borderRadius: "50%", background: r.color + "22", color: r.color, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>{r.sign}</span>
-                          {r.label}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.color }}>฿{fmt(r.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ background: netCash >= 0 ? "#e1f5ee" : "#fcebeb", borderTop: "2px solid #0c443c" }}>
-                      <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15 }}>เงินสดสุทธิ</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 18, color: netCash >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(netCash)}</td>
-                    </tr>
-                    <tr style={{ background: "#f9fafb" }}>
-                      <td style={{ ...tdStyle, color: "#6b7280", fontSize: 12 }}>+ มูลค่าสต๊อกสินค้า (ทุน) — ไม่รวมในเงินสด</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280", fontSize: 12 }}>฿{fmt(stockVal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          </>
-        );
-      })()}
-    </div>
-  );
-}
 
               {/* ตารางสรุปรวม */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
