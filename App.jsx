@@ -114,6 +114,36 @@ function printAsPDF(elementId, title = "") {
   setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
 }
 
+// ---------- Keyboard navigation helper: Enter = move to next field, last field = submit ----------
+function handleEnterNavigate(e, onSubmit) {
+  if (e.key !== "Enter") return;
+  // อย่าไปยุ่งกับ textarea (ต้องกด Enter ขึ้นบรรทัดใหม่ได้ตามปกติ)
+  if (e.target.tagName === "TEXTAREA") return;
+  e.preventDefault();
+
+  const form = e.target.closest('[data-kbform]');
+  if (!form) return;
+
+  const focusable = Array.from(
+    form.querySelectorAll('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button[data-kbsubmit]')
+  ).filter((el) => el.offsetParent !== null); // เฉพาะที่มองเห็นอยู่ (ไม่ถูกซ่อน)
+
+  const idx = focusable.indexOf(e.target);
+  if (idx === -1) return;
+
+  const next = focusable[idx + 1];
+  if (next) {
+    if (next.tagName === "BUTTON" && next.hasAttribute("data-kbsubmit")) {
+      // ถึงปุ่มบันทึกแล้ว ให้กดบันทึกเลย
+      next.click();
+    } else {
+      next.focus();
+      if (next.select) next.select();
+    }
+  } else if (onSubmit) {
+    onSubmit();
+  }
+}
 // ExportToolbar component — renders 3 export buttons for a section
 function ExportToolbar({ onPDF, onExcel, onImage, label = "" }) {
   return (
@@ -465,12 +495,15 @@ function genSeqId(prefix, list) {
 }
 
 // ---------- Searchable product select (type to filter) ----------
+// ---------- Searchable product select (type to filter) ----------
 function ProductSelect({ products, value, onChange, disabled, minWidth = 170, labelWithId = true }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [rect, setRect] = useState(null);
+  const [highlight, setHighlight] = useState(0); // index ของรายการที่ไฮไลท์ไว้ด้วยคีย์บอร์ด
   const wrapRef = React.useRef(null);
   const inputRef = React.useRef(null);
+  const listRef = React.useRef(null);
 
   const selected = products.find((p) => p.id === value);
   const display = (p) => (labelWithId ? `${p.id} · ${p.name}` : p.name);
@@ -489,6 +522,7 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
   React.useEffect(() => {
     if (!open) return;
     updateRect();
+    setHighlight(0);
     const handler = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target) && !(e.target.closest && e.target.closest('[data-product-select-dropdown]'))) {
         setOpen(false);
@@ -506,8 +540,51 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
     };
   }, [open]);
 
+  // เลื่อนรายการที่ไฮไลท์ให้อยู่ในมุมมองเสมอ
+  React.useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-idx="${highlight}"]`);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [highlight, open]);
+
+  const selectAt = (idx) => {
+    const p = filtered[idx];
+    if (!p) return;
+    onChange(p.id);
+    setOpen(false);
+    setQuery("");
+  };
+
+  // ปุ่มลูกศรขึ้น/ลง = เลื่อนไฮไลท์, Enter = เลือก, Escape = ปิด
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) { setOpen(true); return; }
+      setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) { setOpen(true); return; }
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open && filtered.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        selectAt(highlight);
+        // หลังเลือกแล้ว ส่ง Enter ต่อไปยัง logic เลื่อนช่องถัดไปของฟอร์ม (ถ้ามี)
+        setTimeout(() => {
+          const fakeEvent = { key: "Enter", target: inputRef.current, preventDefault: () => {} };
+          if (typeof handleEnterNavigate === "function") handleEnterNavigate(fakeEvent);
+        }, 0);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
   const dropdown = open && rect && (
     <div
+      ref={listRef}
       data-product-select-dropdown
       style={{
         position: "fixed", top: rect.top, left: rect.left, width: rect.width, zIndex: 1000,
@@ -526,27 +603,20 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
     ไม่พบสินค้า
   </div>
 ) : (
-  filtered.map((p) => (
+  filtered.map((p, idx) => (
     <div
       key={p.id}
+      data-idx={idx}
       onMouseDown={(e) => {
         e.preventDefault();
-        onChange(p.id);
-        setOpen(false);
-        setQuery("");
+        selectAt(idx);
       }}
+      onMouseEnter={() => setHighlight(idx)}
       style={{
         padding: "8px 10px",
         fontSize: 13,
         cursor: "pointer",
-        background: p.id === value ? "#eeedfe" : "#fff",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = "#f3f4f6";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background =
-          p.id === value ? "#eeedfe" : "#fff";
+        background: idx === highlight ? "#e0ddfb" : (p.id === value ? "#eeedfe" : "#fff"),
       }}
     >
       {display(p)}
@@ -565,7 +635,8 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
         placeholder="ค้นหาสินค้า..."
         value={open ? query : (selected ? display(selected) : "")}
         onFocus={() => { setOpen(true); setQuery(""); }}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onKeyDown={handleKeyDown}
       />
       {selected && !open && !disabled && (
         <button
@@ -586,12 +657,15 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
   );
 }
 // ---------- Searchable customer select (type to filter) ----------
+// ---------- Searchable customer select (type to filter) ----------
 function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, labelWithId = true }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [rect, setRect] = useState(null);
+  const [highlight, setHighlight] = useState(0);
   const wrapRef = React.useRef(null);
   const inputRef = React.useRef(null);
+  const listRef = React.useRef(null);
 
   const selected = customers.find((c) => c.id === value);
   const display = (c) => (labelWithId ? `${c.id} · ${c.name}` : c.name);
@@ -610,6 +684,7 @@ function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, 
   React.useEffect(() => {
     if (!open) return;
     updateRect();
+    setHighlight(0);
     const handler = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target) && !(e.target.closest && e.target.closest('[data-customer-select-dropdown]'))) {
         setOpen(false);
@@ -627,8 +702,48 @@ function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, 
     };
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-idx="${highlight}"]`);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [highlight, open]);
+
+  const selectAt = (idx) => {
+    const c = filtered[idx];
+    if (!c) return;
+    onChange(c.id);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) { setOpen(true); return; }
+      setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) { setOpen(true); return; }
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open && filtered.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        selectAt(highlight);
+        setTimeout(() => {
+          const fakeEvent = { key: "Enter", target: inputRef.current, preventDefault: () => {} };
+          if (typeof handleEnterNavigate === "function") handleEnterNavigate(fakeEvent);
+        }, 0);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+    }
+  };
+
   const dropdown = open && rect && (
     <div
+      ref={listRef}
       data-customer-select-dropdown
       style={{
         position: "fixed", top: rect.top, left: rect.left, width: rect.width, zIndex: 1000,
@@ -637,16 +752,16 @@ function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, 
       }}
     >
       {filtered.length === 0 && <div style={{ padding: "8px 10px", fontSize: 13, color: "#9ca3af" }}>ไม่พบลูกค้า</div>}
-      {filtered.map((c) => (
+      {filtered.map((c, idx) => (
         <div
           key={c.id}
-          onMouseDown={(e) => { e.preventDefault(); onChange(c.id); setOpen(false); setQuery(""); }}
+          data-idx={idx}
+          onMouseDown={(e) => { e.preventDefault(); selectAt(idx); }}
+          onMouseEnter={() => setHighlight(idx)}
           style={{
             padding: "8px 10px", fontSize: 13, cursor: "pointer",
-            background: c.id === value ? "#eeedfe" : "#fff",
+            background: idx === highlight ? "#e0ddfb" : (c.id === value ? "#eeedfe" : "#fff"),
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "#f3f4f6"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = c.id === value ? "#eeedfe" : "#fff"; }}
         >
           {display(c)}
         </div>
@@ -663,13 +778,13 @@ function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, 
         placeholder="ค้นหาลูกค้า..."
         value={open ? query : (selected ? display(selected) : "")}
         onFocus={() => { setOpen(true); setQuery(""); }}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onKeyDown={handleKeyDown}
       />
       {dropdown}
     </div>
   );
 }
-
 
 // ===================================================================
 // MAIN APP
@@ -2695,12 +2810,13 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={`${modal.mode === "add" ? "สร้างใบรับสินค้า" : "แก้ไขใบรับสินค้า"}${modal.mode === "edit" ? " · " + form.id : ""}`} onClose={() => setModal(null)} wide fullscreen>
+          <div data-kbform>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: "0 16px" }}>
             <Field label="เลขที่ใบรับสินค้า">
-              <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
+              <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="วันที่ซื้อ">
-              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="ลูกค้า (ผู้ขาย)">
               <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid })} />
@@ -2709,12 +2825,12 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: "0 16px" }}>
             <Field label="ช่องทางชำระเงิน">
-              <select style={inputStyle} value={form.paymentMethod || PURCHASE_PAYMENT_CHANNELS[0]} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
+              <select style={inputStyle} value={form.paymentMethod || PURCHASE_PAYMENT_CHANNELS[0]} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                 {PURCHASE_PAYMENT_CHANNELS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
             <Field label="บัญชีลูกค้าที่จะรับเงิน">
-              <select style={inputStyle} value={form.receivingCustomerBankId || ""} onChange={(e) => setForm({ ...form, receivingCustomerBankId: e.target.value })}>
+              <select style={inputStyle} value={form.receivingCustomerBankId || ""} onChange={(e) => setForm({ ...form, receivingCustomerBankId: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                 <option value="">-- เลือกบัญชีลูกค้า --</option>
                 {custBankAccounts(form.customerId).map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo} ({b.accountName})</option>)}
               </select>
@@ -2773,11 +2889,11 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                     <td style={tdStyle}>
                       <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
                     </td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} /></td>
+                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                     <td style={{ ...tdStyle, color: "#9ca3af" }}>{prodUnit(it.productId)}</td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 80, textAlign: "right" }} value={it.deduct} onChange={(e) => updateItem(idx, "deduct", e.target.value)} /></td>
+                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 80, textAlign: "right" }} value={it.deduct} onChange={(e) => updateItem(idx, "deduct", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 500, color: "#9ca3af" }}>{fmt((Number(it.qty) || 0) - (Number(it.deduct) || 0))}</td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} /></td>
+                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(lineTotal(it))}</td>
                     <td style={tdStyle}><button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button></td>
                   </tr>
@@ -2798,6 +2914,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                   style={{ ...inputStyle, width: 80 }}
                   value={form.vatRate}
                   onChange={(e) => setForm({ ...form, vatRate: e.target.value })}
+                  onKeyDown={(e) => handleEnterNavigate(e, save)}
                   placeholder="0"
                 />
               </div>
@@ -2815,7 +2932,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px", marginTop: 12 }}>
             <Field label="ทะเบียนรถ (ถ้ามี)">
-              <input style={inputStyle} value={form.vehiclePlate || ""} onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} placeholder="เช่น กข 1234" />
+              <input style={inputStyle} value={form.vehiclePlate || ""} onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} placeholder="เช่น กข 1234" />
             </Field>
           </div>
 
@@ -2841,15 +2958,15 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
               return (
                 <div key={p.id}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.6fr 1fr auto", gap: 8, marginBottom: 4, alignItems: "center" }}>
-                    <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} />
-                    <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} />
-                    <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayment(idx, "fromStoreBankId", e.target.value)}>
+                    <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                    <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                    <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayment(idx, "fromStoreBankId", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                       <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
                       <option value="CASH">เงินสดหน้าร้าน</option>
                       <option value="DEPOSIT">หักเงินมัดจำ</option>
                       {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
                     </select>
-                    <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)}>
+                    <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                       {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                     <button style={btnDanger} onClick={() => removePayment(idx)}><Trash2 size={14} /></button>
@@ -2884,8 +3001,9 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
-            <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
+            <button data-kbsubmit style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
           </div>
+          </div>{/* end data-kbform */}
         </Modal>
       )}
 
@@ -3637,12 +3755,13 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       </div>
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide fullscreen>
+          <div data-kbform>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
             <Field label="เลข Invoice (กำหนดเอง)">
-              <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="เช่น INV-2606-002" />
+              <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} placeholder="เช่น INV-2606-002" />
             </Field>
             <Field label="วันที่">
-              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="ลูกค้า">
               <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid })} labelWithId={false} />
@@ -3685,7 +3804,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                         {fromW ? (
                           <div style={{ textAlign: "right", color: "#534ab7", fontWeight: 500 }}>{fmt(it.qty)}</div>
                         ) : (
-                          <input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
+                          <input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
                         )}
                       </td>
                       <td style={tdStyle}>
@@ -3700,6 +3819,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                             items[idx] = { ...items[idx], net: newNet, deduct: newDeduct };
                             setForm({ ...form, items });
                           }}
+                          onKeyDown={(e) => handleEnterNavigate(e, save)}
                         />
                       </td>
                       <td style={tdStyle}>
@@ -3714,9 +3834,10 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                             items[idx] = { ...items[idx], deduct: newDeduct, net: newNet };
                             setForm({ ...form, items });
                           }}
+                          onKeyDown={(e) => handleEnterNavigate(e, save)}
                         />
                       </td>
-                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} /></td>
+                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: fromW ? "#534ab7" : "#9ca3af", fontWeight: fromW ? 600 : 400 }}>
                         {fromW ? fmt(it.withdrawalCost || 0) : "—"}
                       </td>
@@ -3735,13 +3856,13 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px", marginTop: 16 }}>
             <Field label="ส่วนลด (บาท)">
-              <input type="number" style={inputStyle} value={form.discount} onChange={(e) => setForm({ ...form, discount: e.target.value })} />
+              <input type="number" style={inputStyle} value={form.discount} onChange={(e) => setForm({ ...form, discount: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="VAT (%)">
-              <input type="number" style={inputStyle} value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: e.target.value })} />
+              <input type="number" style={inputStyle} value={form.vatRate} onChange={(e) => setForm({ ...form, vatRate: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="สถานะชำระเงิน">
-              <select style={inputStyle} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}>
+              <select style={inputStyle} value={form.paymentStatus} onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                 {PAYMENT_STATUSES.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
@@ -3759,7 +3880,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px", marginTop: 12 }}>
             <Field label="ทะเบียนรถ (ถ้ามี)">
-              <input style={inputStyle} value={form.vehiclePlate || ""} onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} placeholder="เช่น กข 1234" />
+              <input style={inputStyle} value={form.vehiclePlate || ""} onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} placeholder="เช่น กข 1234" />
             </Field>
           </div>
 
@@ -3772,17 +3893,17 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             {(form.payments || []).length === 0 && <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>ยังไม่มีรายการรับชำระ</p>}
             {(form.payments || []).map((p, idx) => (
               <div key={p.id} style={{ display: "grid", gridTemplateColumns: "130px 1fr 1fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
-                <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} />
-                <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)}>
+                <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                   {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
-                <select style={inputStyle} value={p.toStoreBankId || ""} onChange={(e) => updatePayment(idx, "toStoreBankId", e.target.value)}>
+                <select style={inputStyle} value={p.toStoreBankId || ""} onChange={(e) => updatePayment(idx, "toStoreBankId", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                   <option value="">เงินสด / ไม่ระบุบัญชี</option>
                   {(storeBankAccounts || []).map((b) => (
                     <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>
                   ))}
                 </select>
-                <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} />
+                <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
                 <button style={btnDanger} onClick={() => removePayment(idx)}><Trash2 size={14} /></button>
               </div>
             ))}
@@ -3796,8 +3917,9 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
-            <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
+            <button data-kbsubmit style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
           </div>
+          </div>{/* end data-kbform */}
         </Modal>
       )}
 
