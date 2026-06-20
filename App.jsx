@@ -1825,6 +1825,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
         // 1. เงินในธนาคาร = ยอดยกมา(หรือก่อนช่วง) + รับเข้า(ตามช่วง/ทั้งหมด) - จ่ายออก(ตามช่วง/ทั้งหมด)
         const bankRows = storeBankAccounts.map((b) => {
+        const bankGroupRows = bankRows.filter((b) => b.accountType === "ธนาคาร");
+        const cashGroupRows = bankRows.filter((b) => b.accountType === "เงินสด");
+        const unsetGroupRows = bankRows.filter((b) => !b.accountType);
+        const bankGroupTotal = bankGroupRows.reduce((s, b) => s + b.balance, 0);
+        const cashGroupTotal = cashGroupRows.reduce((s, b) => s + b.balance, 0);
+        const unsetGroupTotal = unsetGroupRows.reduce((s, b) => s + b.balance, 0);
           const ob      = dateRange ? (beforeRangeBalance[b.id] ?? 0) : (Number(b.openingBalance) || 0);
           const inflow  = dateRange ? (bankInflowsRange[b.id] || 0)  : (bankInflows[b.id] || 0);
           const outflow = dateRange ? (bankOutflowsRange[b.id] || 0) : (bankOutflows[b.id] || 0);
@@ -1926,9 +1932,16 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                     <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
                   </tr></thead>
                   <tbody>
-                    {bankRows.map((b) => (
+                    {bankGroupRows.length > 0 && (
+                      <tr style={{ background: "#f3f4f6" }}>
+                        <td colSpan={6} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5", display: "flex", alignItems: "center", gap: 6 }}>
+                          <Landmark size={13} /> ธนาคาร
+                        </td>
+                      </tr>
+                    )}
+                    {bankGroupRows.map((b) => (
                       <tr key={b.id}>
-                        <td style={{ ...tdStyle, fontWeight: 600 }}>{b.bankName}</td>
+                        <td style={{ ...tdStyle, fontWeight: 600, paddingLeft: 24 }}>{b.bankName}</td>
                         <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{b.accountNo}</td>
                         <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>{b.ob !== 0 ? `฿${fmt(b.ob)}` : "-"}</td>
                         <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56", fontWeight: 600 }}>฿{fmt(b.inflow)}</td>
@@ -1936,12 +1949,67 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 14, color: b.balance >= 0 ? "#185fa5" : "#a32d2d" }}>฿{fmt(b.balance)}</td>
                       </tr>
                     ))}
+                    {bankGroupRows.length > 0 && (
+                      <tr style={{ background: "#f9fafb" }}>
+                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 600, color: "#185fa5", paddingLeft: 24 }}>รวมกลุ่มธนาคาร</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(bankGroupTotal)}</td>
+                      </tr>
+                    )}
+
+                    {cashGroupRows.length > 0 && (
+                      <tr style={{ background: "#f3f4f6" }}>
+                        <td colSpan={6} style={{ ...tdStyle, fontWeight: 700, color: "#0f6e56", display: "flex", alignItems: "center", gap: 6 }}>
+                          <Wallet size={13} /> เงินสด
+                        </td>
+                      </tr>
+                    )}
+                    {cashGroupRows.map((b) => (
+                      <tr key={b.id}>
+                        <td style={{ ...tdStyle, fontWeight: 600, paddingLeft: 24 }}>{b.bankName}</td>
+                        <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{b.accountNo}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>{b.ob !== 0 ? `฿${fmt(b.ob)}` : "-"}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56", fontWeight: 600 }}>฿{fmt(b.inflow)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d", fontWeight: 600 }}>฿{fmt(b.outflow)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 14, color: b.balance >= 0 ? "#185fa5" : "#a32d2d" }}>฿{fmt(b.balance)}</td>
+                      </tr>
+                    ))}
+                    {cashGroupRows.length > 0 && (
+                      <tr style={{ background: "#f9fafb" }}>
+                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 600, color: "#0f6e56", paddingLeft: 24 }}>รวมกลุ่มเงินสด</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>฿{fmt(cashGroupTotal)}</td>
+                      </tr>
+                    )}
+
+                    {unsetGroupRows.length > 0 && (
+                      <tr style={{ background: "#f3f4f6" }}>
+                        <td colSpan={6} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>
+                          ยังไม่ระบุประเภท
+                        </td>
+                      </tr>
+                    )}
+                    {unsetGroupRows.map((b) => (
+                      <tr key={b.id}>
+                        <td style={{ ...tdStyle, fontWeight: 600, paddingLeft: 24 }}>{b.bankName}</td>
+                        <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{b.accountNo}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>{b.ob !== 0 ? `฿${fmt(b.ob)}` : "-"}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56", fontWeight: 600 }}>฿{fmt(b.inflow)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d", fontWeight: 600 }}>฿{fmt(b.outflow)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 14, color: b.balance >= 0 ? "#185fa5" : "#a32d2d" }}>฿{fmt(b.balance)}</td>
+                      </tr>
+                    ))}
+                    {unsetGroupRows.length > 0 && (
+                      <tr style={{ background: "#f9fafb" }}>
+                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 600, color: "#854f0b", paddingLeft: 24 }}>รวมกลุ่มยังไม่ระบุประเภท</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#854f0b" }}>฿{fmt(unsetGroupTotal)}</td>
+                      </tr>
+                    )}
+
                     {bankRows.length === 0 && <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีบัญชีธนาคาร</td></tr>}
                   </tbody>
                   {bankRows.length > 0 && (
                     <tfoot>
                       <tr style={{ background: "#e6f1fb" }}>
-                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 700 }}>รวมเงินในธนาคาร</td>
+                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 700 }}>รวมเงินในธนาคารทั้งหมด</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#185fa5" }}>฿{fmt(totalBankBalance)}</td>
                       </tr>
                     </tfoot>
@@ -5285,12 +5353,11 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
   const [statementModal, setStatementModal] = useState(null); // {account}
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
   const [stmtMonth, setStmtMonth] = useState(new Date().getMonth() + 1);
-  const blank = { id: "", bankName: BANK_NAMES[0], accountNo: "", accountName: "", branch: "", openingBalance: 0 };
+  const blank = { id: "", bankName: BANK_NAMES[0], accountNo: "", accountName: "", branch: "", openingBalance: 0, accountType: "" };
   const [form, setForm] = useState(blank);
 
   const openAdd = () => { setForm({ ...blank, id: "SB" + Date.now().toString().slice(-6) }); setModal({ mode: "add" }); };
-  const openEdit = (item) => { setForm({ openingBalance: 0, ...item }); setModal({ mode: "edit", item }); };
-
+ const openEdit = (item) => { setForm({ openingBalance: 0, accountType: "", ...item }); setModal({ mode: "edit", item }); };
   const save = () => {
     if (!form.bankName || !form.accountNo.trim()) return;
     const cleaned = { ...form, openingBalance: Number(form.openingBalance) || 0 };
@@ -5367,11 +5434,22 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
           <div key={a.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e6f1fb", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Landmark size={18} color="#185fa5" />
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: a.accountType === "เงินสด" ? "#e1f5ee" : "#e6f1fb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {a.accountType === "เงินสด" ? <Wallet size={18} color="#0f6e56" /> : <Landmark size={18} color="#185fa5" />}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{a.bankName}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{a.bankName}</div>
+                    {a.accountType ? (
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 5,
+                        background: a.accountType === "เงินสด" ? "#e1f5ee" : "#e6f1fb",
+                        color: a.accountType === "เงินสด" ? "#0f6e56" : "#185fa5",
+                      }}>{a.accountType}</span>
+                    ) : (
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 5, background: "#faeeda", color: "#854f0b" }}>ยังไม่ระบุประเภท</span>
+                    )}
+                  </div>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: "#6b7280" }}>{a.accountNo}</div>
                 </div>
               </div>
@@ -5496,6 +5574,28 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
 
       {modal && (
         <Modal title={modal.mode === "add" ? "เพิ่มบัญชีธนาคารของร้าน" : "แก้ไขบัญชีธนาคารของร้าน"} onClose={() => setModal(null)}>
+          <Field label="ประเภทบัญชี">
+            <div style={{ display: "flex", gap: 10 }}>
+              {["ธนาคาร", "เงินสด"].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setForm({ ...form, accountType: t })}
+                  style={{
+                    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    padding: "9px 14px", borderRadius: 8, fontSize: 14, cursor: "pointer",
+                    border: form.accountType === t ? "1.5px solid #1d9e75" : "1px solid #d1d5db",
+                    background: form.accountType === t ? "#e1f5ee" : "#fff",
+                    color: form.accountType === t ? "#0c443c" : "#6b7280",
+                    fontWeight: form.accountType === t ? 600 : 400,
+                  }}
+                >
+                  {t === "ธนาคาร" ? <Landmark size={15} /> : <Wallet size={15} />} {t}
+                </button>
+              ))}
+            </div>
+            {!form.accountType && <p style={{ fontSize: 11, color: "#854f0b", marginTop: 4, marginBottom: 0 }}>* กรุณาเลือกประเภทบัญชี เพื่อให้แสดงผลถูกกลุ่มในแดชบอร์ด</p>}
+          </Field>
           <Field label="ธนาคาร">
   <input style={inputStyle} list="bank-name-options" value={form.bankName} onChange={(e) => setForm({ ...form, bankName: e.target.value })} placeholder="เลือกหรือพิมพ์ชื่อธนาคาร" />
   <datalist id="bank-name-options">
