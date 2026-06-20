@@ -1120,9 +1120,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const totalStockValue = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
 
   // ===== ยอดยกมา =====
-  // สต๊อกสินค้ายกมา (จาก products.openingQty/openingCost) — ไม่นับซ้ำถ้า FIFO รวมแล้ว
-  // inventory.summary ครอบคลุม openingQty แล้ว (computeInventory inject แล้ว)
-  // แยกแสดงยอดยกมาดิบเพื่อ dashboard
   const totalOpeningStockQty   = products.reduce((s, p) => s + (Number(p.openingQty)  || 0), 0);
   const totalOpeningStockValue = products.reduce((s, p) => s + (Number(p.openingQty) || 0) * (Number(p.openingCost) || 0), 0);
 
@@ -1157,7 +1154,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   }, 0);
 
   // ---------- ยอดคงเหลือแบงค์ — สุทธิเงินที่จ่ายออกจากบัญชีร้านแต่ละบัญชี (สะสมทั้งหมด ไม่ขึ้นกับช่วงเวลา) ----------
-  // หมายเหตุ: ระบบยังไม่ได้บันทึกเงินรับเข้าบัญชีจากการขาย จึงแสดงเป็น "เงินที่จ่ายออกสะสม" ต่อบัญชี
   const bankOutflows = useMemo(() => {
     const out = {}; // bankId -> total
     const add = (bankId, amount) => {
@@ -1778,11 +1774,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
       {dashSubTab === "cashflow" && (() => {
         // ===== ตัวกรองช่วงเวลาเฉพาะของ "เงินหมุนร้าน" =====
-        // periodMode === "all" => แสดงยอดสะสมทั้งหมด (เหมือนเดิม)
-        // periodMode === "day"/"range" => กรองรับเข้า/จ่ายออกเฉพาะช่วงที่เลือก
-        //   ยอดยกมาจะหมายถึง "คงเหลือก่อนเริ่มช่วงนั้น"
-
-        // รับเข้า: เฉพาะรายการในช่วงเวลาที่เลือก (หรือทั้งหมดถ้า periodMode === "all")
         const bankInflowsRange = {};
         sales.forEach((inv) => (inv.payments || []).forEach((p) => {
           if (p.toStoreBankId && p.toStoreBankId !== "CASH" && inRange(p.date)) {
@@ -1790,7 +1781,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           }
         }));
 
-        // จ่ายออก: เฉพาะรายการในช่วงเวลาที่เลือก
         const bankOutflowsRange = {};
         const addOutflowRange = (bankId, amount, date) => {
           if (!bankId || bankId === "CASH" || bankId === "DEPOSIT") return;
@@ -1801,7 +1791,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         (deposits || []).forEach((d) => addOutflowRange(d.fromStoreBankId, Number(d.amount) || 0, d.date));
         (expenses || []).forEach((e) => (e.payments || []).forEach((p) => addOutflowRange(p.fromStoreBankId, Number(p.amount) || 0, p.date || e.billDate || e.date)));
 
-        // ยอดคงเหลือ "ก่อนเริ่มช่วงที่เลือก" ต่อบัญชี = ยอดยกมา + รับเข้าก่อนช่วง - จ่ายออกก่อนช่วง
         const beforeRangeBalance = {};
         if (dateRange) {
           const beforeDate = (d) => d < dateRange.start;
@@ -1825,12 +1814,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
         // 1. เงินในธนาคาร = ยอดยกมา(หรือก่อนช่วง) + รับเข้า(ตามช่วง/ทั้งหมด) - จ่ายออก(ตามช่วง/ทั้งหมด)
         const bankRows = storeBankAccounts.map((b) => {
-        const bankGroupRows = bankRows.filter((b) => b.accountType === "ธนาคาร");
-        const cashGroupRows = bankRows.filter((b) => b.accountType === "เงินสด");
-        const unsetGroupRows = bankRows.filter((b) => !b.accountType);
-        const bankGroupTotal = bankGroupRows.reduce((s, b) => s + b.balance, 0);
-        const cashGroupTotal = cashGroupRows.reduce((s, b) => s + b.balance, 0);
-        const unsetGroupTotal = unsetGroupRows.reduce((s, b) => s + b.balance, 0);
           const ob      = dateRange ? (beforeRangeBalance[b.id] ?? 0) : (Number(b.openingBalance) || 0);
           const inflow  = dateRange ? (bankInflowsRange[b.id] || 0)  : (bankInflows[b.id] || 0);
           const outflow = dateRange ? (bankOutflowsRange[b.id] || 0) : (bankOutflows[b.id] || 0);
@@ -1839,7 +1822,15 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         });
         const totalBankBalance = bankRows.reduce((s, b) => s + b.balance, 0);
 
-        // 2. ลูกหนี้ค้างรับ (ยอดคงค้าง ณ ปัจจุบันเสมอ ไม่กรองตามช่วงเวลา)
+        // แบ่งกลุ่มบัญชีตามประเภท (ธนาคาร / เงินสด / ยังไม่ระบุ)
+        const bankGroupRows = bankRows.filter((b) => b.accountType === "ธนาคาร");
+        const cashGroupRows = bankRows.filter((b) => b.accountType === "เงินสด");
+        const unsetGroupRows = bankRows.filter((b) => !b.accountType);
+        const bankGroupTotal = bankGroupRows.reduce((s, b) => s + b.balance, 0);
+        const cashGroupTotal = cashGroupRows.reduce((s, b) => s + b.balance, 0);
+        const unsetGroupTotal = unsetGroupRows.reduce((s, b) => s + b.balance, 0);
+
+        // 2. ลูกหนี้ค้างรับ (ยอดคงค้าง ณ ปัจจุบันเสมอ)
         const totalReceivable = sales.reduce((s, inv) => {
           const subtotal = inv.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0);
           const ad = subtotal - (inv.discount || 0);
@@ -2055,6 +2046,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           </>
         );
       })()}
+    </div>
+  );
+}
 
               {/* ตารางสรุปรวม */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
