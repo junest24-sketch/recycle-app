@@ -707,8 +707,7 @@ export default function App() {
   // หน้า Login
 
 
-  const [products, setProducts] = useState(initialProducts);
-  useProductsRealtime(setProducts, dbLoaded);
+ const [products, setProducts] = useState(initialProducts);
   const [customers, setCustomers] = useState(initialCustomers);
   const [purchases, setPurchases] = useState(initialPurchases);
   const [sales, setSales] = useState(initialSales);
@@ -756,6 +755,7 @@ export default function App() {
   // ===== Supabase Sync =====
   const [dbLoaded, setDbLoaded] = useState(false)
   const [syncStatus, setSyncStatus] = useState('') // 'loading' | 'synced' | 'offline'
+  useProductsRealtime(setProducts, dbLoaded)
 
   // โหลดข้อมูลจาก Supabase ครั้งแรก
   useEffect(() => {
@@ -763,7 +763,6 @@ export default function App() {
     setSyncStatus('loading')
     loadAllFromSupabase().then(data => {
       if (data) {
-        if (data.products)      setProducts(data.products)
         if (data.customers)     setCustomers(data.customers)
         if (data.purchases)     setPurchases(data.purchases)
         if (data.sales)         setSales(data.sales)
@@ -783,7 +782,6 @@ export default function App() {
   }, [])
 
   // Auto-sync แต่ละ state ไปยัง Supabase
-  useSupabaseSync('products',          products,          setProducts,          dbLoaded)
   useSupabaseSync('customers',         customers,         setCustomers,         dbLoaded)
   useSupabaseSync('purchases',         purchases,         setPurchases,         dbLoaded)
   useSupabaseSync('sales',             sales,             setSales,             dbLoaded)
@@ -795,6 +793,10 @@ export default function App() {
   useSupabaseSync('shopProfile',       shopProfile,       setShopProfile,       dbLoaded)
   useSupabaseSync('companySettings',   companySettings,   setCompanySettings,   dbLoaded)
   useSupabaseSync('unitOptions',       unitOptions,       setUnitOptions,       dbLoaded)
+
+useEffect(() => {
+  loadProducts().then(setProducts);
+}, []);
 
   const navItems = [
     { key: "dashboard", label: "แดชบอร์ด", icon: TrendingUp },
@@ -1962,15 +1964,39 @@ function ProductsTab({ products, setProducts, unitOptions, setUnitOptions }) {
 
  const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: PRODUCT_TYPES[0], unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, ...item }); setModal({ mode: "edit", item }); };
-  const remove   = (id) => setProducts(products.filter((p) => p.id !== id));
 
-  const save = () => {
-    if (!form.name.trim()) return;
-    const cleaned = { ...form, openingQty: Number(form.openingQty) || 0, openingCost: Number(form.openingCost) || 0 };
-    if (modal.mode === "add") setProducts([...products, cleaned]);
-    else setProducts(products.map((p) => (p.id === modal.item.id ? cleaned : p)));
-    setModal(null);
-  };
+const remove = async (id) => {
+  const prev = products;
+  setProducts(products.filter((p) => p.id !== id)); // อัปเดตหน้าจอทันที (optimistic)
+  const { error } = await deleteProduct(id);
+  if (error) {
+    alert("ลบสินค้าไม่สำเร็จ กรุณาลองใหม่");
+    setProducts(prev); // ย้อนกลับถ้าลบไม่สำเร็จ
+  }
+};
+
+const save = async () => {
+  if (!form.name.trim()) return;
+  const cleaned = { ...form, openingQty: Number(form.openingQty) || 0, openingCost: Number(form.openingCost) || 0 };
+
+  if (modal.mode === "add") {
+    setProducts([...products, cleaned]); // อัปเดตหน้าจอทันที
+    const { error } = await insertProduct(cleaned);
+    if (error) {
+      alert("บันทึกสินค้าไม่สำเร็จ กรุณาลองใหม่ (อาจมีรหัสสินค้านี้อยู่แล้ว)");
+      setProducts(products); // ย้อนกลับ
+      return;
+    }
+  } else {
+    setProducts(products.map((p) => (p.id === modal.item.id ? cleaned : p)));
+    const { error } = await updateProduct(cleaned);
+    if (error) {
+      alert("แก้ไขสินค้าไม่สำเร็จ กรุณาลองใหม่");
+      return;
+    }
+  }
+  setModal(null);
+};
 
   const totalOpeningValue = products.reduce((s, p) => s + (Number(p.openingQty) || 0) * (Number(p.openingCost) || 0), 0);
 
