@@ -2704,7 +2704,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
 
-  const blankItem = () => ({ productId: products[0]?.id || "", qty: 0, deduct: 0, price: 0 });
+  const blankItem = () => ({ productId: "", qty: 0, deduct: 0, price: 0 });
   const blankPayment = () => ({
     id: "PM" + Date.now().toString().slice(-6),
     date: new Date().toISOString().slice(0, 10),
@@ -2712,7 +2712,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
     fromStoreBankId: storeBankAccounts[0]?.id || "",
     method: PAYMENT_METHODS[0],
   });
-  const blankForm = () => ({ id: "", date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", items: [blankItem()], payments: [], vatRate: 0, vehiclePlate: "" });
+  const blankForm = () => ({ id: "", date: new Date().toISOString().slice(0, 10), customerId: "", status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", items: [blankItem()], payments: [], vatRate: 0, vehiclePlate: "" });
   const [form, setForm] = useState(blankForm());
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
@@ -3306,7 +3306,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
   const custName = (id) => customers.find((c) => c.id === id)?.name || "";
 
-  const blankLineItem = () => ({ sourceProductId: products[0]?.id || "", qty: 0, targetProductId: products[0]?.id || "" });
+  const blankLineItem = () => ({ sourceProductId: "", qty: 0, targetProductId: "" });
 
   const blankForm = () => ({
     id: genId("WD", withdrawals),
@@ -3762,10 +3762,10 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
 
-  const blankItem = () => ({ productId: products[0]?.id || "", qty: 0, deduct: 0, price: 0 });
+  const blankItem = () => ({ productId: "", qty: 0, deduct: 0, price: 0 });
   const blankPayment = () => ({ id: "SP" + Date.now().toString().slice(-6), date: new Date().toISOString().slice(0, 10), amount: 0, method: PAYMENT_METHODS[0], toStoreBankId: "", note: "" });
   const blankForm = () => ({
-    id: "", date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "",
+    id: "", date: new Date().toISOString().slice(0, 10), customerId: "",
     items: [blankItem()], discount: 0, vatRate: 7, paymentStatus: PAYMENT_STATUSES[0],
     payments: [], vehiclePlate: "",
   });
@@ -4831,7 +4831,7 @@ function DepositsTab({ customers, deposits, setDeposits, purchases, storeBankAcc
   const blankForm = () => ({
     id: genId("AE", deposits),
     date: new Date().toISOString().slice(0, 10),
-    customerId: customers[0]?.id || "",
+    customerId: "",
     amount: 0,
     fromStoreBankId: storeBankAccounts[0]?.id || "CASH",
     note: "",
@@ -7471,11 +7471,11 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
   // ประเภทภาชนะที่เคยพิมพ์ไว้ — สะสมเป็นตัวเลือกให้พิมพ์ซ้ำง่ายขึ้น
   const containerTypeOptions = [...new Set(deliveries.flatMap((d) => (d.items || []).map((it) => it.containerType)).filter(Boolean))];
 
-  const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), productId: products[0]?.id || "", qty: 0, containerWeight: 0, containerType: "" });
+  const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), productId: "", qty: 0, containerWeight: 0, containerType: "" });
   const blankForm = () => ({
     id: genId("DV", deliveries),
     date: new Date().toISOString().slice(0, 10),
-    customerId: customers[0]?.id || "",
+    customerId: "",
     relatedSaleId: "",
     items: [blankItem()],
     vehicleNo: "",
