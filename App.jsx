@@ -7829,7 +7829,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
         </select>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 20 }}>
         <div style={{ background: yearlyNetProfitTotal >= 0 ? "#e6f1fb" : "#faeeda", borderRadius: 12, padding: "16px 18px" }}>
           <div style={{ fontSize: 12, color: yearlyNetProfitTotal >= 0 ? "#185fa5" : "#854f0b", marginBottom: 4 }}>กำไรสุทธิรวมทั้งปี {year}</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: yearlyNetProfitTotal >= 0 ? "#185fa5" : "#854f0b" }}>฿{fmt(yearlyNetProfitTotal)}</div>
@@ -7837,6 +7837,10 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
         <div style={{ background: "#eeedfe", borderRadius: 12, padding: "16px 18px" }}>
           <div style={{ fontSize: 12, color: "#3c3489", marginBottom: 4 }}>จ่ายเงินปันผลไปแล้วในปีนี้</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: "#3c3489" }}>฿{fmt(totalDividendPaidThisYear)}</div>
+        </div>
+        <div style={{ background: (yearlyNetProfitTotal - totalDividendPaidThisYear) >= 0 ? "#e3f5ea" : "#faeeda", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: (yearlyNetProfitTotal - totalDividendPaidThisYear) >= 0 ? "#0f6e56" : "#854f0b", marginBottom: 4 }}>กำไร - เงินปันผล</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: (yearlyNetProfitTotal - totalDividendPaidThisYear) >= 0 ? "#0f6e56" : "#854f0b" }}>฿{fmt(yearlyNetProfitTotal - totalDividendPaidThisYear)}</div>
         </div>
       </div>
 
