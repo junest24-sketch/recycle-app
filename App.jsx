@@ -495,7 +495,6 @@ function genSeqId(prefix, list) {
 }
 
 // ---------- Searchable product select (type to filter) ----------
-// ---------- Searchable product select (type to filter) ----------
 function ProductSelect({ products, value, onChange, disabled, minWidth = 170, labelWithId = true }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -656,7 +655,7 @@ function ProductSelect({ products, value, onChange, disabled, minWidth = 170, la
     </div>
   );
 }
-// ---------- Searchable customer select (type to filter) ----------
+
 // ---------- Searchable customer select (type to filter) ----------
 function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, labelWithId = true }) {
   const [open, setOpen] = useState(false);
@@ -1143,7 +1142,7 @@ useEffect(() => {
       </div>
 
       {/* Main content — independently scrollable */}
-      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
+      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
@@ -1154,7 +1153,7 @@ useEffect(() => {
         {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
-        {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} />}
+        {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
         {tab === "assets" && <AssetsTab />}
@@ -1170,7 +1169,7 @@ useEffect(() => {
 // ===================================================================
 // DASHBOARD
 // ===================================================================
-function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits }) {
+function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers }) {
   // ---------- หมวดหมู่แดชบอร์ด ----------
   const [dashSubTab, setDashSubTab] = useState("purchases"); // "purchases" | "sales" | "expenses" | "stock" | "loans"
   const [expandedStockTypes, setExpandedStockTypes] = useState({}); // { [type]: bool } ติ๊กเลือกเพื่อดูรายการสินค้าในประเภทนั้น
@@ -1281,8 +1280,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     purchases.forEach((po) => (po.payments || []).forEach((p) => add(p.fromStoreBankId, Number(p.amount) || 0)));
     (deposits || []).forEach((d) => add(d.fromStoreBankId, Number(d.amount) || 0));
     (expenses || []).forEach((e) => (e.payments || []).forEach((p) => add(p.fromStoreBankId, Number(p.amount) || 0)));
+    (bankTransfers || []).forEach((t) => add(t.fromBankId, Number(t.amount) || 0));
     return out;
-  }, [purchases, deposits, expenses]);
+  }, [purchases, deposits, expenses, bankTransfers]);
 
   // ---------- ยอดรับเข้าแบงค์ — เงินที่รับเข้าบัญชีร้านแต่ละบัญชีจากการขาย (สะสมทั้งหมด ไม่ขึ้นกับช่วงเวลา) ----------
   const bankInflows = useMemo(() => {
@@ -1292,8 +1292,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       inn[bankId] = (inn[bankId] || 0) + amount;
     };
     sales.forEach((inv) => (inv.payments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0)));
+    (bankTransfers || []).forEach((t) => add(t.toBankId, Number(t.amount) || 0));
     return inn;
-  }, [sales]);
+  }, [sales, bankTransfers]);
+
 
   // ---------- ซื้อ/ขาย แบ่งตามประเภทสินค้า และแบ่งตามรายการสินค้า ----------
   const prodInfo = (id) => products.find((p) => p.id === id);
@@ -1909,6 +1911,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             bankInflowsRange[p.toStoreBankId] = (bankInflowsRange[p.toStoreBankId] || 0) + (Number(p.amount) || 0);
           }
         }));
+        (bankTransfers || []).forEach((t) => {
+          if (t.toBankId && inRange(t.date)) {
+            bankInflowsRange[t.toBankId] = (bankInflowsRange[t.toBankId] || 0) + (Number(t.amount) || 0);
+          }
+        });
 
         const bankOutflowsRange = {};
         const addOutflowRange = (bankId, amount, date) => {
@@ -1919,6 +1926,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         purchases.forEach((po) => (po.payments || []).forEach((p) => addOutflowRange(p.fromStoreBankId, Number(p.amount) || 0, p.date)));
         (deposits || []).forEach((d) => addOutflowRange(d.fromStoreBankId, Number(d.amount) || 0, d.date));
         (expenses || []).forEach((e) => (e.payments || []).forEach((p) => addOutflowRange(p.fromStoreBankId, Number(p.amount) || 0, p.date || e.billDate || e.date)));
+        (bankTransfers || []).forEach((t) => addOutflowRange(t.fromBankId, Number(t.amount) || 0, t.date));
 
         const beforeRangeBalance = {};
         if (dateRange) {
@@ -1937,6 +1945,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             (expenses || []).forEach((e) => (e.payments || []).forEach((p) => {
               if (p.fromStoreBankId === b.id && beforeDate(p.date || e.billDate || e.date)) bal -= Number(p.amount) || 0;
             }));
+            (bankTransfers || []).forEach((t) => {
+              if (t.fromBankId === b.id && beforeDate(t.date)) bal -= Number(t.amount) || 0;
+              if (t.toBankId === b.id && beforeDate(t.date)) bal += Number(t.amount) || 0;
+            });
             beforeRangeBalance[b.id] = bal;
           });
         }
@@ -5442,7 +5454,7 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, onClose }) {
 // ===================================================================
 // STORE BANK ACCOUNTS TAB (บัญชีธนาคารของร้าน)
 // ===================================================================
-function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expenses, deposits }) {
+function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expenses, deposits, bankTransfers }) {
   const [modal, setModal] = useState(null);
   const [statementModal, setStatementModal] = useState(null); // {account}
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
@@ -5500,6 +5512,20 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
           rows.push({ date: p.date, type: "จ่ายรับสินค้า", ref: po.id, description: `จ่ายรับสินค้า ${po.id}`, debit: Number(p.amount) || 0, credit: 0 });
         }
       });
+    });
+
+    // โยกเงินระหว่างบัญชี: เข้า (รับโอน) และ ออก (โอนออก)
+    (bankTransfers || []).forEach((t) => {
+      if (t.toBankId === acc.id && inRange(t.date)) {
+        const fromAcc = (accounts || []).find((b) => b.id === t.fromBankId);
+        const fromLabel = fromAcc ? `${fromAcc.bankName} ${fromAcc.accountNo}` : "บัญชีอื่น";
+        rows.push({ date: t.date, type: "รับโอนเงิน", ref: t.id, description: `รับโอนจาก ${fromLabel}${t.note ? " — " + t.note : ""}`, credit: Number(t.amount) || 0, debit: 0 });
+      }
+      if (t.fromBankId === acc.id && inRange(t.date)) {
+        const toAcc = (accounts || []).find((b) => b.id === t.toBankId);
+        const toLabel = toAcc ? `${toAcc.bankName} ${toAcc.accountNo}` : "บัญชีอื่น";
+        rows.push({ date: t.date, type: "โอนเงินออก", ref: t.id, description: `โอนไป ${toLabel}${t.note ? " — " + t.note : ""}`, debit: Number(t.amount) || 0, credit: 0 });
+      }
     });
 
     rows.sort((a, b) => a.date.localeCompare(b.date));
@@ -5713,7 +5739,6 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
     </div>
   );
 }
-
 function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers }) {
   const transfers = bankTransfers || [];
   const [modal, setModal] = useState(null);
@@ -6614,339 +6639,151 @@ function TaxSummaryTab({ purchases, sales, expenses }) {
   );
 }
 
-
 // ===================================================================
 // DELIVERY TAB (ใบส่งสินค้า)
 // ===================================================================
-function DeliveryTab({ deliveries, setDeliveries, products, customers, companySettings }) {
-  const cs = companySettings || {};
+function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
   const [modal, setModal] = useState(null);
-  const [pdfModal, setPdfModal] = useState(null);
   const [search, setSearch] = useState("");
+  const custName = (id) => customers.find((c) => c.id === id)?.name || id;
 
-  const CONTAINER_TYPES = ["กระสอบ", "ถัง", "ลัง", "มัด", "ก้อน", "แผ่น", "ชิ้น", "อื่นๆ"];
-
-  const blankItem = () => ({
-    id: "DI" + Date.now().toString().slice(-6),
-    productId: products[0]?.id || "",
-    containerType: CONTAINER_TYPES[0],
-    containerCount: 0,   // จำนวนภาชนะ
-    grossWeight: 0,      // น้ำหนักรวมก่อนหัก
-    deductWeight: 0,     // หัก (น้ำหนักภาชนะ/ฝุ่น)
-  });
-
+  const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), description: "", qty: 1, unit: "ชิ้น" });
   const blankForm = () => ({
-    id: genId("DO", deliveries),
+    id: genId("DV", deliveries),
     date: new Date().toISOString().slice(0, 10),
     customerId: customers[0]?.id || "",
-    driverName: "",
-    vehiclePlate: "",
-    note: "",
+    relatedSaleId: "",
     items: [blankItem()],
+    vehicleNo: "",
+    driverName: "",
+    note: "",
   });
-
   const [form, setForm] = useState(blankForm());
 
   const openAdd = () => { setForm(blankForm()); setModal({ mode: "add" }); };
-  const openEdit = (d) => { setForm({ ...d }); setModal({ mode: "edit", item: d }); };
-
-  const save = () => {
-    if (modal.mode === "add") setDeliveries([{ ...form }, ...deliveries]);
-    else setDeliveries(deliveries.map((d) => d.id === modal.item.id ? { ...form } : d));
-    setModal(null);
-  };
+  const openEdit = (item) => { setForm(JSON.parse(JSON.stringify(item))); setModal({ mode: "edit", item }); };
+  const openView = (item) => setModal({ mode: "view", item });
 
   const addItem = () => setForm({ ...form, items: [...form.items, blankItem()] });
-  const removeItem = (idx) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
   const updateItem = (idx, field, value) => {
     const items = [...form.items];
     items[idx] = { ...items[idx], [field]: value };
     setForm({ ...form, items });
   };
+  const removeItem = (idx) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
 
-  const calcItem = (it) => {
-    const gross = Number(it.grossWeight) || 0;
-    const deduct = Number(it.deductWeight) || 0;
-    return { gross, deduct, net: gross - deduct };
+  const save = () => {
+    if (!form.customerId || form.items.length === 0) return;
+    const cleaned = { ...form, items: form.items.map((it) => ({ ...it, qty: Number(it.qty) || 0 })) };
+    if (modal.mode === "add") setDeliveries([...deliveries, cleaned]);
+    else setDeliveries(deliveries.map((d) => (d.id === modal.item.id ? cleaned : d)));
+    setModal(null);
   };
 
-  const totals = (items) => items.reduce((s, it) => {
-    const c = calcItem(it);
-    return { gross: s.gross + c.gross, deduct: s.deduct + c.deduct, net: s.net + c.net, containers: s.containers + (Number(it.containerCount) || 0) };
-  }, { gross: 0, deduct: 0, net: 0, containers: 0 });
+  const remove = (id) => setDeliveries(deliveries.filter((d) => d.id !== id));
 
-  const prodName = (id) => products.find((p) => p.id === id)?.name || id;
-  const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "กก.";
-  const custName = (id) => customers.find((c) => c.id === id)?.name || id;
+  const filtered = deliveries
+    .filter((d) => d.id.includes(search) || custName(d.customerId).includes(search) || (d.vehicleNo || "").includes(search))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
-  const filtered = deliveries.filter((d) =>
-    d.id.includes(search) || custName(d.customerId).includes(search) || d.date.includes(search)
-  ).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
-
-  // ===== PDF Modal =====
-  const DeliveryPDF = ({ d, onClose }) => {
-    const t = totals(d.items);
-    const primaryColor = cs.primaryColor || "#0c443c";
-    return (
-      <Modal title={`ใบส่งสินค้า ${d.id}`} onClose={onClose} wide>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
-          <button style={btnSecondary} onClick={() => printAsPDF(`do-pdf-${d.id}`, `ใบส่งสินค้า_${d.id}`)}>
-            <Printer size={14} /> พิมพ์ PDF
-          </button>
-          <button style={btnSecondary} onClick={() => {
-            const rows = [
-              [`ใบส่งสินค้า ${d.id}`, "", "", "", "", "", ""],
-              [`วันที่: ${d.date}`, "", "", "", "", "", ""],
-              [`ลูกค้า: ${custName(d.customerId)}`, "", "", "", "", "", ""],
-              [""],
-              ["สินค้า", "ภาชนะ", "จำนวนภาชนะ", "น้ำหนักรวม", "หัก", "น้ำหนักสุทธิ", "หน่วย"],
-              ...d.items.map((it) => {
-                const c = calcItem(it);
-                return [prodName(it.productId), it.containerType, it.containerCount, c.gross, c.deduct, c.net, prodUnit(it.productId)];
-              }),
-              ["รวม", "", t.containers, t.gross, t.deduct, t.net, ""],
-            ];
-            exportExcel(rows, `ใบส่งสินค้า_${d.id}.xlsx`, "ใบส่งสินค้า");
-          }}>
-            <FileSpreadsheet size={14} /> Excel
-          </button>
-        </div>
-
-        <div id={`do-pdf-${d.id}`} style={{ fontFamily: "'Noto Sans Thai', sans-serif", padding: 8 }}>
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${primaryColor}`, paddingBottom: 12, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {cs.logo && <img src={cs.logo} alt="logo" style={{ height: 52, maxWidth: 80, objectFit: "contain" }} />}
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: primaryColor }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
-                {cs.address && <div style={{ fontSize: 11, color: "#6b7280" }}>{cs.address}</div>}
-                {cs.phone && <div style={{ fontSize: 11, color: "#6b7280" }}>โทร: {cs.phone}</div>}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: primaryColor }}>ใบส่งสินค้า</div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>เลขที่: {d.id}</div>
-              <div style={{ fontSize: 12, color: "#6b7280" }}>วันที่: {d.date}</div>
-            </div>
-          </div>
-
-          {/* ข้อมูลส่ง */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14, fontSize: 13 }}>
-            <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px" }}>
-              <div style={{ fontWeight: 600, marginBottom: 4, color: primaryColor }}>ผู้รับ/ลูกค้า</div>
-              <div style={{ fontWeight: 600 }}>{custName(d.customerId)}</div>
-            </div>
-            <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px" }}>
-              <div style={{ fontWeight: 600, marginBottom: 4, color: primaryColor }}>ข้อมูลยานพาหนะ</div>
-              {d.driverName && <div>คนขับ: {d.driverName}</div>}
-              {d.vehiclePlate && <div>ทะเบียน: {d.vehiclePlate}</div>}
-            </div>
-          </div>
-
-          {/* ตารางสินค้า */}
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 12 }}>
-            <thead>
-              <tr style={{ background: primaryColor, color: "#fff" }}>
-                <th style={{ padding: "8px 10px", textAlign: "left", border: `1px solid ${primaryColor}` }}>สินค้า</th>
-                <th style={{ padding: "8px 10px", textAlign: "center", border: `1px solid ${primaryColor}` }}>ภาชนะ</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", border: `1px solid ${primaryColor}` }}>จำนวนภาชนะ</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", border: `1px solid ${primaryColor}` }}>น้ำหนักรวม</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", border: `1px solid ${primaryColor}` }}>หัก</th>
-                <th style={{ padding: "8px 10px", textAlign: "right", border: `1px solid ${primaryColor}`, fontWeight: 700 }}>น้ำหนักสุทธิ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.items.map((it, i) => {
-                const c = calcItem(it);
-                return (
-                  <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                    <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", fontWeight: 500 }}>{prodName(it.productId)}</td>
-                    <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", textAlign: "center" }}>{it.containerType}</td>
-                    <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", textAlign: "right" }}>{fmt(it.containerCount)}</td>
-                    <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", textAlign: "right" }}>{fmt(c.gross)} {prodUnit(it.productId)}</td>
-                    <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", textAlign: "right", color: "#993c1d" }}>{fmt(c.deduct)} {prodUnit(it.productId)}</td>
-                    <td style={{ padding: "8px 10px", border: "1px solid #e5e7eb", textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(c.net)} {prodUnit(it.productId)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr style={{ background: primaryColor + "22", fontWeight: 700 }}>
-                <td style={{ padding: "8px 10px", border: "1px solid #d1d5db" }}>รวมทั้งหมด</td>
-                <td style={{ padding: "8px 10px", border: "1px solid #d1d5db", textAlign: "center" }}>—</td>
-                <td style={{ padding: "8px 10px", border: "1px solid #d1d5db", textAlign: "right" }}>{fmt(t.containers)}</td>
-                <td style={{ padding: "8px 10px", border: "1px solid #d1d5db", textAlign: "right" }}>{fmt(t.gross)}</td>
-                <td style={{ padding: "8px 10px", border: "1px solid #d1d5db", textAlign: "right", color: "#993c1d" }}>{fmt(t.deduct)}</td>
-                <td style={{ padding: "8px 10px", border: "1px solid #d1d5db", textAlign: "right", color: primaryColor, fontSize: 15 }}>{fmt(t.net)}</td>
-              </tr>
-            </tfoot>
-          </table>
-
-          {d.note && <div style={{ fontSize: 12, color: "#6b7280", borderTop: "1px solid #e5e7eb", paddingTop: 8 }}>หมายเหตุ: {d.note}</div>}
-
-          {/* ลายเซ็น */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginTop: 28, fontSize: 12, textAlign: "center" }}>
-            {["ผู้ส่ง", "ผู้รับ", "พนักงานขับรถ"].map((role) => (
-              <div key={role}>
-                <div style={{ borderTop: "1px solid #374151", paddingTop: 6, color: "#6b7280" }}>
-                  ({role.padStart(role.length + 5, "\xa0").padEnd(role.length + 10, "\xa0")})<br />{role}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
-    );
-  };
+  const customerSales = (custId) => sales.filter((s) => s.customerId === custId);
 
   return (
     <div>
-      <Header title="ใบส่งสินค้า (Delivery Order)" subtitle="บันทึกการส่งสินค้า — น้ำหนักรวม หัก น้ำหนักสุทธิ ตามประเภทภาชนะ">
-        <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> สร้างใบส่งสินค้า</button>
+      <Header title="ใบส่งสินค้า" subtitle="บันทึกและพิมพ์ใบส่งสินค้าให้ลูกค้า">
+        <div style={{ display: "flex", gap: 8 }}>
+          <ExportToolbar
+            onPDF={() => printAsPDF("tab-export-delivery", "ใบส่งสินค้า")}
+            onExcel={() => {
+              const rows = [
+                ["เลขที่", "วันที่", "ลูกค้า", "ทะเบียนรถ", "คนขับ", "จำนวนรายการ"],
+                ...filtered.map((d) => [d.id, d.date, custName(d.customerId), d.vehicleNo || "", d.driverName || "", d.items.length]),
+              ];
+              exportExcel(rows, "ใบส่งสินค้า.xlsx", "ใบส่งสินค้า");
+            }}
+            onImage={() => printAsPDF("tab-export-delivery", "ใบส่งสินค้า")}
+          />
+          <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> สร้างใบส่งสินค้า</button>
+        </div>
       </Header>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่, ลูกค้า, วันที่..." />
+      <div id="tab-export-delivery">
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่, ลูกค้า, ทะเบียนรถ..." />
 
-      {/* รายการใบส่งสินค้า */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.map((d) => {
-          const t = totals(d.items);
-          return (
-            <div key={d.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#0c443c" }}>{d.id}</span>
-                    <span style={{ fontSize: 12, color: "#9ca3af" }}>{d.date}</span>
-                    {d.vehiclePlate && <span style={{ fontSize: 12, background: "#f3f4f6", padding: "1px 8px", borderRadius: 4 }}>🚛 {d.vehiclePlate}</span>}
+      <Card>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>เลขที่</th>
+              <th style={thStyle}>วันที่</th>
+              <th style={thStyle}>ลูกค้า</th>
+              <th style={thStyle}>ทะเบียนรถ</th>
+              <th style={thStyle}>คนขับ</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จำนวนรายการ</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((d) => (
+              <tr key={d.id}>
+                <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{d.id}</td>
+                <td style={tdStyle}>{d.date}</td>
+                <td style={tdStyle}>{custName(d.customerId)}</td>
+                <td style={tdStyle}>{d.vehicleNo || "-"}</td>
+                <td style={tdStyle}>{d.driverName || "-"}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{d.items.length}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button style={iconBtn} onClick={() => openView(d)}><Printer size={14} /> พิมพ์</button>
+                    <button style={iconBtn} onClick={() => openEdit(d)}><Edit2 size={14} /> แก้ไข</button>
+                    <button style={btnDanger} onClick={() => remove(d.id)}><Trash2 size={14} /> ลบ</button>
                   </div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{custName(d.customerId)}</div>
-                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
-                    {d.items.length} รายการ · {fmt(t.containers)} ภาชนะ
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 11, color: "#9ca3af" }}>น้ำหนักสุทธิรวม</div>
-                  <div style={{ fontWeight: 700, fontSize: 20, color: "#0c443c" }}>{fmt(t.net)}</div>
-                  <div style={{ fontSize: 11, color: "#9ca3af" }}>({fmt(t.gross)} − {fmt(t.deduct)})</div>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={iconBtn} onClick={() => setPdfModal(d)} title="ดูใบส่งสินค้า"><FileText size={15} /></button>
-                  <button style={iconBtn} onClick={() => openEdit(d)}><Edit2 size={14} /></button>
-                  <button style={btnDanger} onClick={() => setDeliveries(deliveries.filter((x) => x.id !== d.id))}><Trash2 size={14} /></button>
-                </div>
-              </div>
-
-              {/* สรุปรายการ */}
-              <div style={{ borderTop: "1px solid #f3f4f6", padding: "8px 18px", background: "#f9fafb" }}>
-                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  {d.items.map((it, i) => {
-                    const c = calcItem(it);
-                    return (
-                      <div key={i} style={{ fontSize: 12, color: "#6b7280" }}>
-                        <span style={{ fontWeight: 600, color: "#374151" }}>{prodName(it.productId)}</span>
-                        {" — "}{it.containerType} {fmt(it.containerCount)} ใบ
-                        {" · "}สุทธิ <span style={{ fontWeight: 600, color: "#0c443c" }}>{fmt(c.net)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {filtered.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ยังไม่มีใบส่งสินค้า — กด "สร้างใบส่งสินค้า" เพื่อเริ่ม</div>}
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีใบส่งสินค้า</td></tr>}
+          </tbody>
+        </table>
+      </Card>
       </div>
 
-      {/* PDF Modal */}
-      {pdfModal && <DeliveryPDF d={pdfModal} onClose={() => setPdfModal(null)} />}
-
-      {/* Form Modal */}
-      {modal && (
-        <Modal title={modal.mode === "add" ? "สร้างใบส่งสินค้า" : `แก้ไขใบส่งสินค้า · ${form.id}`} onClose={() => setModal(null)} wide>
+      {modal && (modal.mode === "add" || modal.mode === "edit") && (
+        <Modal title={modal.mode === "add" ? "สร้างใบส่งสินค้า" : "แก้ไขใบส่งสินค้า"} onClose={() => setModal(null)} wide>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
-            <Field label="เลขที่ใบส่งสินค้า"><input style={inputStyle} value={form.id} disabled /></Field>
             <Field label="วันที่"><input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
-            <Field label="ลูกค้า / ผู้รับสินค้า">
-              <select style={inputStyle} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
+            <Field label="ลูกค้า">
+              <select style={inputStyle} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value, relatedSaleId: "" })}>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </Field>
-            <Field label="ทะเบียนรถ"><input style={inputStyle} value={form.vehiclePlate} onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} placeholder="เช่น กข 1234" /></Field>
-            <Field label="ชื่อพนักงานขับรถ"><input style={inputStyle} value={form.driverName} onChange={(e) => setForm({ ...form, driverName: e.target.value })} placeholder="ชื่อคนขับ" /></Field>
+          </div>
+          {customerSales(form.customerId).length > 0 && (
+            <Field label="อ้างอิงใบขาย (ถ้ามี)">
+              <select style={inputStyle} value={form.relatedSaleId} onChange={(e) => setForm({ ...form, relatedSaleId: e.target.value })}>
+                <option value="">-- ไม่อ้างอิงใบขาย --</option>
+                {customerSales(form.customerId).map((s) => <option key={s.id} value={s.id}>{s.id} ({s.date})</option>)}
+              </select>
+            </Field>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <Field label="ทะเบียนรถ"><input style={inputStyle} value={form.vehicleNo} onChange={(e) => setForm({ ...form, vehicleNo: e.target.value })} /></Field>
+            <Field label="ชื่อคนขับ"><input style={inputStyle} value={form.driverName} onChange={(e) => setForm({ ...form, driverName: e.target.value })} /></Field>
           </div>
 
-          {/* รายการสินค้า */}
-          <div style={{ marginTop: 8, marginBottom: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#0c443c", marginBottom: 10 }}>รายการสินค้า</div>
-            <div style={{ background: "#f9fafb", borderRadius: 10, padding: 10, overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
-                <thead>
-                  <tr style={{ background: "#0c443c", color: "#fff", fontSize: 12 }}>
-                    <th style={{ padding: "7px 10px", textAlign: "left" }}>สินค้า</th>
-                    <th style={{ padding: "7px 10px", textAlign: "center" }}>ภาชนะ</th>
-                    <th style={{ padding: "7px 10px", textAlign: "right" }}>จำนวนภาชนะ</th>
-                    <th style={{ padding: "7px 10px", textAlign: "right" }}>น้ำหนักรวม</th>
-                    <th style={{ padding: "7px 10px", textAlign: "right" }}>หัก</th>
-                    <th style={{ padding: "7px 10px", textAlign: "right", color: "#9fe1cb" }}>น้ำหนักสุทธิ</th>
-                    <th style={{ padding: "7px 10px" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.items.map((it, idx) => {
-                    const c = calcItem(it);
-                    return (
-                      <tr key={it.id} style={{ background: idx % 2 === 0 ? "#fff" : "#f3f4f6" }}>
-                        <td style={{ padding: "6px 8px" }}>
-                          <select style={{ ...inputStyle, fontSize: 12, padding: "4px 8px" }} value={it.productId} onChange={(e) => updateItem(idx, "productId", e.target.value)}>
-                            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding: "6px 8px" }}>
-                          <select style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: 90 }} value={it.containerType} onChange={(e) => updateItem(idx, "containerType", e.target.value)}>
-                            {CONTAINER_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding: "6px 8px" }}>
-                          <input type="number" min={0} style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: 70, textAlign: "right" }} value={it.containerCount} onChange={(e) => updateItem(idx, "containerCount", e.target.value)} />
-                        </td>
-                        <td style={{ padding: "6px 8px" }}>
-                          <input type="number" min={0} step={0.01} style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: 90, textAlign: "right" }} value={it.grossWeight} onChange={(e) => updateItem(idx, "grossWeight", e.target.value)} placeholder="0.00" />
-                        </td>
-                        <td style={{ padding: "6px 8px" }}>
-                          <input type="number" min={0} step={0.01} style={{ ...inputStyle, fontSize: 12, padding: "4px 8px", width: 80, textAlign: "right" }} value={it.deductWeight} onChange={(e) => updateItem(idx, "deductWeight", e.target.value)} placeholder="0.00" />
-                        </td>
-                        <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700, color: "#0c443c", fontSize: 13 }}>
-                          {fmt(c.net)}
-                        </td>
-                        <td style={{ padding: "6px 8px" }}>
-                          <button style={btnDanger} onClick={() => removeItem(idx)} disabled={form.items.length === 1}><Trash2 size={13} /></button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  {(() => { const t = totals(form.items); return (
-                    <tr style={{ background: "#e1f5ee", fontWeight: 700 }}>
-                      <td style={{ padding: "7px 10px", fontSize: 13 }}>รวม</td>
-                      <td></td>
-                      <td style={{ padding: "7px 10px", textAlign: "right", fontSize: 13 }}>{fmt(t.containers)}</td>
-                      <td style={{ padding: "7px 10px", textAlign: "right", fontSize: 13 }}>{fmt(t.gross)}</td>
-                      <td style={{ padding: "7px 10px", textAlign: "right", fontSize: 13, color: "#993c1d" }}>{fmt(t.deduct)}</td>
-                      <td style={{ padding: "7px 10px", textAlign: "right", fontSize: 14, color: "#0c443c" }}>{fmt(t.net)}</td>
-                      <td></td>
-                    </tr>
-                  ); })()}
-                </tfoot>
-              </table>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>รายการสินค้า</div>
+            <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
+          </div>
+          {form.items.map((it, idx) => (
+            <div key={it.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <input style={inputStyle} placeholder="รายละเอียดสินค้า" value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} />
+              <input type="number" style={inputStyle} placeholder="จำนวน" value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
+              <input style={inputStyle} placeholder="หน่วย" value={it.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} />
+              <button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button>
             </div>
-            <button style={{ ...btnSecondary, marginTop: 8 }} onClick={addItem}><Plus size={14} /> เพิ่มรายการสินค้า</button>
-          </div>
+          ))}
 
-          <Field label="หมายเหตุ">
-            <textarea style={{ ...inputStyle, minHeight: 48, resize: "vertical" }} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="บันทึกเพิ่มเติม..." />
-          </Field>
+          <Field label="หมายเหตุ"><input style={inputStyle} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
@@ -6954,458 +6791,264 @@ function DeliveryTab({ deliveries, setDeliveries, products, customers, companySe
           </div>
         </Modal>
       )}
+
+      {modal && modal.mode === "view" && (
+        <Modal title={`ใบส่งสินค้า · ${modal.item.id}`} onClose={() => setModal(null)} wide>
+          <div style={{ background: "#fff", padding: 24, border: "1px solid #e5e7eb", borderRadius: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #185fa5", paddingBottom: 12, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "#185fa5" }}>วงจรกรีน รีไซเคิล</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>ใบส่งสินค้า</div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 12, color: "#6b7280" }}>
+                <div>เลขที่: {modal.item.id}</div>
+                <div>วันที่: {modal.item.date}</div>
+                {modal.item.relatedSaleId && <div>อ้างอิงใบขาย: {modal.item.relatedSaleId}</div>}
+              </div>
+            </div>
+            <div style={{ marginBottom: 12, fontSize: 13 }}>
+              <div><strong>ลูกค้า:</strong> {custName(modal.item.customerId)}</div>
+              {modal.item.vehicleNo && <div><strong>ทะเบียนรถ:</strong> {modal.item.vehicleNo}</div>}
+              {modal.item.driverName && <div><strong>คนขับ:</strong> {modal.item.driverName}</div>}
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ background: "#f3f4f6" }}>
+                <th style={thStyle}>#</th><th style={thStyle}>รายการ</th><th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th><th style={thStyle}>หน่วย</th>
+              </tr></thead>
+              <tbody>
+                {modal.item.items.map((it, i) => (
+                  <tr key={it.id}><td style={tdStyle}>{i + 1}</td><td style={tdStyle}>{it.description}</td><td style={{ ...tdStyle, textAlign: "right" }}>{it.qty}</td><td style={tdStyle}>{it.unit}</td></tr>
+                ))}
+              </tbody>
+            </table>
+            {modal.item.note && <div style={{ marginTop: 12, fontSize: 13, color: "#6b7280" }}>หมายเหตุ: {modal.item.note}</div>}
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 48, fontSize: 12 }}>
+              <div style={{ textAlign: "center", width: "45%" }}><div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้ส่งสินค้า</div></div>
+              <div style={{ textAlign: "center", width: "45%" }}><div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้รับสินค้า</div></div>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setModal(null)}>ปิด</button>
+            <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-
 function Badge({ text }) {
-  const colors = {
-    "กระดาษ": { bg: "#eaf3de", color: "#27500a" },
-    "พลาสติก": { bg: "#e6f1fb", color: "#0c447c" },
-    "เหล็ก": { bg: "#f1efe8", color: "#444441" },
-    "อลูมิเนียม": { bg: "#eeedfe", color: "#3c3489" },
-    "ทองแดง": { bg: "#faeeda", color: "#854f0b" },
-  };
-  const c = colors[text] || { bg: "#f1efe8", color: "#444441" };
-  return <span style={{ background: c.bg, color: c.color, padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500 }}>{text}</span>;
+  return <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "#f1efe8", color: "#444441" }}>{text}</span>;
 }
 
 // ===================================================================
-// MONTHLY PROFIT REPORT TAB (รายงานกำไร/ขาดทุนประจำเดือน)
+// MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, inventory, withdrawals }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits }) {
   const now = new Date();
-  const [reportMode, setReportMode] = useState("month");
-  const [reportYear, setReportYear] = useState(now.getFullYear());
-  const [reportMonth, setReportMonth] = useState(now.getMonth() + 1);
-  const [rangeStart, setRangeStart] = useState(now.toISOString().slice(0, 8) + "01");
-  const [rangeEnd, setRangeEnd] = useState(now.toISOString().slice(0, 10));
-  const [summaryYear, setSummaryYear] = useState(now.getFullYear());
-  const [activeTab, setActiveTab] = useState("detail");
-  const [retainedEarningsBF, setRetainedEarningsBF] = useState(0); // กำไรสะสมยกมา
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [shareholders, setShareholders] = useState([
+    { id: "SH1", name: "หุ้นส่วน 1", percent: 50 },
+    { id: "SH2", name: "หุ้นส่วน 2", percent: 50 },
+  ]);
+  const [editingShareholders, setEditingShareholders] = useState(false);
 
-  // ===== เงินปันผล state =====
-  const [dividends, setDividends] = useState([]);
-  const [divModal, setDivModal] = useState(null);
-  const blankDiv = () => ({
-    id: "DIV" + Date.now().toString().slice(-6),
-    date: now.toISOString().slice(0, 10),
-    amount: 0,
-    note: "",
-  });
-  const [divForm, setDivForm] = useState(blankDiv());
-
-  const MONTH_NAMES = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-
+  const MONTH_NAMES = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
   const yearOptions = [];
-  for (let y = 2024; y <= now.getFullYear() + 10; y++) yearOptions.push(y);
+  for (let y = 2024; y <= now.getFullYear() + 2; y++) yearOptions.push(y);
 
-  // ===== helper: คำนวณกำไรสุทธิสำหรับช่วงวันที่ =====
-  const calcNetProfit = (startDate, endDate) => {
-    const isIn = (d) => d >= startDate && d <= endDate;
+  const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
+  const endDate   = `${year}-${String(month).padStart(2,"0")}-${String(new Date(year, month, 0).getDate()).padStart(2,"0")}`;
+  const inRange = (d) => d >= startDate && d <= endDate;
 
-    // ---- รายได้จากการขาย ----
-    const totalSales = sales.filter((inv) => isIn(inv.date)).reduce((s, inv) => {
-      const subtotal = inv.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0);
-      const ad = subtotal - (inv.discount || 0);
-      return s + ad + ad * ((inv.vatRate || 0) / 100);
-    }, 0);
+  // ===== รายได้จากการขาย =====
+  const salesInRange = sales.filter((s) => inRange(s.date));
+  const totalRevenue = salesInRange.reduce((sum, inv) => {
+    const subtotal = inv.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
+    const ad = subtotal - (inv.discount || 0);
+    return sum + ad;
+  }, 0);
 
-    // ---- ยอดซื้อในช่วง (ก่อน VAT) ----
-    const totalBuy = purchases.filter((po) => po.status === "อนุมัติแล้ว" && isIn(po.date))
-      .reduce((s, po) => s + po.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0), 0);
+  // ===== ต้นทุนขาย (จากใบรับสินค้า) =====
+  const purchasesInRange = purchases.filter((po) => po.status === "อนุมัติแล้ว" && inRange(po.date));
+  const totalCost = purchasesInRange.reduce((sum, po) => {
+    const subtotal = po.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
+    return sum + subtotal;
+  }, 0);
 
-    // ---- ต้นทุนขาย = รวม value จากใบเบิกสินค้าที่อยู่ในช่วงเวลา ----
-    // ใช้ date ของ LOT เบิก (ไม่ใช่ date ใบขาย) เพราะต้นทุนเกิดขึ้น ณ วันที่เบิก
-    const cogsFromWithdrawals = (withdrawals || [])
-      .filter((lot) => isIn(lot.date))
-      .reduce((s, lot) =>
-        s + (lot.items || []).reduce((ss, it) => ss + (Number(it.value) || 0), 0), 0);
+  const grossProfit = totalRevenue - totalCost;
 
-    // ---- สต๊อก (สำหรับแสดงในตาราง) ----
-    const stockEnd = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
-    const stockStart = stockEnd + cogsFromWithdrawals - totalBuy;
-    const goodsAvailable = stockStart + totalBuy;
-
-    // ---- กำไร ----
-    const cogs = cogsFromWithdrawals;
-    const gross = totalSales - cogs;
-
-    // ---- ค่าใช้จ่าย ----
-    const totalExp = expenses.filter((e) => isIn(e.billDate || e.date)).reduce((s, e) => {
-      const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, amount: e.amount }];
-      return s + items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").reduce((ss, it) => ss + (Number(it.amount) || 0), 0);
-    }, 0);
-
-    return { totalSales, totalBuy, cogs, stockStart, stockEnd, goodsAvailable, gross, totalExp, netProfit: gross - totalExp };
-  };
-
-  // ===== ช่วงเวลารายงานรายละเอียด =====
-  const startDate = reportMode === "month"
-    ? `${reportYear}-${String(reportMonth).padStart(2, "0")}-01`
-    : rangeStart;
-  const endDate = reportMode === "month"
-    ? `${reportYear}-${String(reportMonth).padStart(2, "0")}-${String(new Date(reportYear, reportMonth, 0).getDate()).padStart(2, "0")}`
-    : rangeEnd;
-  const periodLabel = reportMode === "month" ? `${MONTH_NAMES[reportMonth]} ${reportYear}` : `${startDate} ถึง ${endDate}`;
-
-  const detail = calcNetProfit(startDate, endDate);
-  const { totalSales, totalBuy, cogs, stockStart, stockEnd, goodsAvailable, gross, totalExp, netProfit } = detail;
-
-  // เงินปันผลในช่วง
-  const dividendsInRange = dividends.filter((d) => d.date >= startDate && d.date <= endDate);
-  const totalDividend = dividendsInRange.reduce((s, d) => s + (Number(d.amount) || 0), 0);
-  const retainedEarnings = netProfit - totalDividend;
-  // กำไรสะสมสุทธิ = ยกมา + กำไรงวดนี้ - ปันผล
-  const totalRetainedEarnings = (Number(retainedEarningsBF) || 0) + retainedEarnings;
-
-  // ===== สรุปรายเดือนทั้งปี =====
-  const monthlyRows = useMemo(() => {
-    return Array.from({ length: 12 }, (_, i) => {
-      const m = i + 1;
-      const s = `${summaryYear}-${String(m).padStart(2, "0")}-01`;
-      const e = `${summaryYear}-${String(m).padStart(2, "0")}-${String(new Date(summaryYear, m, 0).getDate()).padStart(2, "0")}`;
-      const { netProfit } = calcNetProfit(s, e);
-      const divTotal = dividends.filter((d) => d.date >= s && d.date <= e).reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
-      return { month: m, monthName: MONTH_NAMES[m], startDate: s, endDate: e, netProfit, divTotal, retained: netProfit - divTotal };
+  // ===== ค่าใช้จ่ายดำเนินงาน =====
+  const expensesInRange = expenses.filter((e) => inRange(e.billDate || e.date));
+  const expenseByCategory = useMemo(() => {
+    const groups = {};
+    expensesInRange.forEach((e) => {
+      const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category || "ไม่ระบุ", amount: e.amount }];
+      items.forEach((it) => {
+        const cat = it.mainCategory || "ไม่ระบุ";
+        groups[cat] = (groups[cat] || 0) + (Number(it.amount) || 0);
+      });
     });
-  }, [summaryYear, purchases, sales, expenses, inventory, dividends, withdrawals]);
+    return Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+  }, [expensesInRange]);
+  const totalExpenses = expenseByCategory.reduce((s, c) => s + c.amount, 0);
 
-  const totalYearProfit = monthlyRows.reduce((s, r) => s + r.netProfit, 0);
-  const totalYearDiv = monthlyRows.reduce((s, r) => s + r.divTotal, 0);
-  const totalYearRetained = totalYearProfit - totalYearDiv;
+  const netProfit = grossProfit - totalExpenses;
+  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-  // styles
-  const cellStyle = { padding: "8px 14px", border: "1px solid #d1d5db", fontSize: 13 };
-  const numCell = { ...cellStyle, textAlign: "right" };
-  const labelCell = { ...cellStyle, fontWeight: 500 };
-  const headerCell = { ...cellStyle, background: "#5a1414", color: "#fff", fontWeight: 700, textAlign: "center" };
-  const sectionHeader = { ...cellStyle, background: "#f3f4f6", fontWeight: 700, textAlign: "center", fontSize: 13 };
-  const totalRow = { ...cellStyle, fontWeight: 700 };
-  const totalNumCell = { ...numCell, fontWeight: 700, color: "#993c1d" };
-  const netNum = { ...numCell, fontWeight: 700, fontSize: 14, color: netProfit >= 0 ? "#0f6e56" : "#a32d2d" };
-  const retainedNum = { ...numCell, fontWeight: 700, fontSize: 14, color: retainedEarnings >= 0 ? "#185fa5" : "#a32d2d" };
+  // ===== เงินปันผล =====
+  const totalSharePercent = shareholders.reduce((s, sh) => s + (Number(sh.percent) || 0), 0);
+  const dividendPool = Math.max(0, netProfit);
+
+  const updateShareholder = (idx, field, value) => {
+    const updated = [...shareholders];
+    updated[idx] = { ...updated[idx], [field]: value };
+    setShareholders(updated);
+  };
+  const addShareholder = () => setShareholders([...shareholders, { id: "SH" + (shareholders.length + 1), name: `หุ้นส่วน ${shareholders.length + 1}`, percent: 0 }]);
+  const removeShareholder = (idx) => setShareholders(shareholders.filter((_, i) => i !== idx));
+
+  const periodLabel = `${MONTH_NAMES[month]} ${year}`;
 
   return (
     <div>
-      <Header title="รายงานกำไร/ขาดทุน" subtitle="สรุปผลประกอบการ — ยอดซื้อ/สต๊อกคำนวณจากต้นทุนก่อน VAT" />
+      <Header title="รายงานกำไร-ขาดทุนรายเดือน" subtitle="สรุปผลประกอบการและคำนวณเงินปันผลตามสัดส่วนหุ้น">
+        <ExportToolbar
+          onPDF={() => printAsPDF("monthly-report-content", `รายงาน ${periodLabel}`)}
+          onExcel={() => {
+            const rows = [
+              [`รายงานกำไร-ขาดทุน ${periodLabel}`],[""],
+              ["รายได้จากการขาย", totalRevenue],
+              ["ต้นทุนขาย", totalCost],
+              ["กำไรขั้นต้น", grossProfit],[""],
+              ["ค่าใช้จ่ายดำเนินงาน","" ],
+              ...expenseByCategory.map(c => [c.category, c.amount]),
+              ["รวมค่าใช้จ่าย", totalExpenses],[""],
+              ["กำไรสุทธิ", netProfit],
+              ["อัตรากำไรสุทธิ (%)", profitMargin.toFixed(2)],
+            ];
+            exportExcel(rows, `รายงาน_${periodLabel.replace(/\s/g,"_")}.xlsx`, "รายงาน");
+          }}
+          onImage={() => printAsPDF("monthly-report-content", `รายงาน ${periodLabel}`)}
+        />
+      </Header>
 
-      {/* แท็บหลัก */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        {[
-          { key: "detail", label: "รายงานรายละเอียด" },
-          { key: "summary", label: "สรุปกำไรรายเดือน" },
-          { key: "dividends", label: "บันทึกเงินปันผล" },
-        ].map((t) => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600,
-              border: "1px solid", borderColor: activeTab === t.key ? "#5a1414" : "#d1d5db",
-              background: activeTab === t.key ? "#5a1414" : "#fff",
-              color: activeTab === t.key ? "#fff" : "#6b7280" }}>
-            {t.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <select style={{ ...inputStyle, width: 140 }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+          {MONTH_NAMES.slice(1).map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
+        </select>
+        <select style={{ ...inputStyle, width: 100 }} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          {yearOptions.map((y) => <option key={y} value={y}>ปี {y}</option>)}
+        </select>
       </div>
 
-      {/* ===== แท็บ: รายงานรายละเอียด ===== */}
-      {activeTab === "detail" && (
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #d1d5db" }}>
-              {[{ key: "month", label: "รายเดือน" }, { key: "range", label: "เลือกช่วงวันที่" }].map((opt) => (
-                <button key={opt.key} onClick={() => setReportMode(opt.key)}
-                  style={{ padding: "7px 14px", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
-                    background: reportMode === opt.key ? "#5a1414" : "#fff",
-                    color: reportMode === opt.key ? "#fff" : "#6b7280" }}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            {reportMode === "month" && (
-              <>
-                <select style={{ ...inputStyle, width: 140 }} value={reportMonth} onChange={(e) => setReportMonth(Number(e.target.value))}>
-                  {MONTH_NAMES.slice(1).map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
-                </select>
-                <select style={{ ...inputStyle, width: 100 }} value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))}>
-                  {yearOptions.map((y) => <option key={y} value={y}>ปี {y}</option>)}
-                </select>
-              </>
-            )}
-            {reportMode === "range" && (
-              <>
-                <input type="date" style={{ ...inputStyle, width: 160 }} value={rangeStart} onChange={(e) => setRangeStart(e.target.value)} />
-                <span style={{ fontSize: 13, color: "#6b7280" }}>ถึง</span>
-                <input type="date" style={{ ...inputStyle, width: 160 }} value={rangeEnd} onChange={(e) => setRangeEnd(e.target.value)} />
-              </>
-            )}
-            <ExportToolbar
-              onPDF={() => printAsPDF("monthly-report-content", `ผลประกอบการ ${periodLabel}`)}
-              onExcel={() => {
-                const rows = [
-                  [`ผลประกอบการ ${periodLabel}`, "", ""],
-                  ["รายการ", "", "จำนวนเงิน (บาท)"],
-                  ["ขาย", "", totalSales], ["รวมรายได้", "", totalSales], ["", "", ""],
-                  ["สต๊อกต้นงวด", stockStart, ""], ["บวก ซื้อ", totalBuy, ""],
-                  ["สินค้าที่มีไว้เพื่อขาย", goodsAvailable, ""], ["หัก สต๊อกปลายงวด", stockEnd, ""],
-                  ["ต้นทุน", "", cogs], ["กำไรก่อนหักค่าใช้จ่าย", "", gross],
-                  ["หัก ค่าใช้จ่าย", "", totalExp], ["กำไร/ขาดทุนสุทธิ", "", netProfit],
-                  ...(totalDividend > 0 ? [["หัก เงินปันผลจ่าย", "", totalDividend], ["กำไรสะสม", "", retainedEarnings]] : []),
-                ];
-                exportExcel(rows, `กำไร_${periodLabel.replace(/\s/g,"_")}.xlsx`, "รายงาน");
-              }}
-              onImage={() => printAsPDF("monthly-report-content", `ผลประกอบการ ${periodLabel}`)}
-            />
+      <div id="monthly-report-content">
+        {/* Summary cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+          <div style={{ background: "#e1f5ee", borderRadius: 12, padding: "14px 18px" }}>
+            <div style={{ fontSize: 12, color: "#0f6e56", marginBottom: 4 }}>รายได้จากการขาย</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#0f6e56" }}>฿{fmt(totalRevenue)}</div>
           </div>
-
-          <div id="monthly-report-content" style={{ maxWidth: 700 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...headerCell, width: "45%" }}>ผลประกอบการ</th>
-                  <th style={{ ...headerCell, width: "27%", background: "#7a2a2a" }}>{startDate}</th>
-                  <th style={{ ...headerCell, width: "28%" }}>ถึง {endDate}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colSpan={3} style={sectionHeader}>ผลประกอบการ {periodLabel}</td></tr>
-                <tr><td style={labelCell}>ขาย</td><td style={cellStyle}></td><td style={numCell}>{fmt(totalSales)}</td></tr>
-                <tr><td style={labelCell}>รายได้อื่น</td><td style={cellStyle}></td><td style={cellStyle}></td></tr>
-                <tr><td style={{ ...totalRow, background: "#fff9f9" }}>รวมรายได้</td><td style={{ ...cellStyle, background: "#fff9f9" }}></td><td style={totalNumCell}>{fmt(totalSales)}</td></tr>
-
-                <tr><td style={{ ...labelCell, color: "#9ca3af", fontSize: 12 }} colSpan={3}>— ข้อมูลสต๊อก (อ้างอิง) —</td></tr>
-                <tr><td style={{ ...labelCell, paddingLeft: 16, color: "#6b7280" }}>สต๊อกต้นงวด (ประมาณ)</td><td style={{ ...numCell, color: "#6b7280" }}>{fmt(Math.max(0, stockStart))}</td><td style={cellStyle}></td></tr>
-                <tr><td style={{ ...labelCell, paddingLeft: 16, color: "#6b7280" }}>บวก ซื้อ (ก่อน VAT)</td><td style={{ ...numCell, color: "#6b7280" }}>{fmt(totalBuy)}</td><td style={cellStyle}></td></tr>
-                <tr><td style={{ ...labelCell, paddingLeft: 24, color: "#9ca3af" }}>สินค้าที่มีไว้เพื่อขาย</td><td style={{ ...numCell, color: "#9ca3af" }}>{fmt(goodsAvailable)}</td><td style={cellStyle}></td></tr>
-                <tr><td style={{ ...labelCell, paddingLeft: 16, color: "#6b7280" }}>หัก สต๊อกปลายงวด (ปัจจุบัน)</td><td style={{ ...numCell, color: "#6b7280" }}>{fmt(stockEnd)}</td><td style={cellStyle}></td></tr>
-                <tr>
-                  <td style={{ ...totalRow, background: "#fff9f9" }}>
-                    ต้นทุนขาย (จากใบเบิกสินค้า)
-                    <span style={{ fontSize: 11, fontWeight: 400, color: "#9ca3af", marginLeft: 8 }}>รวมมูลค่าจากใบเบิกทุกใบในช่วงนี้</span>
-                  </td>
-                  <td style={{ ...cellStyle, background: "#fff9f9" }}></td>
-                  <td style={{ ...numCell, fontWeight: 700, color: "#993c1d" }}>{fmt(cogs)}</td>
-                </tr>
-
-                <tr>
-                  <td style={{ ...totalRow, background: "#f0f9f5" }}>กำไรขั้นต้น</td>
-                  <td style={{ ...cellStyle, background: "#f0f9f5" }}></td>
-                  <td style={{ ...numCell, fontWeight: 700, color: "#0f6e56" }}>{fmt(gross)}</td>
-                </tr>
-                <tr><td style={labelCell}>หัก ค่าใช้จ่ายดำเนินงาน</td><td style={numCell}>{fmt(totalExp)}</td><td style={cellStyle}></td></tr>
-
-                <tr style={{ background: netProfit >= 0 ? "#e1f5ee" : "#fcebeb" }}>
-                  <td style={{ ...totalRow, fontSize: 14, background: "transparent" }}>กำไร/ขาดทุนสุทธิ</td>
-                  <td style={{ ...cellStyle, background: "transparent" }}></td>
-                  <td style={netNum}>{fmt(netProfit)}</td>
-                </tr>
-
-                {totalDividend > 0 && <>
-                  <tr><td style={labelCell}>หัก เงินปันผลจ่าย ({dividendsInRange.length} รายการ)</td><td style={numCell}>{fmt(totalDividend)}</td><td style={cellStyle}></td></tr>
-                  <tr style={{ background: retainedEarnings >= 0 ? "#e6f1fb" : "#fcebeb" }}>
-                    <td style={{ ...totalRow, fontSize: 14, background: "transparent" }}>กำไรสะสม (งวดนี้)</td>
-                    <td style={{ ...cellStyle, background: "transparent" }}></td>
-                    <td style={retainedNum}>{fmt(retainedEarnings)}</td>
-                  </tr>
-                </>}
-
-                {(Number(retainedEarningsBF) !== 0) && (
-                  <>
-                    <tr><td style={labelCell}>กำไรสะสมยกมา (ก่อนงวด)</td><td style={numCell}>{fmt(Number(retainedEarningsBF))}</td><td style={cellStyle}></td></tr>
-                    <tr style={{ background: totalRetainedEarnings >= 0 ? "#e6f1fb" : "#fcebeb" }}>
-                      <td style={{ ...totalRow, fontSize: 14, background: "transparent", color: "#185fa5" }}>กำไรสะสมสุทธิ (รวมยกมา)</td>
-                      <td style={{ ...cellStyle, background: "transparent" }}></td>
-                      <td style={{ ...retainedNum, color: totalRetainedEarnings >= 0 ? "#185fa5" : "#a32d2d" }}>{fmt(totalRetainedEarnings)}</td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-            <div style={{ marginTop: 12, fontSize: 12, color: "#9ca3af" }}>
-              * ต้นทุนขายคำนวณจากยอดรวมมูลค่าสินค้าใน**ใบเบิกสินค้าเพื่อขาย**ทุกใบที่วันที่เบิกอยู่ในช่วงนี้ (ราคาต้นทุน FIFO ณ วันที่เบิก)
-            </div>
+          <div style={{ background: "#faece7", borderRadius: 12, padding: "14px 18px" }}>
+            <div style={{ fontSize: 12, color: "#993c1d", marginBottom: 4 }}>ต้นทุนขาย + ค่าใช้จ่าย</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#993c1d" }}>฿{fmt(totalCost + totalExpenses)}</div>
           </div>
-
-          {/* กำไรสะสมยกมา input */}
-          <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e7eb", padding: "14px 18px", marginTop: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "#185fa5", whiteSpace: "nowrap" }}>กำไรสะสมยกมา (บาท):</label>
-              <input type="number" style={{ ...inputStyle, width: 180 }}
-                value={retainedEarningsBF}
-                onChange={(e) => setRetainedEarningsBF(e.target.value)}
-                placeholder="0 (ใส่ติดลบได้ถ้าขาดทุนสะสม)" />
-              <span style={{ fontSize: 12, color: "#9ca3af" }}>กำไรสะสมสุทธิ = {fmt(totalRetainedEarnings)} บาท</span>
-            </div>
+          <div style={{ background: netProfit >= 0 ? "#e6f1fb" : "#faeeda", borderRadius: 12, padding: "14px 18px" }}>
+            <div style={{ fontSize: 12, color: netProfit >= 0 ? "#185fa5" : "#854f0b", marginBottom: 4 }}>กำไรสุทธิ</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: netProfit >= 0 ? "#185fa5" : "#854f0b" }}>฿{fmt(netProfit)}</div>
           </div>
-        </>
-      )}
-
-      {/* ===== แท็บ: สรุปกำไรรายเดือน ===== */}
-      {activeTab === "summary" && (
-        <>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>ปี:</span>
-            <select style={{ ...inputStyle, width: 110 }} value={summaryYear} onChange={(e) => setSummaryYear(Number(e.target.value))}>
-              {yearOptions.map((y) => <option key={y} value={y}>ปี {y}</option>)}
-            </select>
-            <ExportToolbar
-              onPDF={() => printAsPDF("monthly-summary-content", `สรุปกำไรรายเดือน ปี ${summaryYear}`)}
-              onExcel={() => {
-                const rows = [
-                  [`สรุปกำไรสุทธิรายเดือน ปี ${summaryYear}`, "", "", ""],
-                  ["เดือน", "กำไรสุทธิ (บาท)", "เงินปันผล (บาท)", "กำไรสะสม (บาท)"],
-                  ...monthlyRows.map((r) => [r.monthName, r.netProfit, r.divTotal, r.retained]),
-                  ["รวมทั้งปี", totalYearProfit, totalYearDiv, totalYearRetained],
-                ];
-                exportExcel(rows, `สรุปกำไร_ปี${summaryYear}.xlsx`, "สรุปรายเดือน");
-              }}
-              onImage={() => printAsPDF("monthly-summary-content", `สรุปกำไรรายเดือน ปี ${summaryYear}`)}
-            />
+          <div style={{ background: "#eeedfe", borderRadius: 12, padding: "14px 18px" }}>
+            <div style={{ fontSize: 12, color: "#3c3489", marginBottom: 4 }}>อัตรากำไรสุทธิ</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#3c3489" }}>{profitMargin.toFixed(1)}%</div>
           </div>
+        </div>
 
-          <div id="monthly-summary-content">
-            <div style={{ background: "#5a1414", color: "#fff", borderRadius: "12px 12px 0 0", padding: "14px 20px", display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>สรุปกำไรสุทธิรายเดือน</span>
-              <span>ปี {summaryYear}</span>
-            </div>
-            <div style={{ background: "#fff", borderRadius: "0 0 12px 12px", border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>เดือน</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>รายได้</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>ค่าใช้จ่าย+ต้นทุน</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>กำไรสุทธิ</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>เงินปันผล</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>กำไรสะสม</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthlyRows.map((r) => {
-                    const hasData = r.netProfit !== 0 || r.divTotal !== 0;
-                    return (
-                      <tr key={r.month}
-                        style={{ background: hasData ? (r.netProfit >= 0 ? "#f9fafb" : "#fff5f5") : "#fff" }}
-                        onClick={() => { setActiveTab("detail"); setReportMode("month"); setReportMonth(r.month); setReportYear(summaryYear); }}>
-                        <td style={{ ...tdStyle, cursor: "pointer", color: "#185fa5", fontWeight: 500 }}>
-                          {r.monthName}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {hasData ? fmt(calcNetProfit(r.startDate, r.endDate).totalSales) : "-"}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>
-                          {hasData ? fmt(calcNetProfit(r.startDate, r.endDate).cogs + calcNetProfit(r.startDate, r.endDate).totalExp) : "-"}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.netProfit >= 0 ? "#0f6e56" : "#a32d2d" }}>
-                          {hasData ? fmt(r.netProfit) : "-"}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b" }}>
-                          {r.divTotal > 0 ? fmt(r.divTotal) : "-"}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.retained >= 0 ? "#185fa5" : "#a32d2d" }}>
-                          {hasData ? fmt(r.retained) : "-"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: "#f3f4f6", borderTop: "2px solid #5a1414" }}>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งปี {summaryYear}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>
-                      {fmt(monthlyRows.reduce((s, r) => s + calcNetProfit(r.startDate, r.endDate).totalSales, 0))}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>
-                      {fmt(monthlyRows.reduce((s, r) => { const d = calcNetProfit(r.startDate, r.endDate); return s + d.cogs + d.totalExp; }, 0))}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: totalYearProfit >= 0 ? "#0f6e56" : "#a32d2d" }}>
-                      {fmt(totalYearProfit)}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#854f0b" }}>
-                      {totalYearDiv > 0 ? fmt(totalYearDiv) : "-"}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: totalYearRetained >= 0 ? "#185fa5" : "#a32d2d" }}>
-                      {fmt(totalYearRetained)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "#9ca3af" }}>
-              คลิกที่ชื่อเดือนเพื่อดูรายงานละเอียดของเดือนนั้น
-            </div>
-          </div>
-        </>
-      )}
+        {/* P&L Statement */}
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>งบกำไรขาดทุน — {periodLabel}</h3>
+          <Row label="รายได้จากการขาย" value={`฿${fmt(totalRevenue)}`} bold />
+          <Row label="หัก ต้นทุนขาย (จากใบรับสินค้า)" value={`-฿${fmt(totalCost)}`} />
+          <div style={{ borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
+          <Row label="กำไรขั้นต้น (Gross Profit)" value={`฿${fmt(grossProfit)}`} bold color="#185fa5" />
+          <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>หัก ค่าใช้จ่ายดำเนินงาน:</div>
+          {expenseByCategory.map((c) => (
+            <Row key={c.category} label={`　${c.category}`} value={`-฿${fmt(c.amount)}`} />
+          ))}
+          {expenseByCategory.length === 0 && <Row label="　ไม่มีค่าใช้จ่าย" value="฿0" />}
+          <Row label="รวมค่าใช้จ่ายดำเนินงาน" value={`-฿${fmt(totalExpenses)}`} />
+          <div style={{ borderTop: "2px solid #0c443c", margin: "8px 0" }} />
+          <Row label="กำไรสุทธิ (Net Profit)" value={`฿${fmt(netProfit)}`} bold color={netProfit >= 0 ? "#0f6e56" : "#993c1d"} />
+        </div>
 
-      {/* ===== แท็บ: บันทึกเงินปันผล ===== */}
-      {activeTab === "dividends" && (
-        <>
+        {/* Dividend Calculation */}
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 13, color: "#6b7280" }}>เงินปันผลจ่ายรวมทั้งหมด</div>
-              <div style={{ fontWeight: 700, fontSize: 22, color: "#854f0b" }}>
-                ฿{fmt(dividends.reduce((s, d) => s + (Number(d.amount) || 0), 0))}
-              </div>
-            </div>
-            <button style={btnPrimary} onClick={() => { setDivForm(blankDiv()); setDivModal({ mode: "add" }); }}>
-              <Plus size={16} /> เพิ่มรายการเงินปันผล
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>คำนวณเงินปันผลตามสัดส่วนหุ้น</h3>
+            <button style={btnSecondary} onClick={() => setEditingShareholders(!editingShareholders)}>
+              <Edit2 size={14} /> {editingShareholders ? "เสร็จสิ้น" : "แก้ไขสัดส่วนหุ้น"}
             </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[...dividends].sort((a, b) => b.date.localeCompare(a.date)).map((d) => (
-              <div key={d.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "monospace", fontSize: 12, color: "#9ca3af" }}>{d.id}</span>
-                    <span style={{ fontSize: 13, color: "#6b7280" }}>{d.date}</span>
-                  </div>
-                  {d.note && <div style={{ fontSize: 13, color: "#374151" }}>{d.note}</div>}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 11, color: "#9ca3af" }}>เงินปันผล</div>
-                  <div style={{ fontWeight: 700, fontSize: 18, color: "#854f0b" }}>฿{fmt(d.amount)}</div>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={iconBtn} onClick={() => { setDivForm({ ...d }); setDivModal({ mode: "edit", item: d }); }}><Edit2 size={14} /></button>
-                  <button style={btnDanger} onClick={() => setDividends(dividends.filter((x) => x.id !== d.id))}><Trash2 size={14} /></button>
-                </div>
-              </div>
-            ))}
-            {dividends.length === 0 && (
-              <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>
-                ยังไม่มีรายการเงินปันผล — กด "เพิ่มรายการเงินปันผล" เพื่อบันทึก
-              </div>
-            )}
+          <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 14 }}>
+            <Row label="กำไรสุทธิที่นำมาคำนวณปันผล" value={`฿${fmt(dividendPool)}`} bold />
+            {netProfit < 0 && <p style={{ fontSize: 12, color: "#993c1d", margin: "6px 0 0" }}>* เดือนนี้ขาดทุน ไม่มีเงินปันผล</p>}
           </div>
 
-          {divModal && (
-            <Modal title={divModal.mode === "add" ? "เพิ่มรายการเงินปันผล" : "แก้ไขเงินปันผล"} onClose={() => setDivModal(null)}>
-              <Field label="วันที่จ่ายปันผล">
-                <input type="date" style={inputStyle} value={divForm.date} onChange={(e) => setDivForm({ ...divForm, date: e.target.value })} />
-              </Field>
-              <Field label="จำนวนเงินปันผล (บาท)">
-                <input type="number" min={0} style={inputStyle} value={divForm.amount} onChange={(e) => setDivForm({ ...divForm, amount: e.target.value })} placeholder="0" />
-              </Field>
-              <Field label="หมายเหตุ / รายละเอียด">
-                <input style={inputStyle} value={divForm.note} onChange={(e) => setDivForm({ ...divForm, note: e.target.value })} placeholder="เช่น ปันผลไตรมาส 1/2566" />
-              </Field>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-                <button style={btnSecondary} onClick={() => setDivModal(null)}>ยกเลิก</button>
-                <button style={btnPrimary} onClick={() => {
-                  const cleaned = { ...divForm, amount: Number(divForm.amount) || 0 };
-                  if (divModal.mode === "add") setDividends([...dividends, cleaned]);
-                  else setDividends(dividends.map((x) => x.id === divModal.item.id ? cleaned : x));
-                  setDivModal(null);
-                }}><Save size={16} /> บันทึก</button>
-              </div>
-            </Modal>
+          {editingShareholders && (
+            <div style={{ marginBottom: 12 }}>
+              <button style={btnSecondary} onClick={addShareholder}><Plus size={14} /> เพิ่มผู้ถือหุ้น</button>
+            </div>
           )}
-        </>
-      )}
+
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>ชื่อผู้ถือหุ้น/หุ้นส่วน</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>สัดส่วน (%)</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>เงินปันผลที่ได้รับ</th>
+                {editingShareholders && <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {shareholders.map((sh, idx) => {
+                const amount = totalSharePercent > 0 ? dividendPool * ((Number(sh.percent) || 0) / totalSharePercent) : 0;
+                return (
+                  <tr key={sh.id}>
+                    <td style={tdStyle}>
+                      {editingShareholders ? (
+                        <input style={inputStyle} value={sh.name} onChange={(e) => updateShareholder(idx, "name", e.target.value)} />
+                      ) : sh.name}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      {editingShareholders ? (
+                        <input type="number" style={{ ...inputStyle, textAlign: "right", width: 90 }} value={sh.percent} onChange={(e) => updateShareholder(idx, "percent", e.target.value)} />
+                      ) : `${sh.percent}%`}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f6e56" }}>฿{fmt(amount)}</td>
+                    {editingShareholders && (
+                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                        <button style={btnDanger} onClick={() => removeShareholder(idx)}><Trash2 size={14} /></button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>รวม</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: totalSharePercent === 100 ? "#0f6e56" : "#993c1d" }}>{totalSharePercent}%</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(dividendPool)}</td>
+                {editingShareholders && <td style={tdStyle}></td>}
+              </tr>
+            </tfoot>
+          </table>
+          {totalSharePercent !== 100 && (
+            <p style={{ fontSize: 12, color: "#993c1d", marginTop: 8 }}>⚠️ สัดส่วนหุ้นรวมต้องเท่ากับ 100% (ปัจจุบัน {totalSharePercent}%)</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
-
