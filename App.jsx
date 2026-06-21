@@ -1186,7 +1186,7 @@ useEffect(() => {
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
-        {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} />}
+        {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
@@ -5182,7 +5182,7 @@ function LoanScheduleModal({ loan, expenses, onClose }) {
 // ===================================================================
 // EXPENSES TAB (บันทึกค่าใช้จ่าย / ใบสำคัญจ่าย)
 // ===================================================================
-function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories }) {
+function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories, companySettings }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
   const [installmentPicker, setInstallmentPicker] = useState(false); // เปิด picker ดึงงวดผ่อน
@@ -5698,7 +5698,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
       )}
 
       {modal && modal.mode === "view" && (
-        <ExpenseVoucherModal expense={modal.item} storeBankAccounts={storeBankAccounts} onClose={() => setModal(null)} />
+        <ExpenseVoucherModal expense={modal.item} storeBankAccounts={storeBankAccounts} companySettings={companySettings} onClose={() => setModal(null)} />
       )}
 
       {installmentPicker && (
@@ -5792,7 +5792,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   );
 }
 // ใบสำคัญจ่าย (Payment Voucher) PDF view
-function ExpenseVoucherModal({ expense, storeBankAccounts, onClose }) {
+function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onClose }) {
+  const cs = companySettings || {};
   const items = (expense.items && expense.items.length > 0)
     ? expense.items
     : [{ description: expense.description, mainCategory: expense.mainCategory || expense.category, subCategory: expense.subCategory, amount: expense.amount }];
@@ -5812,10 +5813,17 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, onClose }) {
   return (
     <Modal title={`ใบสำคัญจ่าย · ${expense.refNo || expense.id}`} onClose={onClose} wide>
       <div style={{ background: "#fff", padding: "24px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #993c1d", paddingBottom: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#993c1d" }}>วงจรกรีน รีไซเคิล</div>
-            <div style={{ fontSize: 12, color: "#6b7280" }}>ระบบจัดการของเก่ารีไซเคิล</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${cs.accentColor || "#993c1d"}`, paddingBottom: 12, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {cs.logo && (
+              <img src={cs.logo} alt="logo" style={{ height: 50, maxWidth: 100, objectFit: "contain" }} />
+            )}
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#993c1d" }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+              {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
+              {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
+              {cs.phone && <div style={{ fontSize: 12, color: "#6b7280" }}>โทร: {cs.phone}</div>}
+            </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 16, fontWeight: 700 }}>ใบสำคัญจ่าย</div>
@@ -7320,7 +7328,8 @@ function TaxSummaryTab({ purchases, sales, expenses }) {
 // ===================================================================
 // DELIVERY TAB (ใบส่งสินค้า)
 // ===================================================================
-function DeliveryTab({ deliveries, setDeliveries, customers, sales, products }) {
+function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, companySettings }) {
+  const cs = companySettings || {};
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
@@ -7509,10 +7518,18 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products }) 
       {modal && modal.mode === "view" && (
         <Modal title={`ใบส่งสินค้า · ${modal.item.id}`} onClose={() => setModal(null)} wide>
           <div style={{ background: "#fff", padding: 24, border: "1px solid #e5e7eb", borderRadius: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #185fa5", paddingBottom: 12, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#185fa5" }}>วงจรกรีน รีไซเคิล</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>ใบส่งสินค้า</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${cs.accentColor || "#185fa5"}`, paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {cs.logo && (
+                  <img src={cs.logo} alt="logo" style={{ height: 50, maxWidth: 100, objectFit: "contain" }} />
+                )}
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#185fa5" }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+                  {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
+                  {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
+                  {cs.phone && <div style={{ fontSize: 12, color: "#6b7280" }}>โทร: {cs.phone}</div>}
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>ใบส่งสินค้า</div>
+                </div>
               </div>
               <div style={{ textAlign: "right", fontSize: 12, color: "#6b7280" }}>
                 <div>เลขที่: {modal.item.id}</div>
