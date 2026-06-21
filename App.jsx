@@ -5,7 +5,7 @@ import {
   Search, Download, X, ChevronRight, ChevronLeft, ChevronDown, Menu, ArrowDownToLine,
   ArrowUpFromLine, History, TrendingUp, Save, Printer, Landmark,
   CheckCircle2, XCircle, Clock, CreditCard, PackageMinus, ArrowRight, Wallet, Receipt,
-  Image, FileSpreadsheet, FileDown, Truck
+  Image, FileSpreadsheet, FileDown, Truck, Check
 } from "lucide-react";
 import { isSupabaseReady } from './supabase'
 import { useSupabaseSync, loadAllFromSupabase } from './useSupabaseSync'
@@ -5693,7 +5693,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     if (value && !allMainCategories.includes(value)) {
       setExpenseCategories((prev) => ({ ...prev, [value]: [] }));
     }
-    updateItem(idx, "mainCategory", value);
+    updateItem(idx, "mainCategory", value); // updateItem จะรีเซ็ต subCategory ให้อัตโนมัติเมื่อเปลี่ยนหมวดหมู่ใหญ่
   };
 
   // เมื่อพิมพ์หมวดหมู่ย่อยใหม่ที่ยังไม่มีในหมวดหมู่ใหญ่นี้ ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที
@@ -5703,6 +5703,10 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     }
     updateItem(idx, "subCategory", value);
   };
+
+  // โหมด "เพิ่มหมวดหมู่ใหม่" ต่อรายการ — เก็บเป็น { [idx]: "main" | "sub" | null }
+  const [addingMainCatFor, setAddingMainCatFor] = useState({});
+  const [addingSubCatFor, setAddingSubCatFor] = useState({});
 
   // --- คำนวณ VAT / หัก ณ ที่จ่าย / จำนวนเงินสุทธิ (คำนวณแยกต่อรายการ แล้วรวมผลลัพธ์) ---
   const calcTotals = (e) => {
@@ -6000,16 +6004,38 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
               </Field>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
                 <Field label="หมวดหมู่ใหญ่">
-                  <input style={inputStyle} list={`expense-main-category-options-${idx}`} value={it.mainCategory} onChange={(e) => handleItemMainCategoryChange(idx, e.target.value)} placeholder="เลือกหรือพิมพ์เพิ่มใหม่" />
-                  <datalist id={`expense-main-category-options-${idx}`}>
-                    {allMainCategories.map((c) => <option key={c} value={c} />)}
-                  </datalist>
+                  {addingMainCatFor[idx] ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input style={inputStyle} autoFocus value={it.mainCategory} onChange={(e) => handleItemMainCategoryChange(idx, e.target.value)} placeholder="พิมพ์ชื่อหมวดหมู่ใหม่" />
+                      <button type="button" style={roundBtn} title="เสร็จสิ้น" onClick={() => setAddingMainCatFor((p) => ({ ...p, [idx]: false }))}><Check size={14} /></button>
+                    </div>
+                  ) : (
+                    <select style={inputStyle} value={it.mainCategory} onChange={(e) => {
+                      if (e.target.value === "__add_new__") { setAddingMainCatFor((p) => ({ ...p, [idx]: true })); handleItemMainCategoryChange(idx, ""); return; }
+                      handleItemMainCategoryChange(idx, e.target.value);
+                    }}>
+                      <option value="">-- เลือกหมวดหมู่ใหญ่ --</option>
+                      {allMainCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+                      <option value="__add_new__">+ เพิ่มหมวดหมู่ใหม่...</option>
+                    </select>
+                  )}
                 </Field>
                 <Field label="หมวดหมู่ย่อย">
-                  <input style={inputStyle} list={`expense-sub-category-options-${idx}`} value={it.subCategory} onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)} placeholder="เลือกหรือพิมพ์เพิ่มใหม่" />
-                  <datalist id={`expense-sub-category-options-${idx}`}>
-                    {subCategoriesFor(it.mainCategory).map((c) => <option key={c} value={c} />)}
-                  </datalist>
+                  {addingSubCatFor[idx] ? (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input style={inputStyle} autoFocus value={it.subCategory} onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)} placeholder="พิมพ์ชื่อหมวดหมู่ย่อยใหม่" />
+                      <button type="button" style={roundBtn} title="เสร็จสิ้น" onClick={() => setAddingSubCatFor((p) => ({ ...p, [idx]: false }))}><Check size={14} /></button>
+                    </div>
+                  ) : (
+                    <select style={inputStyle} value={it.subCategory} onChange={(e) => {
+                      if (e.target.value === "__add_new__") { setAddingSubCatFor((p) => ({ ...p, [idx]: true })); handleItemSubCategoryChange(idx, it.mainCategory, ""); return; }
+                      handleItemSubCategoryChange(idx, it.mainCategory, e.target.value);
+                    }} disabled={!it.mainCategory}>
+                      <option value="">-- เลือกหมวดหมู่ย่อย --</option>
+                      {subCategoriesFor(it.mainCategory).map((c) => <option key={c} value={c}>{c}</option>)}
+                      <option value="__add_new__">+ เพิ่มหมวดหมู่ย่อยใหม่...</option>
+                    </select>
+                  )}
                 </Field>
                 <Field label="จำนวนเงิน (ก่อนภาษี)">
                   <input type="number" style={inputStyle} value={it.amount} onChange={(e) => updateItem(idx, "amount", e.target.value)} />
@@ -6031,7 +6057,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
           <div style={{ marginBottom: 10 }}>
             <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
           </div>
-          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: -2, marginBottom: 16 }}>* พิมพ์ชื่อหมวดหมู่ใหญ่/ย่อยใหม่ได้เลย ระบบจะบันทึกเป็นหมวดหมู่ใหม่ในฐานข้อมูลให้อัตโนมัติ — แต่ละรายการตั้งค่า VAT/หัก ณ ที่จ่ายแยกกันได้</p>
+          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: -2, marginBottom: 16 }}>* เลือกหมวดหมู่จากรายการ หรือกด "+ เพิ่มหมวดหมู่ใหม่..." เพื่อพิมพ์ชื่อใหม่ ระบบจะบันทึกเป็นหมวดหมู่ใหม่ในฐานข้อมูลให้อัตโนมัติ — แต่ละรายการตั้งค่า VAT/หัก ณ ที่จ่ายแยกกันได้</p>
 
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 14 }}>
             <Row label="จำนวนเงินรวมทุกรายการ" value={`฿${fmt(formAmount)}`} />
