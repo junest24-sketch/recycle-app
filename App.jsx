@@ -39,6 +39,10 @@ const initialAssets = [
   { id: "AS001", name: "รถกระบะบรรทุก", category: "ยานพาหนะ", purchaseDate: "2024-01-15", cost: 650000, lifeYears: 5, depreciationMethod: "เส้นตรง", note: "" },
   { id: "AS002", name: "เครื่องชั่งน้ำหนัก", category: "เครื่องจักร/อุปกรณ์", purchaseDate: "2024-03-01", cost: 45000, lifeYears: 10, depreciationMethod: "เส้นตรง", note: "" },
 ];
+const initialShareholders = [
+  { id: "SH1", name: "หุ้นส่วน 1", percent: 50 },
+  { id: "SH2", name: "หุ้นส่วน 2", percent: 50 },
+];
 const LOAN_TYPES = ["เงินกู้ยืม", "เช่าซื้อ"];
 
 // หมวดหมู่ใหญ่ (เพิ่มได้) และหมวดหมู่ย่อยเริ่มต้นของแต่ละหมวดหมู่ใหญ่ (เพิ่มได้)
@@ -877,6 +881,8 @@ export default function App() {
   const [expenses, setExpenses] = useState(initialExpenses);
   const [loans, setLoans] = useState(initialLoans);
   const [assets, setAssets] = useState(initialAssets);
+  const [shareholders, setShareholders] = useState(initialShareholders);
+  const [dividendPayments, setDividendPayments] = useState([]);
   const [unitOptions, setUnitOptions] = useState(UNIT_OPTIONS_DEFAULT);
   const [expenseCategories, setExpenseCategories] = useState(EXPENSE_SUBCATEGORIES_DEFAULT);
   const [productCategories, setProductCategories] = useState(PRODUCT_TYPES);
@@ -910,6 +916,8 @@ export default function App() {
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
         if (data.productCategories) setProductCategories(data.productCategories)
         if (data.assets) setAssets(data.assets)
+        if (data.shareholders) setShareholders(data.shareholders)
+        if (data.dividendPayments) setDividendPayments(data.dividendPayments)
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -932,6 +940,8 @@ export default function App() {
   useSupabaseSync('expenseCategories', expenseCategories, setExpenseCategories, dbLoaded)
   useSupabaseSync('productCategories', productCategories, setProductCategories, dbLoaded)
   useSupabaseSync('assets',            assets,            setAssets,            dbLoaded)
+  useSupabaseSync('shareholders',      shareholders,      setShareholders,      dbLoaded)
+  useSupabaseSync('dividendPayments',  dividendPayments,  setDividendPayments,  dbLoaded)
 
 useEffect(() => {
   loadProducts().then(setProducts);
@@ -1184,7 +1194,7 @@ useEffect(() => {
         {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
-        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} />}
+        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} />}
         {tab === "tax" && <TaxSummaryTab purchases={purchases} sales={sales} expenses={expenses} />}
       </div>
 
@@ -7512,35 +7522,17 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [shareholders, setShareholders] = useState([
-    { id: "SH1", name: "หุ้นส่วน 1", percent: 50 },
-    { id: "SH2", name: "หุ้นส่วน 2", percent: 50 },
-  ]);
+  const [reportView, setReportView] = useState("monthly"); // "monthly" | "yearly"
   const [editingShareholders, setEditingShareholders] = useState(false);
 
   const MONTH_NAMES = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
   const yearOptions = [];
   for (let y = 2024; y <= now.getFullYear() + 2; y++) yearOptions.push(y);
 
-  const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
-  const endDate   = `${year}-${String(month).padStart(2,"0")}-${String(new Date(year, month, 0).getDate()).padStart(2,"0")}`;
-  const inRange = (d) => d >= startDate && d <= endDate;
-
-  // ===== รายได้ =====
-  const salesInRange = sales.filter((s) => inRange(s.date));
-  const totalRevenue = salesInRange.reduce((sum, inv) => {
-    const subtotal = inv.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
-    const ad = subtotal - (inv.discount || 0);
-    return sum + ad;
-  }, 0);
-  const totalOtherIncome = 0; // รายได้อื่น — ยังไม่มีข้อมูลในระบบ ใส่ 0 ไปก่อน
-  const totalIncome = totalRevenue + totalOtherIncome;
-
-  // ===== สินค้าคงเหลือต้นงวด/ปลายงวด + ต้นทุนขาย (คำนวณจากมูลค่าสต็อกจริงตามช่วงเวลา) =====
   const movements = inventory?.movements || [];
   // มูลค่าสต็อก ณ จุดใดจุดหนึ่ง = ผลรวมมูลค่า "in" ลบมูลค่า "out"/"withdraw" (costConsumed) ของรายการที่เกิดขึ้น "ก่อน" วันที่ที่กำหนด (exclusive)
   const stockValueBefore = (dateExclusive) => {
@@ -7552,57 +7544,92 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     });
     return value;
   };
-  const beginningInventory = stockValueBefore(startDate);
-  const endingInventory = stockValueBefore(new Date(new Date(endDate).getTime() + 86400000).toISOString().slice(0, 10)); // รวมถึงสิ้นวันสุดท้ายของเดือน
 
-  // ซื้อสินค้าระหว่างงวด (มูลค่าใบรับสินค้าที่อนุมัติแล้ว ไม่นับยอดยกมา)
-  const purchasesInRange = movements
-    .filter((m) => m.type === "in" && !m.isOpening && inRange(m.date))
-    .reduce((s, m) => s + (Number(m.qty) || 0) * (Number(m.price) || 0), 0);
+  // ฟังก์ชันคำนวณกำไรขาดทุนของเดือน/ปีใดๆ — ใช้ร่วมกันทั้งมุมมองรายเดือนและสรุปรายปี
+  const computeMonthlyPL = (y, m) => {
+    const sd = `${y}-${String(m).padStart(2,"0")}-01`;
+    const ed = `${y}-${String(m).padStart(2,"0")}-${String(new Date(y, m, 0).getDate()).padStart(2,"0")}`;
+    const inR = (d) => d >= sd && d <= ed;
+    const ym = `${y}-${String(m).padStart(2,"0")}`;
 
-  const goodsAvailableForSale = beginningInventory + purchasesInRange;
-  const totalCost = goodsAvailableForSale - endingInventory;
+    const salesInR = sales.filter((s) => inR(s.date));
+    const totalRev = salesInR.reduce((sum, inv) => {
+      const subtotal = inv.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
+      const ad = subtotal - (inv.discount || 0);
+      return sum + ad;
+    }, 0);
+    const otherIncome = 0;
+    const income = totalRev + otherIncome;
 
-  const grossProfit = totalIncome - totalCost;
+    const beginInv = stockValueBefore(sd);
+    const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
+    const purchInR = movements
+      .filter((mv) => mv.type === "in" && !mv.isOpening && inR(mv.date))
+      .reduce((s, mv) => s + (Number(mv.qty) || 0) * (Number(mv.price) || 0), 0);
+    const available = beginInv + purchInR;
+    const cost = available - endInv;
+    const gross = income - cost;
 
-  // ===== ค่าใช้จ่ายดำเนินงาน =====
-  const expensesInRange = expenses.filter((e) => inRange(e.billDate || e.date));
-  const currentYm = `${year}-${String(month).padStart(2,"0")}`;
-  // ยอดยกมาของหมวดหมู่ย่อยค่าใช้จ่าย — นับรวมเฉพาะเดือน/ปีที่ตรงกับที่ระบุไว้เป๊ะๆ เท่านั้น
-  const expenseOpeningRowsForReport = useMemo(() => {
-    const rows = [];
+    const expensesInR = expenses.filter((e) => inR(e.billDate || e.date));
+    const openingRows = [];
     Object.entries(expenseCategories || {}).forEach(([main, subs]) => {
       (subs || []).forEach((s) => {
-        if (typeof s === "string") return; // ของเดิมไม่มียอดยกมา
-        if (Number(s.openingBalance) > 0 && s.openingMonth === currentYm) {
-          rows.push({ mainCategory: main, subCategory: s.name, amount: Number(s.openingBalance) });
+        if (typeof s === "string") return;
+        if (Number(s.openingBalance) > 0 && s.openingMonth === ym) {
+          openingRows.push({ mainCategory: main, amount: Number(s.openingBalance) });
         }
       });
     });
-    return rows;
-  }, [expenseCategories, currentYm]);
-
-  const expenseByCategory = useMemo(() => {
     const groups = {};
-    expensesInRange.forEach((e) => {
+    expensesInR.forEach((e) => {
       const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category || "ไม่ระบุ", amount: e.amount }];
       items.forEach((it) => {
         const cat = it.mainCategory || "ไม่ระบุ";
         groups[cat] = (groups[cat] || 0) + (Number(it.amount) || 0);
       });
     });
-    // รวมยอดยกมาของเดือนนี้เข้าไปตามหมวดหมู่ใหญ่
-    expenseOpeningRowsForReport.forEach((r) => {
-      groups[r.mainCategory] = (groups[r.mainCategory] || 0) + r.amount;
-    });
-    return Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
-  }, [expensesInRange, expenseOpeningRowsForReport]);
-  const totalExpenses = expenseByCategory.reduce((s, c) => s + c.amount, 0);
+    openingRows.forEach((r) => { groups[r.mainCategory] = (groups[r.mainCategory] || 0) + r.amount; });
+    const byCategory = Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+    const totalExp = byCategory.reduce((s, c) => s + c.amount, 0);
 
-  const netProfit = grossProfit - totalExpenses;
+    const net = gross - totalExp;
+    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: income, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: cost, grossProfit: gross, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net };
+  };
+
+  const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
+  const endDate   = `${year}-${String(month).padStart(2,"0")}-${String(new Date(year, month, 0).getDate()).padStart(2,"0")}`;
+
+  const currentMonthPL = computeMonthlyPL(year, month);
+  const {
+    totalRevenue, totalOtherIncome, totalIncome,
+    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost,
+    grossProfit, expenseByCategory, totalExpenses, netProfit,
+  } = currentMonthPL;
   const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
-  // ===== เงินปันผล =====
+  // ===== สรุปรายปี: กำไรสุทธิทั้ง 12 เดือน =====
+  const yearlyMonths = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = i + 1;
+      const pl = computeMonthlyPL(year, m);
+      return { month: m, label: MONTH_NAMES[m], ...pl };
+    });
+  }, [year, sales, expenses, expenseCategories, movements]);
+  const yearlyNetProfitTotal = yearlyMonths.reduce((s, m) => s + m.netProfit, 0);
+
+  // ===== บันทึกจ่ายเงินปันผล (รายปี) =====
+  const dividendPaymentsThisYear = (dividendPayments || []).filter((d) => (d.date || "").startsWith(String(year)));
+  const totalDividendPaidThisYear = dividendPaymentsThisYear.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const [divPayForm, setDivPayForm] = useState(null); // {date, amount}
+  const openDivPayForm = () => setDivPayForm({ id: "DIV" + Date.now().toString().slice(-6), date: new Date().toISOString().slice(0, 10), amount: "" });
+  const saveDivPayment = () => {
+    if (!divPayForm || !(Number(divPayForm.amount) > 0)) return;
+    setDividendPayments([...(dividendPayments || []), { ...divPayForm, amount: Number(divPayForm.amount) }]);
+    setDivPayForm(null);
+  };
+  const removeDivPayment = (id) => setDividendPayments((dividendPayments || []).filter((d) => d.id !== id));
+
+
   const totalSharePercent = shareholders.reduce((s, sh) => s + (Number(sh.percent) || 0), 0);
   const dividendPool = Math.max(0, netProfit);
 
@@ -7645,6 +7672,23 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
         />
       </Header>
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {[
+          { key: "monthly", label: "รายเดือน" },
+          { key: "yearly", label: "สรุปรายปี" },
+        ].map((opt) => (
+          <button key={opt.key} onClick={() => setReportView(opt.key)}
+            style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
+              borderColor: reportView === opt.key ? "#1d9e75" : "#d1d5db",
+              background: reportView === opt.key ? "#e1f5ee" : "#fff",
+              color: reportView === opt.key ? "#0f6e56" : "#6b7280" }}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {reportView === "monthly" && (
+      <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
         <select style={{ ...inputStyle, width: 140 }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
           {MONTH_NAMES.slice(1).map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
@@ -7774,6 +7818,119 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           )}
         </div>
       </div>
+      </>
+      )}
+
+      {reportView === "yearly" && (
+      <>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <select style={{ ...inputStyle, width: 100 }} value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          {yearOptions.map((y) => <option key={y} value={y}>ปี {y}</option>)}
+        </select>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+        <div style={{ background: yearlyNetProfitTotal >= 0 ? "#e6f1fb" : "#faeeda", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: yearlyNetProfitTotal >= 0 ? "#185fa5" : "#854f0b", marginBottom: 4 }}>กำไรสุทธิรวมทั้งปี {year}</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: yearlyNetProfitTotal >= 0 ? "#185fa5" : "#854f0b" }}>฿{fmt(yearlyNetProfitTotal)}</div>
+        </div>
+        <div style={{ background: "#eeedfe", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: "#3c3489", marginBottom: 4 }}>จ่ายเงินปันผลไปแล้วในปีนี้</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: "#3c3489" }}>฿{fmt(totalDividendPaidThisYear)}</div>
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
+        <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>กำไรสุทธิรายเดือน — ปี {year}</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>เดือน</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>รวมรายได้</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุนขาย</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>ค่าใช้จ่าย</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>กำไรสุทธิ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {yearlyMonths.map((m) => (
+              <tr key={m.month}>
+                <td style={tdStyle}>{m.label}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalIncome)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalCost)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalExpenses)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: m.netProfit >= 0 ? "#0f6e56" : "#993c1d" }}>฿{fmt(m.netProfit)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งปี</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalIncome,0))}</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalCost,0))}</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalExpenses,0))}</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: yearlyNetProfitTotal >= 0 ? "#0f6e56" : "#993c1d" }}>฿{fmt(yearlyNetProfitTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>บันทึกการจ่ายเงินปันผล — ปี {year}</h3>
+          <button style={btnPrimary} onClick={openDivPayForm}><Plus size={16} /> บันทึกจ่ายเงินปันผล</button>
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>วันที่จ่าย</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงินที่จ่ายจริง</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dividendPaymentsThisYear.sort((a,b) => (b.date||"").localeCompare(a.date||"")).map((d) => (
+              <tr key={d.id}>
+                <td style={tdStyle}>{d.date}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f6e56" }}>฿{fmt(d.amount)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <button style={btnDanger} onClick={() => removeDivPayment(d.id)}><Trash2 size={14} /> ลบ</button>
+                </td>
+              </tr>
+            ))}
+            {dividendPaymentsThisYear.length === 0 && (
+              <tr><td colSpan={3} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการบันทึกจ่ายเงินปันผลในปีนี้</td></tr>
+            )}
+          </tbody>
+          {dividendPaymentsThisYear.length > 0 && (
+            <tfoot>
+              <tr>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>รวม</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>฿{fmt(totalDividendPaidThisYear)}</td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+
+        {divPayForm && (
+          <Modal title="บันทึกจ่ายเงินปันผล" onClose={() => setDivPayForm(null)}>
+            <Field label="วันที่จ่าย">
+              <input type="date" style={inputStyle} value={divPayForm.date} onChange={(e) => setDivPayForm({ ...divPayForm, date: e.target.value })} />
+            </Field>
+            <Field label="จำนวนเงินที่จ่ายจริง (รวมทุกคน)">
+              <input type="number" style={inputStyle} value={divPayForm.amount} onChange={(e) => setDivPayForm({ ...divPayForm, amount: e.target.value })} placeholder="0" />
+            </Field>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+              <button style={btnSecondary} onClick={() => setDivPayForm(null)}>ยกเลิก</button>
+              <button style={btnPrimary} onClick={saveDivPayment}><Save size={16} /> บันทึก</button>
+            </div>
+          </Modal>
+        )}
+      </div>
+      </>
+      )}
     </div>
   );
 }
