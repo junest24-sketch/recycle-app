@@ -2262,7 +2262,7 @@ function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, produ
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "" });
 
-  const filtered = products.filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search));
+  const filtered = [...products].filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search)).reverse();
 
   const monthLabelOfProduct = (ym) => {
     if (!ym) return "";
@@ -2465,7 +2465,7 @@ function CustomersTab({ customers, setCustomers }) {
   const blank = { id: "", name: "", taxId: "", address: "", phone: "", line: "", email: "", deliveries: 0, bankAccounts: [], idCardImage: "" };
   const [form, setForm] = useState(blank);
 
-  const filtered = customers.filter((c) => c.name.includes(search) || c.id.includes(search) || (c.phone || "").includes(search));
+  const filtered = [...customers].filter((c) => c.name.includes(search) || c.id.includes(search) || (c.phone || "").includes(search)).reverse();
 
   const openAdd = () => { setForm({ ...blank, id: genSeqId("C", customers) }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm(JSON.parse(JSON.stringify({ ...blank, ...item }))); setModal({ mode: "edit", item }); };
@@ -4955,7 +4955,7 @@ function LoansTab({ loans, setLoans, expenses, customers }) {
             </tr>
           </thead>
           <tbody>
-            {loans.map((l) => {
+            {[...loans].sort((a, b) => (b.startDate || "").localeCompare(a.startDate || "") || (b.id || "").localeCompare(a.id || "")).map((l) => {
               const schedule = computeAmortizationSchedule(l);
               const paidCount = (l.paidInstallments || []).length;
               const remainingCount = l.totalInstallments - paidCount;
@@ -6220,7 +6220,7 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
       </Header>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
-        {accounts.map((a) => (
+        {[...accounts].reverse().map((a) => (
           <div key={a.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -6540,6 +6540,7 @@ function ReceivablesTab({ customers, sales, purchases }) {
         map[inv.customerId].totalAmount += total;
       }
     });
+    Object.values(map).forEach((m) => m.invoices.sort((a, b) => (b.date || "").localeCompare(a.date || "")));
     return Object.values(map).sort((a, b) => b.totalRemaining - a.totalRemaining);
   }, [sales, customers]);
 
@@ -6559,6 +6560,7 @@ function ReceivablesTab({ customers, sales, purchases }) {
         map[po.customerId].totalRemaining += remaining;
       }
     });
+    Object.values(map).forEach((m) => m.orders.sort((a, b) => (b.date || "").localeCompare(a.date || "")));
     return Object.values(map).sort((a, b) => b.totalRemaining - a.totalRemaining);
   }, [purchases, customers]);
 
@@ -6690,7 +6692,8 @@ function AssetsTab({ assets, setAssets }) {
   const accumulatedDepreciation = (a) => Math.min(Number(a.cost), annualDepreciation(a) * yearsUsed(a));
   const bookValue = (a) => Math.max(0, Number(a.cost) - accumulatedDepreciation(a));
 
-  const filtered = assets.filter((a) => a.name.includes(search) || a.category.includes(search) || a.id.includes(search));
+  const filtered = assets.filter((a) => a.name.includes(search) || a.category.includes(search) || a.id.includes(search))
+    .sort((a, b) => (b.purchaseDate || "").localeCompare(a.purchaseDate || "") || (b.id || "").localeCompare(a.id || ""));
 
   const save = () => {
     if (!form.name.trim()) return;
