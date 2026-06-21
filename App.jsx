@@ -4309,7 +4309,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     date: new Date().toISOString().slice(0, 10),
     amount: isFirst ? Math.round(row.remaining * 100) / 100 : 0,
     method: PAYMENT_METHODS[0],
-    fromStoreBankId: row.kind === "purchase" ? (storeBankAccounts[0]?.id || "CASH") : undefined,
+    fromStoreBankId: row.kind === "purchase" ? (storeBankAccounts[0]?.id || "") : undefined,
     toStoreBankId: row.kind === "sale" ? "" : undefined,
   });
   const [payRows, setPayRows] = useState(null);
@@ -4564,7 +4564,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   <Field label="จ่ายจากบัญชี/วิธีจ่าย">
                     <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayRow(idx, "fromStoreBankId", e.target.value)}>
                       <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
-                      <option value="CASH">เงินสดหน้าร้าน</option>
                       <option value="DEPOSIT">หักเงินมัดจำ</option>
                       {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
                     </select>
@@ -4674,7 +4673,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <Field label="จ่ายจากบัญชี/วิธีจ่าย">
                         <select style={inputStyle} value={editPaymentForm.fromStoreBankId || ""} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, fromStoreBankId: e.target.value })}>
                           <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
-                          <option value="CASH">เงินสดหน้าร้าน</option>
                           <option value="DEPOSIT">หักเงินมัดจำ</option>
                           {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
                         </select>
@@ -4937,7 +4935,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
     date: new Date().toISOString().slice(0, 10),
     customerId: "",
     amount: 0,
-    fromStoreBankId: storeBankAccounts[0]?.id || "CASH",
+    fromStoreBankId: storeBankAccounts[0]?.id || "",
     note: "",
   });
   const [form, setForm] = useState(blankForm());
@@ -5112,7 +5110,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
           </Field>
           <Field label="จ่ายจาก">
             <select style={inputStyle} value={form.fromStoreBankId} onChange={(e) => setForm({ ...form, fromStoreBankId: e.target.value })}>
-              <option value="CASH">เงินสดหน้าร้าน</option>
+              <option value="">-- เลือกบัญชี --</option>
               {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
             </select>
           </Field>
@@ -5471,7 +5469,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     id: "EXP" + Date.now().toString().slice(-6),
     date: new Date().toISOString().slice(0, 10),
     amount: 0,
-    fromStoreBankId: "CASH",
+    fromStoreBankId: "",
     method: PAYMENT_METHODS[0],
   });
 
@@ -5949,7 +5947,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                 <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} />
                 <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} />
                 <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayment(idx, "fromStoreBankId", e.target.value)}>
-                  <option value="CASH">เงินสดหน้าร้าน</option>
+                  <option value="">-- เลือกบัญชี --</option>
                   {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
                 </select>
                 <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)}>
