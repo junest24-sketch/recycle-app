@@ -1153,7 +1153,7 @@ useEffect(() => {
         {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
-        {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} />}
+        {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
         {tab === "assets" && <AssetsTab />}
@@ -5454,7 +5454,7 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, onClose }) {
 // ===================================================================
 // STORE BANK ACCOUNTS TAB (บัญชีธนาคารของร้าน)
 // ===================================================================
-function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expenses, deposits, bankTransfers }) {
+function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expenses, deposits, bankTransfers, customers }) {
   const [modal, setModal] = useState(null);
   const [statementModal, setStatementModal] = useState(null); // {account}
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
@@ -5512,6 +5512,15 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
           rows.push({ date: p.date, type: "จ่ายรับสินค้า", ref: po.id, description: `จ่ายรับสินค้า ${po.id}`, debit: Number(p.amount) || 0, credit: 0 });
         }
       });
+    });
+
+    // รายจ่าย: เงินมัดจำที่จ่ายล่วงหน้าให้ลูกค้าจากบัญชีนี้
+    (deposits || []).forEach((d) => {
+      if (d.fromStoreBankId === acc.id && inRange(d.date)) {
+        const cust = (customers || []).find((c) => c.id === d.customerId);
+        const custLabel = cust ? cust.name : (d.customerId || "ลูกค้า");
+        rows.push({ date: d.date, type: "จ่ายมัดจำ", ref: d.id, description: `จ่ายมัดจำให้ ${custLabel}${d.note ? " — " + d.note : ""}`, debit: Number(d.amount) || 0, credit: 0 });
+      }
     });
 
     // โยกเงินระหว่างบัญชี: เข้า (รับโอน) และ ออก (โอนออก)
