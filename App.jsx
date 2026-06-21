@@ -5508,22 +5508,22 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
     // รายจ่าย: ค่าใช้จ่ายที่จ่ายจากบัญชีนี้
     (expenses || []).forEach((e) => {
       (e.payments || []).forEach((p) => {
-        if (p.toStoreBankId === acc.id && inRange(p.date || e.billDate || e.date)) {
+        if (p.fromStoreBankId === acc.id && inRange(p.date || e.billDate || e.date)) {
           rows.push({ date: p.date || e.billDate || e.date, type: "จ่ายค่าใช้จ่าย", ref: e.refNo || e.id, description: `ค่าใช้จ่าย ${e.refNo || e.id}`, debit: Number(p.amount) || 0, credit: 0 });
         }
       });
       // กรณีบันทึกบัญชีตรง (ไม่ผ่าน payments)
-      if (!(e.payments && e.payments.length > 0) && e.toStoreBankId === acc.id && inRange(e.billDate || e.date)) {
+      if (!(e.payments && e.payments.length > 0) && e.fromStoreBankId === acc.id && inRange(e.billDate || e.date)) {
         const items = (e.items && e.items.length > 0) ? e.items : [{ amount: e.amount }];
         const amt = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
         rows.push({ date: e.billDate || e.date, type: "จ่ายค่าใช้จ่าย", ref: e.refNo || e.id, description: `ค่าใช้จ่าย ${e.refNo || e.id}`, debit: amt, credit: 0 });
       }
     });
 
-    // รายรับ: ใบรับสินค้า (จ่ายเงินให้ลูกค้า)
+    // รายจ่าย: ใบรับสินค้า (จ่ายเงินให้ลูกค้า)
     (purchases || []).forEach((po) => {
       (po.payments || []).forEach((p) => {
-        if (p.toStoreBankId === acc.id && inRange(p.date)) {
+        if (p.fromStoreBankId === acc.id && inRange(p.date)) {
           rows.push({ date: p.date, type: "จ่ายรับสินค้า", ref: po.id, description: `จ่ายรับสินค้า ${po.id}`, debit: Number(p.amount) || 0, credit: 0 });
         }
       });
