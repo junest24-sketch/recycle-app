@@ -1993,23 +1993,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 </div>
               </div>
             )}
-
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px", gridColumn: "span 2" }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e6f1fb", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-              <Landmark size={18} color="#185fa5" />
-            </div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>เงินที่จ่ายออกสะสมต่อบัญชีธนาคารร้าน <span style={{ color: "#bcb6e0" }}>(ปัจจุบัน)</span></div>
-            {(storeBankAccounts || []).length === 0 ? (
-              <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>ยังไม่มีบัญชีธนาคารร้าน</p>
-            ) : (
-              (storeBankAccounts || []).map((b) => (
-                <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
-                  <span>{b.bankName} {b.accountNo}</span>
-                  <span style={{ fontWeight: 600, color: "#993c1d" }}>-฿{fmt(bankOutflows[b.id] || 0)}</span>
-                </div>
-              ))
-            )}
-          </div>
         </div>{/* end dash-export-loans */}
         </>
       )}
