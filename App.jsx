@@ -188,12 +188,13 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
 
   const events = [];
 
-  // ===== ยอดยกมา: ใส่เป็น event แรกสุด ก่อนทุกรายการซื้อ/ขาย =====
+  // ===== ยอดยกมา: ใส่เป็น event ณ วันที่ 1 ของเดือนที่ระบุไว้ (ถ้าไม่ระบุเดือน ใช้วันที่เริ่มต้นสุดสำหรับความเข้ากันได้กับข้อมูลเดิม) =====
   products.forEach((p) => {
     const qty  = Number(p.openingQty)  || 0;
     const cost = Number(p.openingCost) || 0;
     if (qty > 0) {
-      events.push({ type: "in", date: "0000-01-01", ref: "ยอดยกมา", productId: p.id, qty, price: cost, isOpening: true });
+      const openingDate = p.openingMonth ? `${p.openingMonth}-01` : "0000-01-01";
+      events.push({ type: "in", date: openingDate, ref: "ยอดยกมา", productId: p.id, qty, price: cost, isOpening: true });
     }
   });
 
@@ -2252,12 +2253,18 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, productCategories, setProductCategories }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 });
+  const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "" });
 
   const filtered = products.filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search));
 
- const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 }); setModal({ mode: "add" }); };
-  const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, ...item }); setModal({ mode: "edit", item }); };
+  const monthLabelOfProduct = (ym) => {
+    if (!ym) return "";
+    const [y, m] = ym.split("-");
+    return `${MONTH_NAMES_TH[Number(m)]} ${y}`;
+  };
+
+ const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "" }); setModal({ mode: "add" }); };
+  const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, openingMonth: "", ...item }); setModal({ mode: "edit", item }); };
 
   // เมื่อพิมพ์ประเภทสินค้าใหม่ที่ยังไม่มี ให้เพิ่มเข้าฐานข้อมูล productCategories ทันที (ใช้ได้ทุกเครื่องหลังจากนี้)
   const handleTypeChange = (value) => {
@@ -2352,7 +2359,12 @@ const save = async () => {
                   <td style={tdStyle}>{p.unit}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(p.openingQty || 0)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(p.openingCost || 0)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>{val > 0 ? `฿${fmt(val)}` : "-"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>
+                    {val > 0 ? `฿${fmt(val)}` : "-"}
+                    {val > 0 && p.openingMonth && (
+                      <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 400 }}>({monthLabelOfProduct(p.openingMonth)})</div>
+                    )}
+                  </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button style={iconBtn} onClick={() => openEdit(p)}><Edit2 size={14} /></button>
@@ -2417,6 +2429,12 @@ const save = async () => {
                 <input type="number" min={0} style={inputStyle} value={form.openingCost} onChange={(e) => setForm({ ...form, openingCost: e.target.value })} placeholder="0" />
               </Field>
             </div>
+            <Field label="ของเดือน">
+              <input type="month" style={inputStyle} value={form.openingMonth || ""} onChange={(e) => setForm({ ...form, openingMonth: e.target.value })} />
+            </Field>
+            <p style={{ fontSize: 11, color: "#0f6e56", margin: "0 0 4px" }}>
+              * ระบุเดือนที่ยอดยกมานี้มีผล — รายงาน/แดชบอร์ดของเดือนนั้นๆ จะนับรวมยอดนี้เข้าไปด้วย
+            </p>
             {(Number(form.openingQty) > 0 || Number(form.openingCost) > 0) && (
               <div style={{ fontSize: 13, color: "#0f6e56", fontWeight: 600, marginTop: 6 }}>
                 มูลค่ายกมา: ฿{fmt((Number(form.openingQty) || 0) * (Number(form.openingCost) || 0))}
