@@ -49,6 +49,7 @@ const EXPENSE_SUBCATEGORIES_DEFAULT = {
 const UNIT_OPTIONS_DEFAULT = ["กก.", "ตัน", "ชิ้น", "ม้วน", "ใบ"];
 const PRODUCT_TYPES = ["กระดาษ", "พลาสติก", "เหล็ก", "อลูมิเนียม", "ทองแดง", "อื่นๆ"];
 const PAYMENT_METHODS = ["เงินสด", "โอนเงิน", "เช็ค", "พร้อมเพย์"];
+const MONTH_NAMES_TH = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 // ช่องทางชำระเงินสำหรับใบรับสินค้า (ไม่มีเงินสด เพราะต้องระบุบัญชีลูกค้าที่รับเงิน)
 const PURCHASE_PAYMENT_CHANNELS = ["เงินสด", "โอนเงิน", "เช็ค", "พร้อมเพย์"];
 const PAYMENT_STATUSES = ["รอชำระ", "ชำระแล้ว", "ชำระบางส่วน"];
@@ -1157,7 +1158,7 @@ useEffect(() => {
       </div>
 
       {/* Main content — independently scrollable */}
-      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} />}
+      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
@@ -1175,7 +1176,7 @@ useEffect(() => {
         {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
         {tab === "assets" && <AssetsTab />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
-        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} />}
+        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} />}
         {tab === "tax" && <TaxSummaryTab purchases={purchases} sales={sales} expenses={expenses} />}
       </div>
 
@@ -1186,7 +1187,7 @@ useEffect(() => {
 // ===================================================================
 // DASHBOARD
 // ===================================================================
-function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers }) {
+function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers, expenseCategories }) {
   // ---------- หมวดหมู่แดชบอร์ด ----------
   const [dashSubTab, setDashSubTab] = useState("purchases"); // "purchases" | "sales" | "expenses" | "stock" | "loans"
   const [expandedStockTypes, setExpandedStockTypes] = useState({}); // { [type]: bool } ติ๊กเลือกเพื่อดูรายการสินค้าในประเภทนั้น
@@ -1227,12 +1228,39 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     return sum + afterDiscount + vat;
   }, 0);
 
+  // ---------- ยอดยกมาของหมวดหมู่ย่อยค่าใช้จ่าย (นับรวมเฉพาะตอนช่วงเวลาที่เลือกตรงกับเดือนที่ระบุไว้ หรือเลือก "ทั้งหมด") ----------
+  const openingBalanceApplies = (openingMonth) => {
+    if (!openingMonth) return false;
+    if (!dateRange) return true; // periodMode = "all" → นับรวมยอดยกมาทุกตัว
+    // periodMode = "day" หรือ "range" → นับรวมเฉพาะถ้าช่วงที่เลือกอยู่ในเดือนที่ระบุไว้เท่านั้น
+    const monthStart = `${openingMonth}-01`;
+    const lastDay = new Date(Number(openingMonth.slice(0,4)), Number(openingMonth.slice(5,7)), 0).getDate();
+    const monthEnd = `${openingMonth}-${String(lastDay).padStart(2,"0")}`;
+    return dateRange.start >= monthStart && dateRange.end <= monthEnd;
+  };
+
+  const expenseOpeningRows = useMemo(() => {
+    const rows = [];
+    Object.entries(expenseCategories || {}).forEach(([main, subs]) => {
+      if (main !== "ค่าใช้จ่าย") return;
+      (subs || []).forEach((s) => {
+        if (typeof s === "string") return; // ของเดิมไม่มียอดยกมา
+        if (Number(s.openingBalance) > 0 && openingBalanceApplies(s.openingMonth)) {
+          rows.push({ subCategory: s.name, amount: Number(s.openingBalance) });
+        }
+      });
+    });
+    return rows;
+  }, [expenseCategories, dateRange]);
+
+  const totalExpensesOpening = expenseOpeningRows.reduce((s, r) => s + r.amount, 0);
+
   // รวมรายได้ = ยอดขาย + รายได้อื่นยกมา
   // รวมค่าใช้จ่าย = ค่าใช้จ่ายจริง + ค่าใช้จ่ายยกมา
   const totalExpenses = (expenses || []).filter((e) => inRange(e.billDate || e.date)).reduce((s, e) => {
     const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, amount: e.amount }];
     return s + items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
-  }, 0);
+  }, 0) + totalExpensesOpening;
 
   // ---------- ค่าใช้จ่ายแบ่งตามหมวดหมู่ย่อย ----------
   const expensesBySubCategory = useMemo(() => {
@@ -1247,8 +1275,13 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         groups[sub].count += 1;
       });
     });
+    // จากยอดยกมา
+    expenseOpeningRows.forEach((r) => {
+      if (!groups[r.subCategory]) groups[r.subCategory] = { subCategory: r.subCategory, amount: 0, count: 0 };
+      groups[r.subCategory].amount += r.amount;
+    });
     return Object.values(groups).sort((a, b) => b.amount - a.amount);
-  }, [expenses, dateRange]);
+  }, [expenses, dateRange, expenseOpeningRows]);
 
 
   const totalStockValue = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
@@ -5058,7 +5091,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   const allMainCategories = Object.keys(expenseCategories || {});
 
   // หมวดหมู่ย่อยของหมวดหมู่ใหญ่ที่ระบุ: มาจากฐานข้อมูล expenseCategories โดยตรง
-  const subCategoriesFor = (main) => (expenseCategories || {})[main] || [];
+  const subCategoriesFor = (main) => ((expenseCategories || {})[main] || []).map((s) => (typeof s === "string" ? s : s.name));
 
   // เมื่อพิมพ์หมวดหมู่ใหญ่ใหม่ที่ยังไม่มี ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที (ใช้ได้ทุกเครื่องหลังจากนี้)
   const handleItemMainCategoryChange = (idx, value) => {
@@ -5071,7 +5104,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   // เมื่อพิมพ์หมวดหมู่ย่อยใหม่ที่ยังไม่มีในหมวดหมู่ใหญ่นี้ ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที
   const handleItemSubCategoryChange = (idx, mainCategory, value) => {
     if (value && mainCategory && !subCategoriesFor(mainCategory).includes(value)) {
-      setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), value] }));
+      setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), { name: value, openingBalance: 0, openingMonth: "" }] }));
     }
     updateItem(idx, "subCategory", value);
   };
@@ -5671,16 +5704,25 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
   const [mainModal, setMainModal] = useState(null); // {mode:'add'|'edit', oldName}
   const [mainName, setMainName] = useState("");
   const [subModal, setSubModal] = useState(null); // {mode:'add'|'edit', main, oldName}
-  const [subName, setSubName] = useState("");
+  const [subForm, setSubForm] = useState({ name: "", openingBalance: 0, openingMonth: "" });
 
   const mains = Object.keys(expenseCategories || {});
+
+  // รองรับข้อมูลเดิมที่หมวดหมู่ย่อยยังเป็น string ธรรมดา (ก่อนมีฟีเจอร์ยอดยกมา) — แปลงเป็น object ให้อัตโนมัติตอนอ่าน
+  const subsOf = (main) => (expenseCategories[main] || []).map((s) => (typeof s === "string" ? { name: s, openingBalance: 0, openingMonth: "" } : s));
 
   const itemsOf = (e) => (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, subCategory: e.subCategory }];
 
   const countMain = (main) => expenses.filter((e) => itemsOf(e).some((it) => it.mainCategory === main)).length;
   const countSub = (main, sub) => expenses.filter((e) => itemsOf(e).some((it) => it.mainCategory === main && it.subCategory === sub)).length;
 
-  const filtered = mains.filter((m) => m.includes(search) || (expenseCategories[m] || []).some((s) => s.includes(search)));
+  const filtered = mains.filter((m) => m.includes(search) || subsOf(m).some((s) => s.name.includes(search)));
+
+  const monthLabelOf = (ym) => {
+    if (!ym) return "";
+    const [y, m] = ym.split("-");
+    return `${MONTH_NAMES_TH[Number(m)]} ${y}`;
+  };
 
   // ---------- หมวดหมู่ใหญ่ ----------
   const openAddMain = () => { setMainName(""); setMainModal({ mode: "add" }); };
@@ -5723,20 +5765,21 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
   };
 
   // ---------- หมวดหมู่ย่อย ----------
-  const openAddSub = (main) => { setSubName(""); setSubModal({ mode: "add", main }); };
-  const openEditSub = (main, sub) => { setSubName(sub); setSubModal({ mode: "edit", main, oldName: sub }); };
+  const openAddSub = (main) => { setSubForm({ name: "", openingBalance: 0, openingMonth: "" }); setSubModal({ mode: "add", main }); };
+  const openEditSub = (main, sub) => { setSubForm({ name: sub.name, openingBalance: sub.openingBalance || 0, openingMonth: sub.openingMonth || "" }); setSubModal({ mode: "edit", main, oldName: sub.name }); };
 
   const saveSub = () => {
-    const trimmed = subName.trim();
+    const trimmed = subForm.name.trim();
     if (!trimmed || !subModal) return;
     const main = subModal.main;
-    const subs = expenseCategories[main] || [];
+    const subs = subsOf(main);
+    const cleaned = { name: trimmed, openingBalance: Number(subForm.openingBalance) || 0, openingMonth: subForm.openingMonth || "" };
     if (subModal.mode === "add") {
-      if (subs.includes(trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
-      setExpenseCategories({ ...expenseCategories, [main]: [...subs, trimmed] });
+      if (subs.some((s) => s.name === trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
+      setExpenseCategories({ ...expenseCategories, [main]: [...subs, cleaned] });
     } else {
-      if (trimmed !== subModal.oldName && subs.includes(trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
-      setExpenseCategories({ ...expenseCategories, [main]: subs.map((s) => (s === subModal.oldName ? trimmed : s)) });
+      if (trimmed !== subModal.oldName && subs.some((s) => s.name === trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
+      setExpenseCategories({ ...expenseCategories, [main]: subs.map((s) => (s.name === subModal.oldName ? cleaned : s)) });
       if (trimmed !== subModal.oldName) {
         setExpenses(expenses.map((e) => {
           if (!(e.items && e.items.length > 0)) {
@@ -5749,13 +5792,13 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
     setSubModal(null);
   };
 
-  const removeSub = (main, sub) => {
-    const used = countSub(main, sub);
+  const removeSub = (main, subName) => {
+    const used = countSub(main, subName);
     if (used > 0) {
       alert(`ลบไม่ได้ — มีค่าใช้จ่าย ${used} รายการที่ใช้หมวดหมู่ย่อยนี้อยู่ กรุณาเปลี่ยนหมวดหมู่ของรายการนั้นก่อน`);
       return;
     }
-    setExpenseCategories({ ...expenseCategories, [main]: (expenseCategories[main] || []).filter((s) => s !== sub) });
+    setExpenseCategories({ ...expenseCategories, [main]: subsOf(main).filter((s) => s.name !== subName) });
   };
 
   return (
@@ -5782,20 +5825,29 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <tbody>
-                {(expenseCategories[main] || []).map((sub) => (
-                  <tr key={sub}>
-                    <td style={{ ...tdStyle, paddingLeft: 32, color: "#374151" }}>{sub}</td>
-                    <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 12 }}>{countSub(main, sub)} รายการ</td>
+                {subsOf(main).map((sub) => (
+                  <tr key={sub.name}>
+                    <td style={{ ...tdStyle, paddingLeft: 32, color: "#374151" }}>{sub.name}</td>
+                    <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 12 }}>{countSub(main, sub.name)} รายการ</td>
+                    <td style={{ ...tdStyle, fontSize: 12 }}>
+                      {Number(sub.openingBalance) > 0 ? (
+                        <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>
+                          ยอดยกมา ฿{fmt(sub.openingBalance)} ({monthLabelOf(sub.openingMonth)})
+                        </span>
+                      ) : (
+                        <span style={{ color: "#d1d5db" }}>ไม่มียอดยกมา</span>
+                      )}
+                    </td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                         <button style={iconBtn} onClick={() => openEditSub(main, sub)}><Edit2 size={14} /> แก้ไข</button>
-                        <button style={btnDanger} onClick={() => removeSub(main, sub)}><Trash2 size={14} /> ลบ</button>
+                        <button style={btnDanger} onClick={() => removeSub(main, sub.name)}><Trash2 size={14} /> ลบ</button>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {(expenseCategories[main] || []).length === 0 && (
-                  <tr><td colSpan={3} style={{ ...tdStyle, paddingLeft: 32, color: "#9ca3af" }}>ยังไม่มีหมวดหมู่ย่อย</td></tr>
+                {subsOf(main).length === 0 && (
+                  <tr><td colSpan={4} style={{ ...tdStyle, paddingLeft: 32, color: "#9ca3af" }}>ยังไม่มีหมวดหมู่ย่อย</td></tr>
                 )}
               </tbody>
             </table>
@@ -5824,13 +5876,24 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
       {subModal && (
         <Modal title={subModal.mode === "add" ? `เพิ่มหมวดหมู่ย่อยใน "${subModal.main}"` : `แก้ไขหมวดหมู่ย่อยใน "${subModal.main}"`} onClose={() => setSubModal(null)}>
           <Field label="ชื่อหมวดหมู่ย่อย">
-            <input style={inputStyle} value={subName} onChange={(e) => setSubName(e.target.value)} placeholder="เช่น ค่าน้ำมัน/ขนส่ง" />
+            <input style={inputStyle} value={subForm.name} onChange={(e) => setSubForm({ ...subForm, name: e.target.value })} placeholder="เช่น ค่าน้ำมัน/ขนส่ง" />
           </Field>
           {subModal.mode === "edit" && (
             <p style={{ fontSize: 12, color: "#9ca3af", margin: "-4px 0 8px" }}>
               * ถ้าเปลี่ยนชื่อ ค่าใช้จ่ายทุกรายการที่ใช้หมวดหมู่ย่อยนี้จะถูกเปลี่ยนชื่อตามไปด้วยอัตโนมัติ
             </p>
           )}
+          <div style={{ background: "#faeeda", borderRadius: 8, padding: "12px 16px", marginTop: 8 }}>
+            <Field label="ยอดยกมา (บาท)">
+              <input type="number" min={0} style={inputStyle} value={subForm.openingBalance} onChange={(e) => setSubForm({ ...subForm, openingBalance: e.target.value })} placeholder="0" />
+            </Field>
+            <Field label="ของเดือน">
+              <input type="month" style={inputStyle} value={subForm.openingMonth} onChange={(e) => setSubForm({ ...subForm, openingMonth: e.target.value })} />
+            </Field>
+            <p style={{ fontSize: 11, color: "#854f0b", margin: 0 }}>
+              * ยอดสะสมก่อนเริ่มใช้ระบบ กรอกครั้งเดียว — จะรวมเข้าไปเฉพาะตอนดูแดชบอร์ด/รายงานของเดือนที่ระบุไว้เท่านั้น
+            </p>
+          </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setSubModal(null)}>ยกเลิก</button>
             <button style={btnPrimary} onClick={saveSub}><Save size={16} /> บันทึก</button>
@@ -7243,7 +7306,7 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -7278,6 +7341,21 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory }) {
 
   // ===== ค่าใช้จ่ายดำเนินงาน =====
   const expensesInRange = expenses.filter((e) => inRange(e.billDate || e.date));
+  const currentYm = `${year}-${String(month).padStart(2,"0")}`;
+  // ยอดยกมาของหมวดหมู่ย่อยค่าใช้จ่าย — นับรวมเฉพาะเดือน/ปีที่ตรงกับที่ระบุไว้เป๊ะๆ เท่านั้น
+  const expenseOpeningRowsForReport = useMemo(() => {
+    const rows = [];
+    Object.entries(expenseCategories || {}).forEach(([main, subs]) => {
+      (subs || []).forEach((s) => {
+        if (typeof s === "string") return; // ของเดิมไม่มียอดยกมา
+        if (Number(s.openingBalance) > 0 && s.openingMonth === currentYm) {
+          rows.push({ mainCategory: main, subCategory: s.name, amount: Number(s.openingBalance) });
+        }
+      });
+    });
+    return rows;
+  }, [expenseCategories, currentYm]);
+
   const expenseByCategory = useMemo(() => {
     const groups = {};
     expensesInRange.forEach((e) => {
@@ -7287,8 +7365,12 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory }) {
         groups[cat] = (groups[cat] || 0) + (Number(it.amount) || 0);
       });
     });
+    // รวมยอดยกมาของเดือนนี้เข้าไปตามหมวดหมู่ใหญ่
+    expenseOpeningRowsForReport.forEach((r) => {
+      groups[r.mainCategory] = (groups[r.mainCategory] || 0) + r.amount;
+    });
     return Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
-  }, [expensesInRange]);
+  }, [expensesInRange, expenseOpeningRowsForReport]);
   const totalExpenses = expenseByCategory.reduce((s, c) => s + c.amount, 0);
 
   const netProfit = grossProfit - totalExpenses;
