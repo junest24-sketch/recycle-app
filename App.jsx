@@ -468,8 +468,8 @@ const iconBtn = {
   cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "#374151",
 };
 const roundBtn = {
-  background: "#fff", border: "1px solid #d1d5db", padding: "5px 7px", borderRadius: 6,
-  cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#374151", lineHeight: 1, flexShrink: 0,
+  background: "#eef6f2", border: "1.5px solid #1d9e75", padding: "9px 11px", borderRadius: 8,
+  cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#0f6e56", lineHeight: 1, flexShrink: 0, minWidth: 38,
 };
 
 const thStyle = { textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" };
@@ -4100,21 +4100,29 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const totalPayable = unpaidPurchases.reduce((s, r) => s + r.remaining, 0);
   const totalReceivable = unpaidSales.reduce((s, r) => s + r.remaining, 0);
 
-  // ---------- ฟอร์มบันทึกการจ่าย/รับเงิน ----------
-  const blankPaymentForm = (row) => ({
-    id: (row.kind === "purchase" ? "PM" : "SP") + Date.now().toString().slice(-6),
+  // ---------- ฟอร์มบันทึกการจ่าย/รับเงิน (รองรับแบ่งจ่ายหลายงวดในครั้งเดียว) ----------
+  const blankPaymentRow = (row, isFirst) => ({
+    id: (row.kind === "purchase" ? "PM" : "SP") + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000),
     date: new Date().toISOString().slice(0, 10),
-    amount: Math.round(row.remaining * 100) / 100,
+    amount: isFirst ? Math.round(row.remaining * 100) / 100 : 0,
     method: PAYMENT_METHODS[0],
     fromStoreBankId: row.kind === "purchase" ? (storeBankAccounts[0]?.id || "CASH") : undefined,
     toStoreBankId: row.kind === "sale" ? "" : undefined,
   });
-  const [payForm, setPayForm] = useState(null);
+  const [payRows, setPayRows] = useState(null);
 
   const openPay = (row) => {
     setPayModal(row);
-    setPayForm(blankPaymentForm(row));
+    setPayRows([blankPaymentRow(row, true)]);
   };
+
+  const addPayRow = () => setPayRows([...payRows, blankPaymentRow(payModal, false)]);
+  const updatePayRow = (idx, field, value) => {
+    const rows = [...payRows];
+    rows[idx] = { ...rows[idx], [field]: value };
+    setPayRows(rows);
+  };
+  const removePayRow = (idx) => setPayRows(payRows.filter((_, i) => i !== idx));
 
   // ยอดมัดจำคงเหลือของลูกค้า (เฉพาะกรณีจ่ายใบรับสินค้า — เผื่อหักมัดจำ)
   const depositBalanceForCustomer = (customerId, excludePoId) => {
@@ -4125,17 +4133,19 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     return totalGiven - totalUsedOtherPOs;
   };
 
+  const rowsTotal = (payRows || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+
   const savePayment = () => {
-    if (!payModal || !payForm) return;
-    if (!(Number(payForm.amount) > 0)) return;
-    const cleaned = { ...payForm, amount: Number(payForm.amount) };
+    if (!payModal || !payRows || payRows.length === 0) return;
+    const cleaned = payRows.filter((p) => Number(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) }));
+    if (cleaned.length === 0) return;
     if (payModal.kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === payModal.id ? { ...po, payments: [...(po.payments || []), cleaned] } : po));
+      setPurchases(purchases.map((po) => po.id === payModal.id ? { ...po, payments: [...(po.payments || []), ...cleaned] } : po));
     } else {
-      setSales(sales.map((inv) => inv.id === payModal.id ? { ...inv, payments: [...(inv.payments || []), cleaned] } : inv));
+      setSales(sales.map((inv) => inv.id === payModal.id ? { ...inv, payments: [...(inv.payments || []), ...cleaned] } : inv));
     }
     setPayModal(null);
-    setPayForm(null);
+    setPayRows(null);
   };
 
   const availableDeposit = payModal && payModal.kind === "purchase" ? depositBalanceForCustomer(payModal.customerId, payModal.id) : 0;
@@ -4217,10 +4227,11 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         </table>
       </Card>
 
-      {payModal && payForm && (
+      {payModal && payRows && (
         <Modal
           title={payModal.kind === "purchase" ? `บันทึกจ่ายเงิน · ${payModal.id}` : `บันทึกรับเงิน · ${payModal.id}`}
-          onClose={() => { setPayModal(null); setPayForm(null); }}
+          onClose={() => { setPayModal(null); setPayRows(null); }}
+          wide
         >
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
             <Row label="ลูกค้า" value={custName(payModal.customerId)} />
@@ -4229,51 +4240,76 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             <Row label="คงค้าง" value={`฿${fmt(payModal.remaining)}`} bold color={payModal.kind === "purchase" ? "#993c1d" : "#185fa5"} />
           </div>
 
-          <Field label="วันที่">
-            <input type="date" style={inputStyle} value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} />
-          </Field>
-
-          <Field label="จำนวนเงิน">
-            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
-              <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => setPayForm({ ...payForm, amount: roundUpAmount(payForm.amount) })}>▲</button>
-              <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => setPayForm({ ...payForm, amount: roundDownAmount(payForm.amount) })}>▼</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>
+              {payModal.kind === "purchase" ? "รายการจ่ายเงิน" : "รายการรับเงิน"} (แบ่งจ่าย/รับได้หลายงวด)
             </div>
-          </Field>
+            <button style={btnSecondary} onClick={addPayRow}><Plus size={14} /> เพิ่มรายการ</button>
+          </div>
 
-          {payModal.kind === "purchase" ? (
-            <Field label="จ่ายจากบัญชี/วิธีจ่าย">
-              <select style={inputStyle} value={payForm.fromStoreBankId} onChange={(e) => setPayForm({ ...payForm, fromStoreBankId: e.target.value })}>
-                <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
-                <option value="CASH">เงินสดหน้าร้าน</option>
-                <option value="DEPOSIT">หักเงินมัดจำ</option>
-                {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
-              </select>
-            </Field>
-          ) : (
-            <Field label="รับเข้าบัญชี">
-              <select style={inputStyle} value={payForm.toStoreBankId || ""} onChange={(e) => setPayForm({ ...payForm, toStoreBankId: e.target.value })}>
-                <option value="">เงินสด / ไม่ระบุบัญชี</option>
-                {(storeBankAccounts || []).map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>)}
-              </select>
-            </Field>
-          )}
+          {payRows.map((p, idx) => (
+            <div key={p.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12, marginBottom: 10, background: "#f9fafb" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 12, color: "#6b7280" }}>งวดที่ {idx + 1}</div>
+                {payRows.length > 1 && (
+                  <button style={btnDanger} onClick={() => removePayRow(idx)}><Trash2 size={14} /> ลบ</button>
+                )}
+              </div>
 
-          {payModal.kind === "purchase" && payForm.fromStoreBankId === "DEPOSIT" && (
-            <p style={{ fontSize: 12, color: (Number(payForm.amount) || 0) > availableDeposit ? "#a32d2d" : "#6b9c8d", marginTop: -4, marginBottom: 10 }}>
-              ลูกค้ามีเงินมัดจำคงเหลือ ฿{fmt(availableDeposit)}
-              {(Number(payForm.amount) || 0) > availableDeposit && " — เกินยอดมัดจำคงเหลือ"}
-            </p>
-          )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: "0 14px" }}>
+                <Field label="วันที่">
+                  <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayRow(idx, "date", e.target.value)} />
+                </Field>
+                <Field label="จำนวนเงิน">
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={p.amount} onChange={(e) => updatePayRow(idx, "amount", e.target.value)} />
+                    <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayRow(idx, "amount", roundUpAmount(p.amount))}>▲</button>
+                    <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayRow(idx, "amount", roundDownAmount(p.amount))}>▼</button>
+                  </div>
+                </Field>
+              </div>
 
-          <Field label="วิธีชำระ">
-            <select style={inputStyle} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
-              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </Field>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 14px" }}>
+                {payModal.kind === "purchase" ? (
+                  <Field label="จ่ายจากบัญชี/วิธีจ่าย">
+                    <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayRow(idx, "fromStoreBankId", e.target.value)}>
+                      <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
+                      <option value="CASH">เงินสดหน้าร้าน</option>
+                      <option value="DEPOSIT">หักเงินมัดจำ</option>
+                      {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
+                    </select>
+                  </Field>
+                ) : (
+                  <Field label="รับเข้าบัญชี">
+                    <select style={inputStyle} value={p.toStoreBankId || ""} onChange={(e) => updatePayRow(idx, "toStoreBankId", e.target.value)}>
+                      <option value="">เงินสด / ไม่ระบุบัญชี</option>
+                      {(storeBankAccounts || []).map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>)}
+                    </select>
+                  </Field>
+                )}
+                <Field label="วิธีชำระ">
+                  <select style={inputStyle} value={p.method} onChange={(e) => updatePayRow(idx, "method", e.target.value)}>
+                    {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </Field>
+              </div>
+
+              {payModal.kind === "purchase" && p.fromStoreBankId === "DEPOSIT" && (
+                <p style={{ fontSize: 12, color: (Number(p.amount) || 0) > availableDeposit ? "#a32d2d" : "#6b9c8d", margin: "4px 0 0" }}>
+                  ลูกค้ามีเงินมัดจำคงเหลือ ฿{fmt(availableDeposit)}
+                  {(Number(p.amount) || 0) > availableDeposit && " — เกินยอดมัดจำคงเหลือ"}
+                </p>
+              )}
+            </div>
+          ))}
+
+          <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", marginTop: 4, fontSize: 14 }}>
+            <Row label="รวมยอดที่จะบันทึกครั้งนี้" value={`฿${fmt(rowsTotal)}`} bold />
+            <Row label="คงค้างหลังบันทึก" value={`฿${fmt(payModal.remaining - rowsTotal)}`} color={(payModal.remaining - rowsTotal) > 0.01 ? "#993c1d" : "#0f6e56"} />
+          </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <button style={btnSecondary} onClick={() => { setPayModal(null); setPayForm(null); }}>ยกเลิก</button>
+            <button style={btnSecondary} onClick={() => { setPayModal(null); setPayRows(null); }}>ยกเลิก</button>
             <button style={btnPrimary} onClick={savePayment}><Save size={16} /> บันทึก</button>
           </div>
         </Modal>
