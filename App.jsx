@@ -259,7 +259,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
       });
   });
 
-  return { summary, history, lots };
+  return { summary, history, lots, movements };
 }
 
 // คำนวณต้นทุน FIFO ของจำนวนที่จะเบิก โดยอิงจากสต๊อกคงเหลือปัจจุบัน (ไม่แก้ไข lots จริง)
@@ -929,6 +929,7 @@ useEffect(() => {
     { key: "purchases", label: "ใบรับสินค้า", icon: ArrowDownToLine },
     { key: "withdrawals", label: "เบิกสินค้าเพื่อขาย", icon: PackageMinus },
     { key: "sales", label: "ขายสินค้า", icon: ShoppingCart },
+    { key: "payments", label: "รับชำระ/จ่ายชำระ", icon: CheckCircle2 },
     { key: "delivery", label: "ใบส่งสินค้า", icon: Truck },
     { key: "inventory", label: "สต๊อกสินค้า", icon: Boxes },
     { key: "deposits", label: "เงินมัดจำ", icon: Wallet },
@@ -1155,6 +1156,7 @@ useEffect(() => {
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} />}
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
+        {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
@@ -1553,7 +1555,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       </div>
 
       {/* แท็บหมวดหมู่ */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", overflowY: "hidden", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
         {subTabs.map((t) => {
           const Icon = t.icon;
           const active = dashSubTab === t.key;
@@ -1562,7 +1564,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               key={t.key}
               onClick={() => setDashSubTab(t.key)}
               style={{
-                display: "flex", alignItems: "center", gap: 6,
+                display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
                 padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600,
                 border: active ? "1px solid #1d9e75" : "1px solid #d1d5db",
                 background: active ? "#e1f5ee" : "#fff",
@@ -2958,69 +2960,18 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
             </Field>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, marginBottom: 8 }}>
-            <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
-              การชำระเงิน (แบ่งชำระได้หลายครั้ง)
-            </div>
-            <button style={btnSecondary} onClick={addPayment}><Plus size={14} /> เพิ่มการจ่ายเงิน</button>
-          </div>
-
-          {(form.payments || []).length === 0 ? (
-            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "16px", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
-              ยังไม่มีการชำระเงิน — กด "เพิ่มการจ่ายเงิน" เพื่อบันทึกแต่ละครั้งที่จ่าย/รับเงิน
-            </div>
-          ) : (
-            (form.payments || []).map((p, idx) => {
-              const availableDeposit = depositBalanceForCustomer(form.customerId, modal?.item?.id);
-              const usedInThisFormSoFar = (form.payments || [])
-                .slice(0, idx)
-                .filter((pp) => pp.fromStoreBankId === "DEPOSIT")
-                .reduce((s, pp) => s + (Number(pp.amount) || 0), 0);
-              const remainingDepositForThisRow = availableDeposit - usedInThisFormSoFar;
-              return (
-                <div key={p.id}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr 1.6fr 1fr auto", gap: 8, marginBottom: 4, alignItems: "center" }}>
-                    <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
-                      <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundUpAmount(p.amount))}>▲</button>
-                      <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundDownAmount(p.amount))}>▼</button>
-                    </div>
-                    <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayment(idx, "fromStoreBankId", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
-                      <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
-                      <option value="CASH">เงินสดหน้าร้าน</option>
-                      <option value="DEPOSIT">หักเงินมัดจำ</option>
-                      {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
-                    </select>
-                    <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
-                      {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    <button style={btnDanger} onClick={() => removePayment(idx)}><Trash2 size={14} /></button>
-                  </div>
-                  {p.fromStoreBankId === "DEPOSIT" && (
-                    <p style={{ fontSize: 12, color: (Number(p.amount) || 0) > remainingDepositForThisRow ? "#a32d2d" : "#6b9c8d", marginTop: -2, marginBottom: 8 }}>
-                      ลูกค้ามีเงินมัดจำคงเหลือ ฿{fmt(remainingDepositForThisRow)} ก่อนหักรายการนี้
-                      {(Number(p.amount) || 0) > remainingDepositForThisRow && " — เกินยอดมัดจำคงเหลือ"}
-                    </p>
-                  )}
-                </div>
-              );
-            })
-          )}
-
           {(() => {
             const subtotalBeforeVat = form.items.reduce((s, it) => s + lineTotal(it), 0);
             const vat = subtotalBeforeVat * ((Number(form.vatRate) || 0) / 100);
             const total = subtotalBeforeVat + vat;
-            const paid = (form.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-            const remaining = total - paid;
             return (
-              <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 12, fontSize: 14 }}>
+              <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 24, fontSize: 14 }}>
                 <Row label="ยอดก่อน VAT" value={`฿${fmt(subtotalBeforeVat)}`} />
                 {vat > 0 && <Row label={`VAT ${form.vatRate}%`} value={`+฿${fmt(vat)}`} color="#993c1d" />}
                 <Row label="ยอดรวมที่ต้องชำระ" value={`฿${fmt(total)}`} bold />
-                <Row label="ชำระแล้ว" value={`฿${fmt(paid)}`} />
-                <Row label="คงค้าง" value={`฿${fmt(remaining)}`} bold color={remaining > 0 ? "#a32d2d" : remaining < 0 ? "#a32d2d" : "#27500a"} />
+                <p style={{ fontSize: 12, color: "#9ca3af", margin: "8px 0 0" }}>
+                  * บันทึกใบนี้ก่อนได้เลย — ไปบันทึกการจ่ายเงินจริงที่เมนู "รับชำระ/จ่ายชำระ" ทีหลังได้
+                </p>
               </div>
             );
           })()}
@@ -3910,39 +3861,11 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             </Field>
           </div>
 
-          {/* การรับชำระเงิน (หลายครั้ง) */}
-          <div style={{ marginTop: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>การรับชำระเงิน</div>
-              <button style={btnSecondary} onClick={addPayment}><Plus size={14} /> เพิ่มรายการรับชำระ</button>
-            </div>
-            {(form.payments || []).length === 0 && <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>ยังไม่มีรายการรับชำระ</p>}
-            {(form.payments || []).map((p, idx) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "130px 1fr 1fr 1.3fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
-                <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
-                <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
-                  {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-                <select style={inputStyle} value={p.toStoreBankId || ""} onChange={(e) => updatePayment(idx, "toStoreBankId", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
-                  <option value="">เงินสด / ไม่ระบุบัญชี</option>
-                  {(storeBankAccounts || []).map((b) => (
-                    <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>
-                  ))}
-                </select>
-                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                  <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
-                  <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundUpAmount(p.amount))}>▲</button>
-                  <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundDownAmount(p.amount))}>▼</button>
-                </div>
-                <button style={btnDanger} onClick={() => removePayment(idx)}><Trash2 size={14} /></button>
-              </div>
-            ))}
-            {(form.payments || []).length > 0 && (
-              <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", fontSize: 14, marginTop: 6 }}>
-                <Row label="รับชำระแล้ว" value={`฿${fmt(totalPaid)}`} />
-                <Row label="ยอดค้างชำระ" value={`฿${fmt(remaining)}`} bold color={remaining > 0 ? "#993c1d" : "#0f6e56"} />
-              </div>
-            )}
+          <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 16, fontSize: 14 }}>
+            <Row label="ยอดรวมที่ต้องเรียกเก็บ" value={`฿${fmt(grandTotal)}`} bold />
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: "8px 0 0" }}>
+              * บันทึกใบนี้ก่อนได้เลย — ไปบันทึกการรับเงินจริงที่เมนู "รับชำระ/จ่ายชำระ" ทีหลังได้
+            </p>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
@@ -4122,6 +4045,240 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
         <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
       </div>
     </Modal>
+  );
+}
+
+// ===================================================================
+// PAYMENTS TAB (รับชำระ/จ่ายชำระ — รวมรายการค้างชำระจากใบรับสินค้าและใบขาย)
+// ===================================================================
+function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits }) {
+  const [activeView, setActiveView] = useState("all"); // "all" | "purchase" | "sale"
+  const [search, setSearch] = useState("");
+  const [payModal, setPayModal] = useState(null); // { kind: "purchase"|"sale", doc }
+
+  const custName = (id) => customers.find((c) => c.id === id)?.name || id;
+
+  // ---------- รายการใบรับสินค้าที่ยังค้างจ่าย ----------
+  const unpaidPurchases = useMemo(() => {
+    return purchases
+      .filter((po) => (po.status || "") === "อนุมัติแล้ว")
+      .map((po) => {
+        const subtotal = po.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
+        const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
+        const total = subtotal + vat;
+        const paid = (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+        const remaining = total - paid;
+        return { kind: "purchase", id: po.id, date: po.date, customerId: po.customerId, total, paid, remaining, doc: po };
+      })
+      .filter((r) => r.remaining > 0.01);
+  }, [purchases]);
+
+  // ---------- รายการใบขายที่ยังค้างรับ ----------
+  const unpaidSales = useMemo(() => {
+    return sales
+      .map((inv) => {
+        const subtotal = inv.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
+        const ad = subtotal - (inv.discount || 0);
+        const vat = ad * ((Number(inv.vatRate) || 0) / 100);
+        const total = ad + vat;
+        const paid = (inv.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+        const remaining = total - paid;
+        return { kind: "sale", id: inv.id, date: inv.date, customerId: inv.customerId, total, paid, remaining, doc: inv };
+      })
+      .filter((r) => r.remaining > 0.01);
+  }, [sales]);
+
+  const combined = useMemo(() => {
+    let list = [...unpaidPurchases, ...unpaidSales];
+    if (activeView === "purchase") list = unpaidPurchases;
+    if (activeView === "sale") list = unpaidSales;
+    return list
+      .filter((r) => r.id.includes(search) || custName(r.customerId).includes(search))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [unpaidPurchases, unpaidSales, activeView, search, customers]);
+
+  const totalPayable = unpaidPurchases.reduce((s, r) => s + r.remaining, 0);
+  const totalReceivable = unpaidSales.reduce((s, r) => s + r.remaining, 0);
+
+  // ---------- ฟอร์มบันทึกการจ่าย/รับเงิน ----------
+  const blankPaymentForm = (row) => ({
+    id: (row.kind === "purchase" ? "PM" : "SP") + Date.now().toString().slice(-6),
+    date: new Date().toISOString().slice(0, 10),
+    amount: Math.round(row.remaining * 100) / 100,
+    method: PAYMENT_METHODS[0],
+    fromStoreBankId: row.kind === "purchase" ? (storeBankAccounts[0]?.id || "CASH") : undefined,
+    toStoreBankId: row.kind === "sale" ? "" : undefined,
+  });
+  const [payForm, setPayForm] = useState(null);
+
+  const openPay = (row) => {
+    setPayModal(row);
+    setPayForm(blankPaymentForm(row));
+  };
+
+  // ยอดมัดจำคงเหลือของลูกค้า (เฉพาะกรณีจ่ายใบรับสินค้า — เผื่อหักมัดจำ)
+  const depositBalanceForCustomer = (customerId, excludePoId) => {
+    const totalGiven = (deposits || []).filter((d) => d.customerId === customerId).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    const totalUsedOtherPOs = purchases
+      .filter((po) => po.customerId === customerId && po.id !== excludePoId)
+      .reduce((s, po) => s + (po.payments || []).filter((p) => p.fromStoreBankId === "DEPOSIT").reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
+    return totalGiven - totalUsedOtherPOs;
+  };
+
+  const savePayment = () => {
+    if (!payModal || !payForm) return;
+    if (!(Number(payForm.amount) > 0)) return;
+    const cleaned = { ...payForm, amount: Number(payForm.amount) };
+    if (payModal.kind === "purchase") {
+      setPurchases(purchases.map((po) => po.id === payModal.id ? { ...po, payments: [...(po.payments || []), cleaned] } : po));
+    } else {
+      setSales(sales.map((inv) => inv.id === payModal.id ? { ...inv, payments: [...(inv.payments || []), cleaned] } : inv));
+    }
+    setPayModal(null);
+    setPayForm(null);
+  };
+
+  const availableDeposit = payModal && payModal.kind === "purchase" ? depositBalanceForCustomer(payModal.customerId, payModal.id) : 0;
+
+  return (
+    <div>
+      <Header title="รับชำระ / จ่ายชำระ" subtitle="รวมรายการใบรับสินค้าและใบขายที่ยังค้างชำระ — บันทึกการจ่าย/รับเงินจริงได้ที่นี่" />
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดที่ต้องจ่าย (ใบรับสินค้าค้างจ่าย)</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: "#993c1d" }}>฿{fmt(totalPayable)}</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{unpaidPurchases.length} ใบ</div>
+        </div>
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดที่ต้องรับ (ใบขายค้างรับ)</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: "#185fa5" }}>฿{fmt(totalReceivable)}</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{unpaidSales.length} ใบ</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", overflowY: "hidden", paddingBottom: 4 }}>
+        {[
+          { key: "all", label: `ทั้งหมด (${unpaidPurchases.length + unpaidSales.length})` },
+          { key: "purchase", label: `ใบรับสินค้าค้างจ่าย (${unpaidPurchases.length})` },
+          { key: "sale", label: `ใบขายค้างรับ (${unpaidSales.length})` },
+        ].map((opt) => (
+          <button key={opt.key} onClick={() => setActiveView(opt.key)}
+            style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
+              borderColor: activeView === opt.key ? "#1d9e75" : "#d1d5db",
+              background: activeView === opt.key ? "#e1f5ee" : "#fff",
+              color: activeView === opt.key ? "#0f6e56" : "#6b7280" }}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบ หรือชื่อลูกค้า..." />
+
+      <Card>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>ประเภท</th>
+              <th style={thStyle}>เลขที่ใบ</th>
+              <th style={thStyle}>วันที่</th>
+              <th style={thStyle}>ลูกค้า</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>ยอดรวม</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>ชำระแล้ว</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>คงค้าง</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {combined.map((r) => (
+              <tr key={r.kind + r.id}>
+                <td style={tdStyle}>
+                  {r.kind === "purchase" ? (
+                    <span style={{ background: "#faece7", color: "#993c1d", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ใบรับสินค้า)</span>
+                  ) : (
+                    <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
+                  )}
+                </td>
+                <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                <td style={tdStyle}>{r.date}</td>
+                <td style={tdStyle}>{custName(r.customerId)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(r.paid)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.kind === "purchase" ? "#993c1d" : "#185fa5" }}>฿{fmt(r.remaining)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <button style={btnPrimary} onClick={() => openPay(r)}>
+                    {r.kind === "purchase" ? <><ArrowUpFromLine size={14} /> บันทึกจ่าย</> : <><ArrowDownToLine size={14} /> บันทึกรับ</>}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {combined.length === 0 && <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่มีรายการค้างชำระ — ชำระครบทุกใบแล้ว ✓</td></tr>}
+          </tbody>
+        </table>
+      </Card>
+
+      {payModal && payForm && (
+        <Modal
+          title={payModal.kind === "purchase" ? `บันทึกจ่ายเงิน · ${payModal.id}` : `บันทึกรับเงิน · ${payModal.id}`}
+          onClose={() => { setPayModal(null); setPayForm(null); }}
+        >
+          <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+            <Row label="ลูกค้า" value={custName(payModal.customerId)} />
+            <Row label="ยอดรวมใบนี้" value={`฿${fmt(payModal.total)}`} />
+            <Row label="ชำระแล้ว" value={`฿${fmt(payModal.paid)}`} />
+            <Row label="คงค้าง" value={`฿${fmt(payModal.remaining)}`} bold color={payModal.kind === "purchase" ? "#993c1d" : "#185fa5"} />
+          </div>
+
+          <Field label="วันที่">
+            <input type="date" style={inputStyle} value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} />
+          </Field>
+
+          <Field label="จำนวนเงิน">
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} />
+              <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => setPayForm({ ...payForm, amount: roundUpAmount(payForm.amount) })}>▲</button>
+              <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => setPayForm({ ...payForm, amount: roundDownAmount(payForm.amount) })}>▼</button>
+            </div>
+          </Field>
+
+          {payModal.kind === "purchase" ? (
+            <Field label="จ่ายจากบัญชี/วิธีจ่าย">
+              <select style={inputStyle} value={payForm.fromStoreBankId} onChange={(e) => setPayForm({ ...payForm, fromStoreBankId: e.target.value })}>
+                <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
+                <option value="CASH">เงินสดหน้าร้าน</option>
+                <option value="DEPOSIT">หักเงินมัดจำ</option>
+                {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
+              </select>
+            </Field>
+          ) : (
+            <Field label="รับเข้าบัญชี">
+              <select style={inputStyle} value={payForm.toStoreBankId || ""} onChange={(e) => setPayForm({ ...payForm, toStoreBankId: e.target.value })}>
+                <option value="">เงินสด / ไม่ระบุบัญชี</option>
+                {(storeBankAccounts || []).map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>)}
+              </select>
+            </Field>
+          )}
+
+          {payModal.kind === "purchase" && payForm.fromStoreBankId === "DEPOSIT" && (
+            <p style={{ fontSize: 12, color: (Number(payForm.amount) || 0) > availableDeposit ? "#a32d2d" : "#6b9c8d", marginTop: -4, marginBottom: 10 }}>
+              ลูกค้ามีเงินมัดจำคงเหลือ ฿{fmt(availableDeposit)}
+              {(Number(payForm.amount) || 0) > availableDeposit && " — เกินยอดมัดจำคงเหลือ"}
+            </p>
+          )}
+
+          <Field label="วิธีชำระ">
+            <select style={inputStyle} value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}>
+              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </Field>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => { setPayModal(null); setPayForm(null); }}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={savePayment}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }
 
@@ -6868,7 +7025,7 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -6894,12 +7051,10 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits }) {
     return sum + ad;
   }, 0);
 
-  // ===== ต้นทุนขาย (จากใบรับสินค้า) =====
-  const purchasesInRange = purchases.filter((po) => po.status === "อนุมัติแล้ว" && inRange(po.date));
-  const totalCost = purchasesInRange.reduce((sum, po) => {
-    const subtotal = po.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
-    return sum + subtotal;
-  }, 0);
+  // ===== ต้นทุนขาย (จากต้นทุนสินค้าที่ขายออกจริงในเดือนนี้ — นับจากใบขายตรงและใบเบิกสินค้า ไม่ใช่ยอดซื้อทั้งเดือน) =====
+  const totalCost = (inventory?.movements || [])
+    .filter((m) => (m.type === "out" || m.type === "withdraw") && inRange(m.date))
+    .reduce((sum, m) => sum + (Number(m.costConsumed) || 0), 0);
 
   const grossProfit = totalRevenue - totalCost;
 
@@ -6992,7 +7147,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits }) {
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
           <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>งบกำไรขาดทุน — {periodLabel}</h3>
           <Row label="รายได้จากการขาย" value={`฿${fmt(totalRevenue)}`} bold />
-          <Row label="หัก ต้นทุนขาย (จากใบรับสินค้า)" value={`-฿${fmt(totalCost)}`} />
+          <Row label="หัก ต้นทุนขาย (ตามต้นทุนสินค้าที่ขาย/เบิกออกจริง)" value={`-฿${fmt(totalCost)}`} />
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
           <Row label="กำไรขั้นต้น (Gross Profit)" value={`฿${fmt(grossProfit)}`} bold color="#185fa5" />
           <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>หัก ค่าใช้จ่ายดำเนินงาน:</div>
