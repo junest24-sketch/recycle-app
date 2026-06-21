@@ -871,6 +871,7 @@ export default function App() {
   const [expenses, setExpenses] = useState(initialExpenses);
   const [loans, setLoans] = useState(initialLoans);
   const [unitOptions, setUnitOptions] = useState(UNIT_OPTIONS_DEFAULT);
+  const [expenseCategories, setExpenseCategories] = useState(EXPENSE_SUBCATEGORIES_DEFAULT);
 
   const inventory = useMemo(() => computeInventory(products, purchases, sales, withdrawals), [products, purchases, sales, withdrawals]);
 
@@ -898,6 +899,7 @@ export default function App() {
         if (data.companySettings) setCompanySettings(data.companySettings)
         if (data.users)         setUsers(data.users)
         if (data.unitOptions)   setUnitOptions(data.unitOptions)
+        if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -917,6 +919,7 @@ export default function App() {
   useSupabaseSync('shopProfile',       shopProfile,       setShopProfile,       dbLoaded)
   useSupabaseSync('companySettings',   companySettings,   setCompanySettings,   dbLoaded)
   useSupabaseSync('unitOptions',       unitOptions,       setUnitOptions,       dbLoaded)
+  useSupabaseSync('expenseCategories', expenseCategories, setExpenseCategories, dbLoaded)
 
 useEffect(() => {
   loadProducts().then(setProducts);
@@ -1160,7 +1163,7 @@ useEffect(() => {
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
-        {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} />}
+        {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
@@ -4916,16 +4919,14 @@ function LoanScheduleModal({ loan, expenses, onClose }) {
 // ===================================================================
 // EXPENSES TAB (บันทึกค่าใช้จ่าย / ใบสำคัญจ่าย)
 // ===================================================================
-function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans }) {
+function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
   const [installmentPicker, setInstallmentPicker] = useState(false); // เปิด picker ดึงงวดผ่อน
   const [pendingInstallment, setPendingInstallment] = useState(null); // {loanId, no} ของงวดที่เลือกไว้ รอบันทึก
   const [pickerLoanId, setPickerLoanId] = useState(""); // สัญญาที่เลือกใน dropdown ของ picker
 
-  // หมวดหมู่ใหญ่/ย่อย ที่ผู้ใช้เพิ่มเองระหว่างใช้งาน (เก็บแยกจาก default เพื่อให้เพิ่มได้เรื่อยๆ)
-  const [extraMainCategories, setExtraMainCategories] = useState([]);
-  const [extraSubCategories, setExtraSubCategories] = useState({}); // { mainCategory: [sub, ...] }
+  // หมวดหมู่ใหญ่/ย่อย เก็บเป็นฐานข้อมูลแยก (expenseCategories) ใช้ร่วมกันทุกเครื่อง บันทึกถาวรขึ้น Supabase
 
   const blankPayment = () => ({
     id: "EXP" + Date.now().toString().slice(-6),
@@ -5040,34 +5041,24 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   };
 
   // หมวดหมู่ใหญ่ทั้งหมด: ค่าตั้งต้น + ที่เพิ่มเอง + ที่เคยใช้ในข้อมูลเดิม (รวมจากทุกรายการในทุกใบ)
-  const allMainCategories = [...new Set([
-    ...EXPENSE_MAIN_CATEGORIES,
-    ...extraMainCategories,
-    ...expenses.flatMap((e) => (e.items && e.items.length > 0 ? e.items.map((it) => it.mainCategory) : [e.mainCategory])).filter(Boolean),
-  ])];
+  // หมวดหมู่ใหญ่ทั้งหมด: มาจากฐานข้อมูล expenseCategories (key ของ object) — ไม่ต้องรวมจากประวัติอีกต่อไป เพราะฐานข้อมูลคือแหล่งความจริง
+  const allMainCategories = Object.keys(expenseCategories || {});
 
-  // หมวดหมู่ย่อยของหมวดหมู่ใหญ่ที่ระบุ: ค่าตั้งต้น + ที่เพิ่มเอง + ที่เคยใช้ในข้อมูลเดิม (เฉพาะของ mainCategory นี้)
-  const subCategoriesFor = (main) => [...new Set([
-    ...(EXPENSE_SUBCATEGORIES_DEFAULT[main] || []),
-    ...(extraSubCategories[main] || []),
-    ...expenses.flatMap((e) => (e.items && e.items.length > 0 ? e.items : [e]))
-      .filter((it) => (it.mainCategory || it.category) === main)
-      .map((it) => it.subCategory)
-      .filter(Boolean),
-  ])];
+  // หมวดหมู่ย่อยของหมวดหมู่ใหญ่ที่ระบุ: มาจากฐานข้อมูล expenseCategories โดยตรง
+  const subCategoriesFor = (main) => (expenseCategories || {})[main] || [];
 
-  // เมื่อพิมพ์หมวดหมู่ใหญ่ใหม่ที่ยังไม่มี ให้เพิ่มเข้า extraMainCategories (สำหรับรายการที่ idx)
+  // เมื่อพิมพ์หมวดหมู่ใหญ่ใหม่ที่ยังไม่มี ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที (ใช้ได้ทุกเครื่องหลังจากนี้)
   const handleItemMainCategoryChange = (idx, value) => {
     if (value && !allMainCategories.includes(value)) {
-      setExtraMainCategories((prev) => [...prev, value]);
+      setExpenseCategories((prev) => ({ ...prev, [value]: [] }));
     }
     updateItem(idx, "mainCategory", value);
   };
 
-  // เมื่อพิมพ์หมวดหมู่ย่อยใหม่ที่ยังไม่มีในหมวดหมู่ใหญ่นี้ ให้เพิ่มเข้า extraSubCategories (สำหรับรายการที่ idx)
+  // เมื่อพิมพ์หมวดหมู่ย่อยใหม่ที่ยังไม่มีในหมวดหมู่ใหญ่นี้ ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที
   const handleItemSubCategoryChange = (idx, mainCategory, value) => {
     if (value && mainCategory && !subCategoriesFor(mainCategory).includes(value)) {
-      setExtraSubCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), value] }));
+      setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), value] }));
     }
     updateItem(idx, "subCategory", value);
   };
@@ -5335,7 +5326,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
           )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
             <Field label="เลขที่อ้างอิง">
-              <input style={{ ...inputStyle, background: "#f9fafb", color: "#6b7280" }} value={form.refNo} readOnly />
+              <input style={inputStyle} value={form.refNo} onChange={(e) => setForm({ ...form, refNo: e.target.value })} placeholder="รันอัตโนมัติ — แก้ไขได้" />
             </Field>
             <Field label="วันที่บันทึก">
               <input type="date" style={inputStyle} value={form.recordDate} onChange={(e) => setForm({ ...form, recordDate: e.target.value })} />
@@ -5349,10 +5340,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
             <input style={inputStyle} value={form.taxInvoiceNo} onChange={(e) => setForm({ ...form, taxInvoiceNo: e.target.value })} placeholder="เช่น INV-1234" />
           </Field>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>รายการค่าใช้จ่าย (เพิ่มได้หลายรายการในใบเดียว)</div>
-            <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
-          </div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>รายการค่าใช้จ่าย (เพิ่มได้หลายรายการในใบเดียว)</div>
           {(form.items || []).map((it, idx) => (
             <div key={it.id} style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, marginBottom: 10, background: "#f9fafb" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -5383,7 +5371,10 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
               </div>
             </div>
           ))}
-          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: -2, marginBottom: 16 }}>* พิมพ์ชื่อหมวดหมู่ใหญ่/ย่อยใหม่ได้เลย ระบบจะเพิ่มเป็นตัวเลือกให้อัตโนมัติ</p>
+          <div style={{ marginBottom: 10 }}>
+            <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
+          </div>
+          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: -2, marginBottom: 16 }}>* พิมพ์ชื่อหมวดหมู่ใหญ่/ย่อยใหม่ได้เลย ระบบจะบันทึกเป็นหมวดหมู่ใหม่ในฐานข้อมูลให้อัตโนมัติ</p>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
             <Field label="ภาษีมูลค่าเพิ่ม">
