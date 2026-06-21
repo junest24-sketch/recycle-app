@@ -35,6 +35,10 @@ const initialExpenses = [];
 // เงินกู้ยืม / เช่าซื้อ: {id, name, type, principal, annualInterestRate, totalInstallments, startDate, lender}
 // งวดผ่อนสร้างจาก amortization schedule (ผ่อนเท่ากันทุกเดือน ลดดอกเบี้ยจากเงินต้นคงเหลือ)
 const initialLoans = [];
+const initialAssets = [
+  { id: "AS001", name: "รถกระบะบรรทุก", category: "ยานพาหนะ", purchaseDate: "2024-01-15", cost: 650000, lifeYears: 5, depreciationMethod: "เส้นตรง", note: "" },
+  { id: "AS002", name: "เครื่องชั่งน้ำหนัก", category: "เครื่องจักร/อุปกรณ์", purchaseDate: "2024-03-01", cost: 45000, lifeYears: 10, depreciationMethod: "เส้นตรง", note: "" },
+];
 const LOAN_TYPES = ["เงินกู้ยืม", "เช่าซื้อ"];
 
 // หมวดหมู่ใหญ่ (เพิ่มได้) และหมวดหมู่ย่อยเริ่มต้นของแต่ละหมวดหมู่ใหญ่ (เพิ่มได้)
@@ -872,6 +876,7 @@ export default function App() {
   const [bankTransfers, setBankTransfers] = useState([]);
   const [expenses, setExpenses] = useState(initialExpenses);
   const [loans, setLoans] = useState(initialLoans);
+  const [assets, setAssets] = useState(initialAssets);
   const [unitOptions, setUnitOptions] = useState(UNIT_OPTIONS_DEFAULT);
   const [expenseCategories, setExpenseCategories] = useState(EXPENSE_SUBCATEGORIES_DEFAULT);
   const [productCategories, setProductCategories] = useState(PRODUCT_TYPES);
@@ -904,6 +909,7 @@ export default function App() {
         if (data.unitOptions)   setUnitOptions(data.unitOptions)
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
         if (data.productCategories) setProductCategories(data.productCategories)
+        if (data.assets) setAssets(data.assets)
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -925,6 +931,7 @@ export default function App() {
   useSupabaseSync('unitOptions',       unitOptions,       setUnitOptions,       dbLoaded)
   useSupabaseSync('expenseCategories', expenseCategories, setExpenseCategories, dbLoaded)
   useSupabaseSync('productCategories', productCategories, setProductCategories, dbLoaded)
+  useSupabaseSync('assets',            assets,            setAssets,            dbLoaded)
 
 useEffect(() => {
   loadProducts().then(setProducts);
@@ -1175,7 +1182,7 @@ useEffect(() => {
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
-        {tab === "assets" && <AssetsTab />}
+        {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
         {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} />}
         {tab === "tax" && <TaxSummaryTab purchases={purchases} sales={sales} expenses={expenses} />}
@@ -6478,11 +6485,7 @@ function ReceivablesTab({ customers, sales, purchases }) {
 // ===================================================================
 // ASSETS TAB (ทะเบียนทรัพย์สิน)
 // ===================================================================
-function AssetsTab() {
-  const [assets, setAssets] = useState([
-    { id: "AS001", name: "รถกระบะบรรทุก", category: "ยานพาหนะ", purchaseDate: "2024-01-15", cost: 650000, lifeYears: 5, depreciationMethod: "เส้นตรง", note: "" },
-    { id: "AS002", name: "เครื่องชั่งน้ำหนัก", category: "เครื่องจักร/อุปกรณ์", purchaseDate: "2024-03-01", cost: 45000, lifeYears: 10, depreciationMethod: "เส้นตรง", note: "" },
-  ]);
+function AssetsTab({ assets, setAssets }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
 
