@@ -931,7 +931,6 @@ useEffect(() => {
   const navItems = [
     { key: "dashboard", label: "แดชบอร์ด", icon: TrendingUp },
     { key: "products", label: "ข้อมูลสินค้า", icon: Package },
-    { key: "productCategories", label: "หมวดหมู่สินค้า", icon: Boxes },
     { key: "customers", label: "ข้อมูลลูกค้า", icon: Users },
     { key: "purchases", label: "ใบรับสินค้า", icon: ArrowDownToLine },
     { key: "withdrawals", label: "เบิกสินค้าเพื่อขาย", icon: PackageMinus },
@@ -941,6 +940,7 @@ useEffect(() => {
     { key: "inventory", label: "สต๊อกสินค้า", icon: Boxes },
     { key: "deposits", label: "เงินมัดจำ", icon: Wallet },
     { key: "expenses", label: "ค่าใช้จ่าย", icon: Receipt },
+    { key: "expenseCategories", label: "หมวดหมู่ค่าใช้จ่าย", icon: Boxes },
     { key: "loans", label: "เงินกู้ยืม/เช่าซื้อ", icon: CreditCard },
     { key: "bankaccounts", label: "บัญชีธนาคารร้าน", icon: Landmark },
     { key: "banktransfer", label: "โยกเงินระหว่างธนาคาร", icon: ArrowRight },
@@ -1159,7 +1159,6 @@ useEffect(() => {
       {/* Main content — independently scrollable */}
       <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
-        {tab === "productCategories" && <ProductCategoriesTab productCategories={productCategories} setProductCategories={setProductCategories} products={products} setProducts={setProducts} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} />}
@@ -1169,6 +1168,7 @@ useEffect(() => {
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} />}
+        {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
@@ -2390,102 +2390,6 @@ const save = async () => {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
-            <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
-          </div>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-// ===================================================================
-// PRODUCT CATEGORIES TAB (หมวดหมู่สินค้า — ฐานข้อมูลแยกต่างหาก)
-// ===================================================================
-function ProductCategoriesTab({ productCategories, setProductCategories, products, setProducts }) {
-  const [search, setSearch] = useState("");
-  const [modal, setModal] = useState(null); // {mode:'add'|'edit', oldName}
-  const [name, setName] = useState("");
-
-  const countFor = (cat) => products.filter((p) => p.type === cat).length;
-
-  const filtered = productCategories.filter((c) => c.includes(search));
-
-  const openAdd = () => { setName(""); setModal({ mode: "add" }); };
-  const openEdit = (cat) => { setName(cat); setModal({ mode: "edit", oldName: cat }); };
-
-  const save = () => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    if (modal.mode === "add") {
-      if (productCategories.includes(trimmed)) { alert("มีหมวดหมู่นี้อยู่แล้ว"); return; }
-      setProductCategories([...productCategories, trimmed]);
-    } else {
-      if (trimmed !== modal.oldName && productCategories.includes(trimmed)) { alert("มีหมวดหมู่นี้อยู่แล้ว"); return; }
-      // เปลี่ยนชื่อหมวดหมู่ — อัปเดตทั้งในฐานข้อมูลหมวดหมู่ และสินค้าทุกตัวที่ใช้หมวดหมู่นี้อยู่
-      setProductCategories(productCategories.map((c) => (c === modal.oldName ? trimmed : c)));
-      if (trimmed !== modal.oldName) {
-        setProducts(products.map((p) => (p.type === modal.oldName ? { ...p, type: trimmed } : p)));
-      }
-    }
-    setModal(null);
-  };
-
-  const remove = (cat) => {
-    const used = countFor(cat);
-    if (used > 0) {
-      alert(`ลบไม่ได้ — มีสินค้า ${used} รายการที่ใช้หมวดหมู่นี้อยู่ กรุณาเปลี่ยนหมวดหมู่ของสินค้านั้นก่อน`);
-      return;
-    }
-    setProductCategories(productCategories.filter((c) => c !== cat));
-  };
-
-  return (
-    <div>
-      <Header title="หมวดหมู่สินค้า" subtitle="ฐานข้อมูลประเภทสินค้า ใช้เลือกตอนเพิ่ม/แก้ไขสินค้า">
-        <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> เพิ่มหมวดหมู่</button>
-      </Header>
-
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาหมวดหมู่สินค้า..." />
-
-      <Card>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>ชื่อหมวดหมู่</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>จำนวนสินค้าที่ใช้</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((cat) => (
-              <tr key={cat}>
-                <td style={tdStyle}><Badge text={cat} /></td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>{countFor(cat)} รายการ</td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>
-                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button style={iconBtn} onClick={() => openEdit(cat)}><Edit2 size={14} /> แก้ไข</button>
-                    <button style={btnDanger} onClick={() => remove(cat)}><Trash2 size={14} /> ลบ</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && <tr><td colSpan={3} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบหมวดหมู่สินค้า</td></tr>}
-          </tbody>
-        </table>
-      </Card>
-
-      {modal && (
-        <Modal title={modal.mode === "add" ? "เพิ่มหมวดหมู่สินค้า" : "แก้ไขหมวดหมู่สินค้า"} onClose={() => setModal(null)}>
-          <Field label="ชื่อหมวดหมู่">
-            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น กระดาษ, พลาสติก" />
-          </Field>
-          {modal.mode === "edit" && (
-            <p style={{ fontSize: 12, color: "#9ca3af", margin: "-4px 0 8px" }}>
-              * ถ้าเปลี่ยนชื่อ สินค้าทุกรายการที่ใช้หมวดหมู่นี้อยู่จะถูกเปลี่ยนชื่อตามไปด้วยอัตโนมัติ
-            </p>
-          )}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
             <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
@@ -5756,6 +5660,184 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, onClose }) {
         <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
       </div>
     </Modal>
+  );
+}
+
+// ===================================================================
+// EXPENSE CATEGORIES TAB (หมวดหมู่ค่าใช้จ่าย — ฐานข้อมูลแยกต่างหาก)
+// ===================================================================
+function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expenses, setExpenses }) {
+  const [search, setSearch] = useState("");
+  const [mainModal, setMainModal] = useState(null); // {mode:'add'|'edit', oldName}
+  const [mainName, setMainName] = useState("");
+  const [subModal, setSubModal] = useState(null); // {mode:'add'|'edit', main, oldName}
+  const [subName, setSubName] = useState("");
+
+  const mains = Object.keys(expenseCategories || {});
+
+  const itemsOf = (e) => (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, subCategory: e.subCategory }];
+
+  const countMain = (main) => expenses.filter((e) => itemsOf(e).some((it) => it.mainCategory === main)).length;
+  const countSub = (main, sub) => expenses.filter((e) => itemsOf(e).some((it) => it.mainCategory === main && it.subCategory === sub)).length;
+
+  const filtered = mains.filter((m) => m.includes(search) || (expenseCategories[m] || []).some((s) => s.includes(search)));
+
+  // ---------- หมวดหมู่ใหญ่ ----------
+  const openAddMain = () => { setMainName(""); setMainModal({ mode: "add" }); };
+  const openEditMain = (main) => { setMainName(main); setMainModal({ mode: "edit", oldName: main }); };
+
+  const saveMain = () => {
+    const trimmed = mainName.trim();
+    if (!trimmed) return;
+    if (mainModal.mode === "add") {
+      if (expenseCategories[trimmed]) { alert("มีหมวดหมู่ใหญ่นี้อยู่แล้ว"); return; }
+      setExpenseCategories({ ...expenseCategories, [trimmed]: [] });
+    } else {
+      if (trimmed !== mainModal.oldName && expenseCategories[trimmed]) { alert("มีหมวดหมู่ใหญ่นี้อยู่แล้ว"); return; }
+      const updated = { ...expenseCategories };
+      const subs = updated[mainModal.oldName] || [];
+      delete updated[mainModal.oldName];
+      updated[trimmed] = subs;
+      setExpenseCategories(updated);
+      if (trimmed !== mainModal.oldName) {
+        setExpenses(expenses.map((e) => {
+          if (!(e.items && e.items.length > 0)) {
+            return (e.mainCategory === mainModal.oldName) ? { ...e, mainCategory: trimmed } : e;
+          }
+          return { ...e, items: e.items.map((it) => it.mainCategory === mainModal.oldName ? { ...it, mainCategory: trimmed } : it) };
+        }));
+      }
+    }
+    setMainModal(null);
+  };
+
+  const removeMain = (main) => {
+    const used = countMain(main);
+    if (used > 0) {
+      alert(`ลบไม่ได้ — มีค่าใช้จ่าย ${used} รายการที่ใช้หมวดหมู่นี้อยู่ กรุณาเปลี่ยนหมวดหมู่ของรายการนั้นก่อน`);
+      return;
+    }
+    const updated = { ...expenseCategories };
+    delete updated[main];
+    setExpenseCategories(updated);
+  };
+
+  // ---------- หมวดหมู่ย่อย ----------
+  const openAddSub = (main) => { setSubName(""); setSubModal({ mode: "add", main }); };
+  const openEditSub = (main, sub) => { setSubName(sub); setSubModal({ mode: "edit", main, oldName: sub }); };
+
+  const saveSub = () => {
+    const trimmed = subName.trim();
+    if (!trimmed || !subModal) return;
+    const main = subModal.main;
+    const subs = expenseCategories[main] || [];
+    if (subModal.mode === "add") {
+      if (subs.includes(trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
+      setExpenseCategories({ ...expenseCategories, [main]: [...subs, trimmed] });
+    } else {
+      if (trimmed !== subModal.oldName && subs.includes(trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
+      setExpenseCategories({ ...expenseCategories, [main]: subs.map((s) => (s === subModal.oldName ? trimmed : s)) });
+      if (trimmed !== subModal.oldName) {
+        setExpenses(expenses.map((e) => {
+          if (!(e.items && e.items.length > 0)) {
+            return (e.mainCategory === main && e.subCategory === subModal.oldName) ? { ...e, subCategory: trimmed } : e;
+          }
+          return { ...e, items: e.items.map((it) => (it.mainCategory === main && it.subCategory === subModal.oldName) ? { ...it, subCategory: trimmed } : it) };
+        }));
+      }
+    }
+    setSubModal(null);
+  };
+
+  const removeSub = (main, sub) => {
+    const used = countSub(main, sub);
+    if (used > 0) {
+      alert(`ลบไม่ได้ — มีค่าใช้จ่าย ${used} รายการที่ใช้หมวดหมู่ย่อยนี้อยู่ กรุณาเปลี่ยนหมวดหมู่ของรายการนั้นก่อน`);
+      return;
+    }
+    setExpenseCategories({ ...expenseCategories, [main]: (expenseCategories[main] || []).filter((s) => s !== sub) });
+  };
+
+  return (
+    <div>
+      <Header title="หมวดหมู่ค่าใช้จ่าย" subtitle="ฐานข้อมูลหมวดหมู่ใหญ่/ย่อยของค่าใช้จ่าย ใช้เลือกตอนบันทึกค่าใช้จ่าย">
+        <button style={btnPrimary} onClick={openAddMain}><Plus size={16} /> เพิ่มหมวดหมู่ใหญ่</button>
+      </Header>
+
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาหมวดหมู่ใหญ่หรือย่อย..." />
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {filtered.map((main) => (
+          <div key={main} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+            <div style={{ background: "#f3f4f6", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{main}</span>
+                <span style={{ fontSize: 12, color: "#9ca3af" }}>{countMain(main)} รายการที่ใช้หมวดหมู่นี้</span>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button style={iconBtn} onClick={() => openAddSub(main)}><Plus size={14} /> เพิ่มหมวดหมู่ย่อย</button>
+                <button style={iconBtn} onClick={() => openEditMain(main)}><Edit2 size={14} /> แก้ไข</button>
+                <button style={btnDanger} onClick={() => removeMain(main)}><Trash2 size={14} /> ลบ</button>
+              </div>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody>
+                {(expenseCategories[main] || []).map((sub) => (
+                  <tr key={sub}>
+                    <td style={{ ...tdStyle, paddingLeft: 32, color: "#374151" }}>{sub}</td>
+                    <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 12 }}>{countSub(main, sub)} รายการ</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <button style={iconBtn} onClick={() => openEditSub(main, sub)}><Edit2 size={14} /> แก้ไข</button>
+                        <button style={btnDanger} onClick={() => removeSub(main, sub)}><Trash2 size={14} /> ลบ</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {(expenseCategories[main] || []).length === 0 && (
+                  <tr><td colSpan={3} style={{ ...tdStyle, paddingLeft: 32, color: "#9ca3af" }}>ยังไม่มีหมวดหมู่ย่อย</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ))}
+        {filtered.length === 0 && <p style={{ color: "#9ca3af", textAlign: "center", padding: 30 }}>ไม่พบหมวดหมู่ค่าใช้จ่าย</p>}
+      </div>
+
+      {mainModal && (
+        <Modal title={mainModal.mode === "add" ? "เพิ่มหมวดหมู่ใหญ่" : "แก้ไขหมวดหมู่ใหญ่"} onClose={() => setMainModal(null)}>
+          <Field label="ชื่อหมวดหมู่ใหญ่">
+            <input style={inputStyle} value={mainName} onChange={(e) => setMainName(e.target.value)} placeholder="เช่น ค่าใช้จ่าย, ภาษี" />
+          </Field>
+          {mainModal.mode === "edit" && (
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: "-4px 0 8px" }}>
+              * ถ้าเปลี่ยนชื่อ ค่าใช้จ่ายทุกรายการที่ใช้หมวดหมู่นี้จะถูกเปลี่ยนชื่อตามไปด้วยอัตโนมัติ
+            </p>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setMainModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={saveMain}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+
+      {subModal && (
+        <Modal title={subModal.mode === "add" ? `เพิ่มหมวดหมู่ย่อยใน "${subModal.main}"` : `แก้ไขหมวดหมู่ย่อยใน "${subModal.main}"`} onClose={() => setSubModal(null)}>
+          <Field label="ชื่อหมวดหมู่ย่อย">
+            <input style={inputStyle} value={subName} onChange={(e) => setSubName(e.target.value)} placeholder="เช่น ค่าน้ำมัน/ขนส่ง" />
+          </Field>
+          {subModal.mode === "edit" && (
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: "-4px 0 8px" }}>
+              * ถ้าเปลี่ยนชื่อ ค่าใช้จ่ายทุกรายการที่ใช้หมวดหมู่ย่อยนี้จะถูกเปลี่ยนชื่อตามไปด้วยอัตโนมัติ
+            </p>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setSubModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={saveSub}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }
 
