@@ -4253,7 +4253,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         const total = subtotal + vat;
         const paid = (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
         const remaining = total - paid;
-        const payStatus = remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid";
+        const payStatus = po.writeOff ? "paid" : (remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid");
         return { kind: "purchase", id: po.id, date: po.date, customerId: po.customerId, total, paid, remaining, payStatus, doc: po };
       });
   }, [purchases]);
@@ -4268,7 +4268,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         const total = ad + vat;
         const paid = (inv.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
         const remaining = total - paid;
-        const payStatus = remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid";
+        const payStatus = inv.writeOff ? "paid" : (remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid");
         return { kind: "sale", id: inv.id, date: inv.date, customerId: inv.customerId, total, paid, remaining, payStatus, doc: inv };
       });
   }, [sales]);
@@ -4304,6 +4304,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const openPay = (row) => {
     setPayModal(row);
     setPayRows([blankPaymentRow(row, true)]);
+    setWriteOffChecked(false);
   };
 
   const addPayRow = () => setPayRows([...payRows, blankPaymentRow(payModal, false)]);
@@ -4325,17 +4326,20 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
   const rowsTotal = (payRows || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
+  const [writeOffChecked, setWriteOffChecked] = useState(false);
+
   const savePayment = () => {
     if (!payModal || !payRows || payRows.length === 0) return;
     const cleaned = payRows.filter((p) => Number(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) }));
     if (cleaned.length === 0) return;
     if (payModal.kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === payModal.id ? { ...po, payments: [...(po.payments || []), ...cleaned] } : po));
+      setPurchases(purchases.map((po) => po.id === payModal.id ? { ...po, payments: [...(po.payments || []), ...cleaned], writeOff: writeOffChecked } : po));
     } else {
-      setSales(sales.map((inv) => inv.id === payModal.id ? { ...inv, payments: [...(inv.payments || []), ...cleaned] } : inv));
+      setSales(sales.map((inv) => inv.id === payModal.id ? { ...inv, payments: [...(inv.payments || []), ...cleaned], writeOff: writeOffChecked } : inv));
     }
     setPayModal(null);
     setPayRows(null);
+    setWriteOffChecked(false);
   };
 
   const availableDeposit = payModal && payModal.kind === "purchase" ? depositBalanceForCustomer(payModal.customerId, payModal.id) : 0;
@@ -4470,7 +4474,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 <td style={tdStyle}>{custName(r.customerId)}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
                 <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(r.paid)}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.kind === "purchase" ? "#993c1d" : "#185fa5" }}>฿{fmt(r.remaining)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.payStatus === "paid" ? "#0f6e56" : r.kind === "purchase" ? "#993c1d" : "#185fa5" }}>฿{fmt(r.payStatus === "paid" ? 0 : r.remaining)}</td>
                 <td style={tdStyle}>
                   {r.payStatus === "paid" ? (
                     <span style={{ background: "#e3f5ea", color: "#0f6e56", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>ชำระครบแล้ว</span>
@@ -4580,8 +4584,19 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             <Row label="คงค้างหลังบันทึก" value={`฿${fmt(payModal.remaining - rowsTotal)}`} color={(payModal.remaining - rowsTotal) > 0.01 ? "#993c1d" : "#0f6e56"} />
           </div>
 
+          {Math.abs(payModal.remaining - rowsTotal) > 0.01 && (
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
+              <input type="checkbox" checked={writeOffChecked} onChange={(e) => setWriteOffChecked(e.target.checked)} style={{ marginTop: 2 }} />
+              <span>
+                <strong>ปัดเศษให้ครบ — ถือว่าใบนี้ "ชำระครบแล้ว"</strong>
+                <br />
+                <span style={{ color: "#854f0b" }}>ไม่นับยอดคงเหลือ ฿{fmt(payModal.remaining - rowsTotal)} เป็นยอดค้างอีกต่อไป (เหมาะกับเศษสตางค์เล็กน้อยจากการชั่งน้ำหนัก)</span>
+              </span>
+            </label>
+          )}
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <button style={btnSecondary} onClick={() => { setPayModal(null); setPayRows(null); }}>ยกเลิก</button>
+            <button style={btnSecondary} onClick={() => { setPayModal(null); setPayRows(null); setWriteOffChecked(false); }}>ยกเลิก</button>
             <button style={btnPrimary} onClick={savePayment}><Save size={16} /> บันทึก</button>
           </div>
         </Modal>
@@ -4599,6 +4614,22 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             <Row label="ชำระแล้ว" value={`฿${fmt(historyTotals.paid)}`} />
             <Row label="คงค้าง" value={`฿${fmt(historyTotals.remaining)}`} bold color={historyTotals.remaining > 0.01 ? "#993c1d" : "#0f6e56"} />
           </div>
+
+          {historyModal.doc.writeOff && historyTotals.remaining > 0.01 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14, padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 13 }}>
+              <span style={{ color: "#854f0b" }}>
+                <strong>ปัดเศษไว้แล้ว</strong> — ใบนี้ถือว่าชำระครบ ไม่นับยอด ฿{fmt(historyTotals.remaining)} เป็นยอดค้าง
+              </span>
+              <button style={btnSecondary} onClick={() => {
+                if (historyModal.kind === "purchase") {
+                  setPurchases(purchases.map((po) => po.id === historyModal.id ? { ...po, writeOff: false } : po));
+                } else {
+                  setSales(sales.map((inv) => inv.id === historyModal.id ? { ...inv, writeOff: false } : inv));
+                }
+                setHistoryModal({ ...historyModal, doc: { ...historyModal.doc, writeOff: false } });
+              }}>ยกเลิกการปัดเศษ</button>
+            </div>
+          )}
 
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>
             {historyModal.kind === "purchase" ? "ประวัติการจ่ายเงิน" : "ประวัติการรับเงิน"} — แก้ไขหรือลบงวดที่บันทึกผิดได้
