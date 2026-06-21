@@ -4126,7 +4126,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 // PAYMENTS TAB (รับชำระ/จ่ายชำระ — รวมรายการค้างชำระจากใบรับสินค้าและใบขาย)
 // ===================================================================
 function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits }) {
-  const [activeView, setActiveView] = useState("all"); // "all" | "unpaid-purchase" | "unpaid-sale" | "paid" | "purchase" | "sale"
+  const [activeView, setActiveView] = useState("unpaid-purchase"); // "unpaid-purchase" | "unpaid-sale" | "purchase" | "sale"
   const [search, setSearch] = useState("");
   const [payModal, setPayModal] = useState(null); // { kind: "purchase"|"sale", doc }
 
@@ -4171,7 +4171,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (activeView === "sale") list = allSaleRows;
     if (activeView === "unpaid-purchase") list = allPurchaseRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
-    if (activeView === "paid") list = list.filter((r) => r.payStatus === "paid");
     return list
       .filter((r) => r.id.includes(search) || custName(r.customerId).includes(search))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -4313,10 +4312,8 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", overflowY: "hidden", paddingBottom: 4 }}>
         {[
-          { key: "all", label: `ทั้งหมด (${allPurchaseRows.length + allSaleRows.length})` },
           { key: "unpaid-purchase", label: `ค้างจ่าย (ใบรับสินค้า) (${unpaidPurchases.length})` },
           { key: "unpaid-sale", label: `ค้างรับ (ใบขาย) (${unpaidSales.length})` },
-          { key: "paid", label: `ชำระครบแล้ว (${allPurchaseRows.length + allSaleRows.length - unpaidPurchases.length - unpaidSales.length})` },
           { key: "purchase", label: `ใบรับสินค้าทั้งหมด (${allPurchaseRows.length})` },
           { key: "sale", label: `ใบขายทั้งหมด (${allSaleRows.length})` },
         ].map((opt) => (
