@@ -2114,7 +2114,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
         const stockVal = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
 
-        const netCash = totalBankBalance + totalReceivable - totalPayable;
+        // เงินหมุนยอดทั้งหมด = ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้
+        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalReceivable - totalPayable;
 
         const cfCard = (label, value, color, bg, sub) => (
           <div style={{ background: bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${color}33` }}>
@@ -2136,13 +2137,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   const rows = [
                     ["สรุปเงินหมุนร้าน", dateRange ? periodLabel : "ทั้งหมด"],
                     ["รายการ", "ยอด (บาท)"],
-                    ...bankRows.map(b => [`ธนาคาร ${b.bankName} ${b.accountNo}`, b.balance]),
-                    ["รวมเงินในธนาคาร", totalBankBalance],
+                    ...bankRows.map(b => [`${b.accountType || "ยังไม่ระบุประเภท"} ${b.bankName} ${b.accountNo}`, b.balance]),
+                    ["รวมเงินในธนาคาร", bankGroupTotal],
+                    ["รวมเงินสด", cashGroupTotal],
                     ["ลูกหนี้ค้างรับ (บวก)", totalReceivable],
                     ["เจ้าหนี้ค้างจ่าย (ลบ)", -totalPayable],
                     ["เงินมัดจำคงเหลือ", totalDeposit],
                     ["มูลค่าสต๊อก (ทุน)", stockVal],
-                    ["เงินสดสุทธิ (ธนาคาร + ลูกหนี้ - เจ้าหนี้)", netCash],
+                    ["เงินหมุนยอดทั้งหมด (ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้)", grandTotal],
                   ];
                   exportExcel(rows, "เงินหมุนร้าน.xlsx", "เงินหมุน");
                 }}
@@ -2152,17 +2154,20 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
             <div id="dash-cashflow">
               {/* การ์ดสรุป */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
-                {cfCard(dateRange ? "เงินในธนาคารรวม (ช่วงที่เลือก)" : "เงินในธนาคารรวม", totalBankBalance, "#185fa5", "#e6f1fb", `${bankRows.length} บัญชี`)}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 14 }}>
+                {cfCard(dateRange ? "เงินในธนาคารรวม (ช่วงที่เลือก)" : "เงินในธนาคารรวม", bankGroupTotal, "#185fa5", "#e6f1fb", `${bankGroupRows.length} บัญชี`)}
                 {cfCard("ลูกหนี้ค้างรับ", totalReceivable, "#0f6e56", "#e1f5ee", "รอรับชำระ (ปัจจุบัน)")}
                 {cfCard("เจ้าหนี้ค้างจ่าย", totalPayable, "#993c1d", "#faece7", "รอจ่ายชำระ (ปัจจุบัน)")}
                 {cfCard("เงินมัดจำคงเหลือ", totalDeposit, "#854f0b", "#faeeda", "มัดจำที่ยังไม่ใช้ (ปัจจุบัน)")}
                 {cfCard("มูลค่าสต๊อก (ทุน)", stockVal, "#1d9e75", "#e1f5ee", "สินค้าคงเหลือ (ปัจจุบัน)")}
-                <div style={{ background: netCash >= 0 ? "#e1f5ee" : "#fcebeb", borderRadius: 12, padding: "14px 18px", border: `2px solid ${netCash >= 0 ? "#0f6e56" : "#a32d2d"}` }}>
-                  <div style={{ fontSize: 12, color: netCash >= 0 ? "#0f6e56" : "#a32d2d", marginBottom: 4, fontWeight: 700 }}>เงินสดสุทธิ</div>
-                  <div style={{ fontWeight: 700, fontSize: 22, color: netCash >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(netCash)}</div>
-                  <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 3 }}>ธนาคาร + ลูกหนี้ − เจ้าหนี้</div>
-                </div>
+                {cfCard(dateRange ? "เงินสดรวม (ช่วงที่เลือก)" : "เงินสดรวม", cashGroupTotal, "#0f6e56", "#e1f5ee", `${cashGroupRows.length} บัญชี`)}
+              </div>
+
+              {/* กรอบสรุปยอดเงินหมุนทั้งหมด — ใหญ่ที่สุด รวมทุกประเภท */}
+              <div style={{ background: grandTotal >= 0 ? "#e1f5ee" : "#fcebeb", borderRadius: 16, padding: "24px 28px", border: `3px solid ${grandTotal >= 0 ? "#0f6e56" : "#a32d2d"}`, marginBottom: 20 }}>
+                <div style={{ fontSize: 14, color: grandTotal >= 0 ? "#0f6e56" : "#a32d2d", marginBottom: 6, fontWeight: 700 }}>เงินหมุนยอดทั้งหมด</div>
+                <div style={{ fontWeight: 700, fontSize: 32, color: grandTotal >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(grandTotal)}</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ − เจ้าหนี้</div>
               </div>
 
               {/* ตารางรายละเอียดธนาคาร */}
@@ -2273,7 +2278,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <tbody>
                     {[
-                      { label: "เงินในธนาคารรวม", value: totalBankBalance, color: "#185fa5", sign: "+" },
+                      { label: "เงินในธนาคารรวม", value: bankGroupTotal, color: "#185fa5", sign: "+" },
+                      { label: "เงินสดรวม", value: cashGroupTotal, color: "#0f6e56", sign: "+" },
                       { label: "ลูกหนี้การค้า (ค้างรับ)", value: totalReceivable, color: "#0f6e56", sign: "+" },
                       { label: "เจ้าหนี้การค้า (ค้างจ่าย)", value: totalPayable, color: "#993c1d", sign: "−" },
                       { label: "เงินมัดจำคงเหลือ", value: totalDeposit, color: "#854f0b", sign: "+" },
@@ -2288,9 +2294,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr style={{ background: netCash >= 0 ? "#e1f5ee" : "#fcebeb", borderTop: "2px solid #0c443c" }}>
-                      <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15 }}>เงินสดสุทธิ</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 18, color: netCash >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(netCash)}</td>
+                    <tr style={{ background: grandTotal >= 0 ? "#e1f5ee" : "#fcebeb", borderTop: "2px solid #0c443c" }}>
+                      <td style={{ ...tdStyle, fontWeight: 700, fontSize: 15 }}>เงินหมุนยอดทั้งหมด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 18, color: grandTotal >= 0 ? "#0f6e56" : "#a32d2d" }}>฿{fmt(grandTotal)}</td>
                     </tr>
                     <tr style={{ background: "#f9fafb" }}>
                       <td style={{ ...tdStyle, color: "#6b7280", fontSize: 12 }}>+ มูลค่าสต๊อกสินค้า (ทุน) — ไม่รวมในเงินสด</td>
