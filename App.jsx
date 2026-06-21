@@ -7320,12 +7320,17 @@ function TaxSummaryTab({ purchases, sales, expenses }) {
 // ===================================================================
 // DELIVERY TAB (ใบส่งสินค้า)
 // ===================================================================
-function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
+function DeliveryTab({ deliveries, setDeliveries, customers, sales, products }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
+  const prodName = (id) => products.find((p) => p.id === id)?.name || id;
+  const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
 
-  const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), description: "", qty: 1, unit: "ชิ้น" });
+  // ประเภทภาชนะที่เคยพิมพ์ไว้ — สะสมเป็นตัวเลือกให้พิมพ์ซ้ำง่ายขึ้น
+  const containerTypeOptions = [...new Set(deliveries.flatMap((d) => (d.items || []).map((it) => it.containerType)).filter(Boolean))];
+
+  const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), productId: products[0]?.id || "", qty: 0, containerWeight: 0, containerType: "" });
   const blankForm = () => ({
     id: genId("DV", deliveries),
     date: new Date().toISOString().slice(0, 10),
@@ -7349,10 +7354,11 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
     setForm({ ...form, items });
   };
   const removeItem = (idx) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
+  const netQtyOf = (it) => (Number(it.qty) || 0) - (Number(it.containerWeight) || 0);
 
   const save = () => {
     if (!form.customerId || form.items.length === 0) return;
-    const cleaned = { ...form, items: form.items.map((it) => ({ ...it, qty: Number(it.qty) || 0 })) };
+    const cleaned = { ...form, items: form.items.map((it) => ({ ...it, qty: Number(it.qty) || 0, containerWeight: Number(it.containerWeight) || 0 })) };
     if (modal.mode === "add") setDeliveries([...deliveries, cleaned]);
     else setDeliveries(deliveries.map((d) => (d.id === modal.item.id ? cleaned : d)));
     setModal(null);
@@ -7364,6 +7370,8 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
     .filter((d) => d.id.includes(search) || custName(d.customerId).includes(search) || (d.vehicleNo || "").includes(search))
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
+  const deliveryNetTotal = (d) => (d.items || []).reduce((s, it) => s + netQtyOf(it), 0);
+
   const customerSales = (custId) => sales.filter((s) => s.customerId === custId);
 
   return (
@@ -7374,8 +7382,8 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
             onPDF={() => printAsPDF("tab-export-delivery", "ใบส่งสินค้า")}
             onExcel={() => {
               const rows = [
-                ["เลขที่", "วันที่", "ลูกค้า", "ทะเบียนรถ", "คนขับ", "จำนวนรายการ"],
-                ...filtered.map((d) => [d.id, d.date, custName(d.customerId), d.vehicleNo || "", d.driverName || "", d.items.length]),
+                ["เลขที่", "วันที่", "ลูกค้า", "ทะเบียนรถ", "คนขับ", "ยอดรวมสุทธิ"],
+                ...filtered.map((d) => [d.id, d.date, custName(d.customerId), d.vehicleNo || "", d.driverName || "", deliveryNetTotal(d)]),
               ];
               exportExcel(rows, "ใบส่งสินค้า.xlsx", "ใบส่งสินค้า");
             }}
@@ -7397,7 +7405,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
               <th style={thStyle}>ลูกค้า</th>
               <th style={thStyle}>ทะเบียนรถ</th>
               <th style={thStyle}>คนขับ</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>จำนวนรายการ</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>ยอดรวมสุทธิ</th>
               <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
             </tr>
           </thead>
@@ -7409,7 +7417,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
                 <td style={tdStyle}>{custName(d.customerId)}</td>
                 <td style={tdStyle}>{d.vehicleNo || "-"}</td>
                 <td style={tdStyle}>{d.driverName || "-"}</td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>{d.items.length}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(deliveryNetTotal(d))}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     <button style={iconBtn} onClick={() => openView(d)}><Printer size={14} /> พิมพ์</button>
@@ -7450,16 +7458,44 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <div style={{ fontWeight: 600, fontSize: 14 }}>รายการสินค้า</div>
-            <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
           </div>
-          {form.items.map((it, idx) => (
-            <div key={it.id} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
-              <input style={inputStyle} placeholder="รายละเอียดสินค้า" value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} />
-              <input type="number" style={inputStyle} placeholder="จำนวน" value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
-              <input style={inputStyle} placeholder="หน่วย" value={it.unit} onChange={(e) => updateItem(idx, "unit", e.target.value)} />
-              <button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button>
-            </div>
-          ))}
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>สินค้า</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>น้ำหนักภาชนะ</th>
+                <th style={thStyle}>ประเภทภาชนะ</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>จำนวนสุทธิ</th>
+                <th style={thStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {form.items.map((it, idx) => (
+                <tr key={it.id}>
+                  <td style={tdStyle}><ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} /></td>
+                  <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} /></td>
+                  <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.containerWeight} onChange={(e) => updateItem(idx, "containerWeight", e.target.value)} /></td>
+                  <td style={tdStyle}>
+                    <input style={{ ...inputStyle, width: 110 }} list="delivery-container-type-options" value={it.containerType} onChange={(e) => updateItem(idx, "containerType", e.target.value)} placeholder="เช่น ถุง, ลัง" />
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(netQtyOf(it))} {prodUnit(it.productId)}</td>
+                  <td style={tdStyle}><button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style={{ ...tdStyle, fontWeight: 700 }} colSpan={4}>ยอดรวมสุทธิ</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(form.items.reduce((s, it) => s + netQtyOf(it), 0))}</td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tfoot>
+          </table>
+          <datalist id="delivery-container-type-options">
+            {containerTypeOptions.map((c) => <option key={c} value={c} />)}
+          </datalist>
+          <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
 
           <Field label="หมายเหตุ"><input style={inputStyle} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
 
@@ -7491,13 +7527,26 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales }) {
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead><tr style={{ background: "#f3f4f6" }}>
-                <th style={thStyle}>#</th><th style={thStyle}>รายการ</th><th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th><th style={thStyle}>หน่วย</th>
+                <th style={thStyle}>#</th><th style={thStyle}>สินค้า</th><th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th><th style={{ ...thStyle, textAlign: "right" }}>น้ำหนักภาชนะ</th><th style={thStyle}>ประเภทภาชนะ</th><th style={{ ...thStyle, textAlign: "right" }}>จำนวนสุทธิ</th>
               </tr></thead>
               <tbody>
                 {modal.item.items.map((it, i) => (
-                  <tr key={it.id}><td style={tdStyle}>{i + 1}</td><td style={tdStyle}>{it.description}</td><td style={{ ...tdStyle, textAlign: "right" }}>{it.qty}</td><td style={tdStyle}>{it.unit}</td></tr>
+                  <tr key={it.id}>
+                    <td style={tdStyle}>{i + 1}</td>
+                    <td style={tdStyle}>{prodName(it.productId)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.containerWeight)}</td>
+                    <td style={tdStyle}>{it.containerType || "-"}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(netQtyOf(it))} {prodUnit(it.productId)}</td>
+                  </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, textAlign: "right" }}>ยอดรวมสุทธิ</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(deliveryNetTotal(modal.item))}</td>
+                </tr>
+              </tfoot>
             </table>
             {modal.item.note && <div style={{ marginTop: 12, fontSize: 13, color: "#6b7280" }}>หมายเหตุ: {modal.item.note}</div>}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 48, fontSize: 12 }}>
