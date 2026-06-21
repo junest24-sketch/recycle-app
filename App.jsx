@@ -1262,7 +1262,7 @@ useEffect(() => {
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} companySettings={companySettings} />}
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
-        {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
+        {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
@@ -4275,8 +4275,8 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 // ===================================================================
 // PAYMENTS TAB (รับชำระ/จ่ายชำระ — รวมรายการค้างชำระจากใบรับสินค้าและใบขาย)
 // ===================================================================
-function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits }) {
-  const [activeView, setActiveView] = useState("unpaid-purchase"); // "unpaid-purchase" | "unpaid-sale" | "purchase" | "sale"
+function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits, expenses, setExpenses }) {
+  const [activeView, setActiveView] = useState("unpaid-purchase"); // "unpaid-purchase" | "unpaid-sale" | "unpaid-expense" | "purchase" | "sale"
   const [search, setSearch] = useState("");
   const [payModal, setPayModal] = useState(null); // { kind: "purchase"|"sale", doc }
 
@@ -4312,8 +4312,31 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       });
   }, [sales]);
 
+  // ---------- รายการค่าใช้จ่ายทั้งหมด (รวมที่ชำระครบแล้ว) ----------
+  const allExpenseRows = useMemo(() => {
+    return (expenses || []).map((e) => {
+      const items = (e.items && e.items.length > 0) ? e.items : [{ amount: e.amount, vatEnabled: e.vatEnabled, whtRate: e.whtRate }];
+      let amount = 0, vat = 0, wht = 0;
+      items.forEach((it) => {
+        const itAmount = Number(it.amount) || 0;
+        amount += itAmount;
+        vat += it.vatEnabled ? itAmount * 0.07 : 0;
+        wht += itAmount * ((Number(it.whtRate) || 0) / 100);
+      });
+      const total = amount + vat - wht;
+      const paid = (e.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      const remaining = total - paid;
+      const payStatus = e.writeOff ? "paid" : (remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid");
+      const vendorLabel = e.vendorName || items.map((it) => it.description).filter(Boolean).join(", ") || e.refNo || e.id;
+      return { kind: "expense", id: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
+    });
+  }, [expenses]);
+
   const unpaidPurchases = allPurchaseRows.filter((r) => r.payStatus !== "paid");
   const unpaidSales = allSaleRows.filter((r) => r.payStatus !== "paid");
+  const unpaidExpenses = allExpenseRows.filter((r) => r.payStatus !== "paid");
+
+  const rowSearchLabel = (r) => r.kind === "expense" ? (r.vendorLabel || "") : custName(r.customerId);
 
   const combined = useMemo(() => {
     let list = [...allPurchaseRows, ...allSaleRows];
@@ -4321,21 +4344,23 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (activeView === "sale") list = allSaleRows;
     if (activeView === "unpaid-purchase") list = allPurchaseRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
+    if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
     return list
-      .filter((r) => r.id.includes(search) || custName(r.customerId).includes(search))
+      .filter((r) => r.id.includes(search) || rowSearchLabel(r).includes(search))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [allPurchaseRows, allSaleRows, activeView, search, customers]);
+  }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, customers]);
 
   const totalPayable = unpaidPurchases.reduce((s, r) => s + r.remaining, 0);
   const totalReceivable = unpaidSales.reduce((s, r) => s + r.remaining, 0);
+  const totalPayableExpense = unpaidExpenses.reduce((s, r) => s + r.remaining, 0);
 
   // ---------- ฟอร์มบันทึกการจ่าย/รับเงิน (รองรับแบ่งจ่ายหลายงวดในครั้งเดียว) ----------
   const blankPaymentRow = (row, isFirst) => ({
-    id: (row.kind === "purchase" ? "PM" : "SP") + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000),
+    id: (row.kind === "sale" ? "SP" : "PM") + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000),
     date: new Date().toISOString().slice(0, 10),
     amount: isFirst ? Math.round(row.remaining * 100) / 100 : 0,
     method: PAYMENT_METHODS[0],
-    fromStoreBankId: row.kind === "purchase" ? (storeBankAccounts[0]?.id || "") : undefined,
+    fromStoreBankId: row.kind === "purchase" || row.kind === "expense" ? (storeBankAccounts[0]?.id || "") : undefined,
     toStoreBankId: row.kind === "sale" ? "" : undefined,
   });
   const [payRows, setPayRows] = useState(null);
@@ -4372,10 +4397,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (!payModal || !payRows || payRows.length === 0) return;
     const cleaned = payRows.filter((p) => Number(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) }));
     if (cleaned.length === 0) return;
+    const realId = payModal.doc?.id ?? payModal.id;
     if (payModal.kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === payModal.id ? { ...po, payments: [...(po.payments || []), ...cleaned], writeOff: writeOffChecked } : po));
+      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: [...(po.payments || []), ...cleaned], writeOff: writeOffChecked } : po));
+    } else if (payModal.kind === "expense") {
+      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: [...(e.payments || []), ...cleaned], writeOff: writeOffChecked } : e));
     } else {
-      setSales(sales.map((inv) => inv.id === payModal.id ? { ...inv, payments: [...(inv.payments || []), ...cleaned], writeOff: writeOffChecked } : inv));
+      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: [...(inv.payments || []), ...cleaned], writeOff: writeOffChecked } : inv));
     }
     setPayModal(null);
     setPayRows(null);
@@ -4399,16 +4427,24 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const saveEditPayment = () => {
     if (!historyModal || editingPaymentIdx === null || !editPaymentForm) return;
     const cleaned = { ...editPaymentForm, amount: Number(editPaymentForm.amount) || 0 };
+    const realId = historyModal.doc?.id ?? historyModal.id;
     if (historyModal.kind === "purchase") {
       setPurchases(purchases.map((po) => {
-        if (po.id !== historyModal.id) return po;
+        if (po.id !== realId) return po;
         const newPayments = [...(po.payments || [])];
         newPayments[editingPaymentIdx] = cleaned;
         return { ...po, payments: newPayments };
       }));
+    } else if (historyModal.kind === "expense") {
+      setExpenses(expenses.map((e) => {
+        if (e.id !== realId) return e;
+        const newPayments = [...(e.payments || [])];
+        newPayments[editingPaymentIdx] = cleaned;
+        return { ...e, payments: newPayments };
+      }));
     } else {
       setSales(sales.map((inv) => {
-        if (inv.id !== historyModal.id) return inv;
+        if (inv.id !== realId) return inv;
         const newPayments = [...(inv.payments || [])];
         newPayments[editingPaymentIdx] = cleaned;
         return { ...inv, payments: newPayments };
@@ -4423,10 +4459,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const deleteHistoryPayment = (idx) => {
     if (!historyModal) return;
     if (!window.confirm("ยืนยันลบรายการชำระเงินงวดนี้?")) return;
+    const realId = historyModal.doc?.id ?? historyModal.id;
     if (historyModal.kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === historyModal.id ? { ...po, payments: (po.payments || []).filter((_, i) => i !== idx) } : po));
+      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: (po.payments || []).filter((_, i) => i !== idx) } : po));
+    } else if (historyModal.kind === "expense") {
+      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: (e.payments || []).filter((_, i) => i !== idx) } : e));
     } else {
-      setSales(sales.map((inv) => inv.id === historyModal.id ? { ...inv, payments: (inv.payments || []).filter((_, i) => i !== idx) } : inv));
+      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: (inv.payments || []).filter((_, i) => i !== idx) } : inv));
     }
     setHistoryModal({ ...historyModal, doc: { ...historyModal.doc, payments: (historyModal.doc.payments || []).filter((_, i) => i !== idx) } });
   };
@@ -4436,7 +4475,15 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (!historyModal) return null;
     const doc = historyModal.doc;
     let total;
-    if (historyModal.kind === "purchase") {
+    if (historyModal.kind === "expense") {
+      const items = (doc.items && doc.items.length > 0) ? doc.items : [{ amount: doc.amount, vatEnabled: doc.vatEnabled, whtRate: doc.whtRate }];
+      total = items.reduce((s, it) => {
+        const itAmount = Number(it.amount) || 0;
+        const vat = it.vatEnabled ? itAmount * 0.07 : 0;
+        const wht = itAmount * ((Number(it.whtRate) || 0) / 100);
+        return s + itAmount + vat - wht;
+      }, 0);
+    } else if (historyModal.kind === "purchase") {
       const subtotal = doc.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
       total = subtotal + subtotal * ((Number(doc.vatRate) || 0) / 100);
     } else {
@@ -4452,7 +4499,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     <div>
       <Header title="รับชำระ / จ่ายชำระ" subtitle="รวมรายการใบรับสินค้าและใบขายที่ยังค้างชำระ — บันทึกการจ่าย/รับเงินจริงได้ที่นี่" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 20 }}>
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
           <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดที่ต้องจ่าย (ใบรับสินค้าค้างจ่าย)</div>
           <div style={{ fontWeight: 700, fontSize: 22, color: "#993c1d" }}>฿{fmt(totalPayable)}</div>
@@ -4463,12 +4510,18 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           <div style={{ fontWeight: 700, fontSize: 22, color: "#185fa5" }}>฿{fmt(totalReceivable)}</div>
           <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{unpaidSales.length} ใบ</div>
         </div>
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดที่ต้องจ่าย (ค่าใช้จ่ายค้างจ่าย)</div>
+          <div style={{ fontWeight: 700, fontSize: 22, color: "#854f0b" }}>฿{fmt(totalPayableExpense)}</div>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{unpaidExpenses.length} รายการ</div>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", overflowY: "hidden", paddingBottom: 4 }}>
         {[
           { key: "unpaid-purchase", label: `ค้างจ่าย (ใบรับสินค้า) (${unpaidPurchases.length})` },
           { key: "unpaid-sale", label: `ค้างรับ (ใบขาย) (${unpaidSales.length})` },
+          { key: "unpaid-expense", label: `ค้างจ่าย (ค่าใช้จ่าย) (${unpaidExpenses.length})` },
           { key: "purchase", label: `ใบรับสินค้าทั้งหมด (${allPurchaseRows.length})` },
           { key: "sale", label: `ใบขายทั้งหมด (${allSaleRows.length})` },
         ].map((opt) => (
@@ -4491,7 +4544,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
               <th style={thStyle}>ประเภท</th>
               <th style={thStyle}>เลขที่ใบ</th>
               <th style={thStyle}>วันที่</th>
-              <th style={thStyle}>ลูกค้า</th>
+              <th style={thStyle}>ลูกค้า / รายการ</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ยอดรวม</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ชำระแล้ว</th>
               <th style={{ ...thStyle, textAlign: "right" }}>คงค้าง</th>
@@ -4505,16 +4558,18 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 <td style={tdStyle}>
                   {r.kind === "purchase" ? (
                     <span style={{ background: "#faece7", color: "#993c1d", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ใบรับสินค้า)</span>
+                  ) : r.kind === "expense" ? (
+                    <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ค่าใช้จ่าย)</span>
                   ) : (
                     <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
                   )}
                 </td>
                 <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
                 <td style={tdStyle}>{r.date}</td>
-                <td style={tdStyle}>{custName(r.customerId)}</td>
+                <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
                 <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(r.paid)}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.payStatus === "paid" ? "#0f6e56" : r.kind === "purchase" ? "#993c1d" : "#185fa5" }}>฿{fmt(r.payStatus === "paid" ? 0 : r.remaining)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.payStatus === "paid" ? "#0f6e56" : r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.payStatus === "paid" ? 0 : r.remaining)}</td>
                 <td style={tdStyle}>
                   {r.payStatus === "paid" ? (
                     <span style={{ background: "#e3f5ea", color: "#0f6e56", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>ชำระครบแล้ว</span>
@@ -4528,7 +4583,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     {r.payStatus !== "paid" && (
                       <button style={btnPrimary} onClick={() => openPay(r)}>
-                        {r.kind === "purchase" ? <><ArrowUpFromLine size={14} /> บันทึกจ่าย</> : <><ArrowDownToLine size={14} /> บันทึกรับ</>}
+                        {r.kind === "sale" ? <><ArrowDownToLine size={14} /> บันทึกรับ</> : <><ArrowUpFromLine size={14} /> บันทึกจ่าย</>}
                       </button>
                     )}
                     {(r.paid > 0.01) && (
@@ -4545,20 +4600,20 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
       {payModal && payRows && (
         <Modal
-          title={payModal.kind === "purchase" ? `บันทึกจ่ายเงิน · ${payModal.id}` : `บันทึกรับเงิน · ${payModal.id}`}
+          title={payModal.kind === "sale" ? `บันทึกรับเงิน · ${payModal.id}` : `บันทึกจ่ายเงิน · ${payModal.id}`}
           onClose={() => { setPayModal(null); setPayRows(null); }}
           wide
         >
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
-            <Row label="ลูกค้า" value={custName(payModal.customerId)} />
+            <Row label={payModal.kind === "expense" ? "รายการ" : "ลูกค้า"} value={payModal.kind === "expense" ? payModal.vendorLabel : custName(payModal.customerId)} />
             <Row label="ยอดรวมใบนี้" value={`฿${fmt(payModal.total)}`} />
             <Row label="ชำระแล้ว" value={`฿${fmt(payModal.paid)}`} />
-            <Row label="คงค้าง" value={`฿${fmt(payModal.remaining)}`} bold color={payModal.kind === "purchase" ? "#993c1d" : "#185fa5"} />
+            <Row label="คงค้าง" value={`฿${fmt(payModal.remaining)}`} bold color={payModal.kind === "sale" ? "#185fa5" : "#993c1d"} />
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div style={{ fontWeight: 600, fontSize: 14 }}>
-              {payModal.kind === "purchase" ? "รายการจ่ายเงิน" : "รายการรับเงิน"} (แบ่งจ่าย/รับได้หลายงวด)
+              {payModal.kind === "sale" ? "รายการรับเงิน" : "รายการจ่ายเงิน"} (แบ่งจ่าย/รับได้หลายงวด)
             </div>
             <button style={btnSecondary} onClick={addPayRow}><Plus size={14} /> เพิ่มรายการ</button>
           </div>
@@ -4591,6 +4646,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                     <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayRow(idx, "fromStoreBankId", e.target.value)}>
                       <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
                       <option value="DEPOSIT">หักเงินมัดจำ</option>
+                      {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
+                    </select>
+                  </Field>
+                ) : payModal.kind === "expense" ? (
+                  <Field label="จ่ายจากบัญชี">
+                    <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayRow(idx, "fromStoreBankId", e.target.value)}>
+                      <option value="">-- เลือกบัญชี --</option>
                       {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
                     </select>
                   </Field>
@@ -4648,7 +4710,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           wide
         >
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
-            <Row label="ลูกค้า" value={custName(historyModal.customerId)} />
+            <Row label={historyModal.kind === "expense" ? "รายการ" : "ลูกค้า"} value={historyModal.kind === "expense" ? historyModal.vendorLabel : custName(historyModal.customerId)} />
             <Row label="ยอดรวมใบนี้" value={`฿${fmt(historyTotals.total)}`} />
             <Row label="ชำระแล้ว" value={`฿${fmt(historyTotals.paid)}`} />
             <Row label="คงค้าง" value={`฿${fmt(historyTotals.remaining)}`} bold color={historyTotals.remaining > 0.01 ? "#993c1d" : "#0f6e56"} />
@@ -4660,10 +4722,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 <strong>ปัดเศษไว้แล้ว</strong> — ใบนี้ถือว่าชำระครบ ไม่นับยอด ฿{fmt(historyTotals.remaining)} เป็นยอดค้าง
               </span>
               <button style={btnSecondary} onClick={() => {
+                const realId = historyModal.doc?.id ?? historyModal.id;
                 if (historyModal.kind === "purchase") {
-                  setPurchases(purchases.map((po) => po.id === historyModal.id ? { ...po, writeOff: false } : po));
+                  setPurchases(purchases.map((po) => po.id === realId ? { ...po, writeOff: false } : po));
+                } else if (historyModal.kind === "expense") {
+                  setExpenses(expenses.map((e) => e.id === realId ? { ...e, writeOff: false } : e));
                 } else {
-                  setSales(sales.map((inv) => inv.id === historyModal.id ? { ...inv, writeOff: false } : inv));
+                  setSales(sales.map((inv) => inv.id === realId ? { ...inv, writeOff: false } : inv));
                 }
                 setHistoryModal({ ...historyModal, doc: { ...historyModal.doc, writeOff: false } });
               }}>ยกเลิกการปัดเศษ</button>
@@ -4671,7 +4736,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           )}
 
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>
-            {historyModal.kind === "purchase" ? "ประวัติการจ่ายเงิน" : "ประวัติการรับเงิน"} — แก้ไขหรือลบงวดที่บันทึกผิดได้
+            {historyModal.kind === "sale" ? "ประวัติการรับเงิน" : "ประวัติการจ่ายเงิน"} — แก้ไขหรือลบงวดที่บันทึกผิดได้
           </div>
 
           {(historyModal.doc.payments || []).length === 0 && (
@@ -4703,6 +4768,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                           {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
                         </select>
                       </Field>
+                    ) : historyModal.kind === "expense" ? (
+                      <Field label="จ่ายจากบัญชี">
+                        <select style={inputStyle} value={editPaymentForm.fromStoreBankId || ""} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, fromStoreBankId: e.target.value })}>
+                          <option value="">-- เลือกบัญชี --</option>
+                          {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
+                        </select>
+                      </Field>
                     ) : (
                       <Field label="รับเข้าบัญชี">
                         <select style={inputStyle} value={editPaymentForm.toStoreBankId || ""} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, toStoreBankId: e.target.value })}>
@@ -4728,7 +4800,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                     <div><strong>฿{fmt(p.amount)}</strong> — {p.date}</div>
                     <div style={{ color: "#6b7280", fontSize: 12, marginTop: 2 }}>
                       {p.method || ""}
-                      {historyModal.kind === "purchase" && p.fromStoreBankId && (
+                      {(historyModal.kind === "purchase" || historyModal.kind === "expense") && p.fromStoreBankId && (
                         <> · {p.fromStoreBankId === "CASH" ? "เงินสดหน้าร้าน" : p.fromStoreBankId === "DEPOSIT" ? "หักเงินมัดจำ" : (storeBankAccounts.find((b) => b.id === p.fromStoreBankId)?.bankName || "")}</>
                       )}
                       {historyModal.kind === "sale" && p.toStoreBankId && (
