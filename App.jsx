@@ -4829,8 +4829,7 @@ function InventoryTab({ products, inventory }) {
 function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
-  const [editingOpeningId, setEditingOpeningId] = useState(null);
-  const [openingDraft, setOpeningDraft] = useState("");
+  const [openingModal, setOpeningModal] = useState(null); // {customerId, amount}
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
 
@@ -4880,20 +4879,21 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
     return b ? `${b.bankName} ${b.accountNo}` : "-";
   };
 
-  const startEditOpening = (customerId, currentValue) => {
-    setEditingOpeningId(customerId);
-    setOpeningDraft(String(currentValue || 0));
-  };
-  const saveOpening = (customerId) => {
-    setCustomers(customers.map((c) => c.id === customerId ? { ...c, depositOpening: Number(openingDraft) || 0 } : c));
-    setEditingOpeningId(null);
-    setOpeningDraft("");
+  const openOpeningModal = () => setOpeningModal({ customerId: customers[0]?.id || "", amount: "" });
+  const editOpeningModal = (customerId, currentValue) => setOpeningModal({ customerId, amount: String(currentValue || 0) });
+  const saveOpening = () => {
+    if (!openingModal || !openingModal.customerId) return;
+    setCustomers(customers.map((c) => c.id === openingModal.customerId ? { ...c, depositOpening: Number(openingModal.amount) || 0 } : c));
+    setOpeningModal(null);
   };
 
   return (
     <div>
       <Header title="เงินมัดจำ (จ่ายล่วงหน้าให้ลูกค้า)" subtitle="บันทึกเงินมัดจำที่จ่ายให้ลูกค้าล่วงหน้า และดูยอดมัดจำคงเหลือของลูกค้าแต่ละราย">
-        <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> บันทึกจ่ายมัดจำ</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button style={btnSecondary} onClick={openOpeningModal}><Plus size={16} /> เพิ่มยอดยกมา</button>
+          <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> บันทึกจ่ายมัดจำ</button>
+        </div>
       </Header>
 
       <div style={{ marginBottom: 20 }}>
@@ -4912,20 +4912,13 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
               </tr>
             </thead>
             <tbody>
-              {balances.map((b) => (
+              {balances.filter((b) => b.totalGiven > 0 || b.opening > 0).map((b) => (
                 <tr key={b.customerId}>
                   <td style={tdStyle}>{b.name}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
-                    {editingOpeningId === b.customerId ? (
-                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
-                        <input type="number" autoFocus style={{ ...inputStyle, width: 100, textAlign: "right" }} value={openingDraft} onChange={(e) => setOpeningDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveOpening(b.customerId); if (e.key === "Escape") setEditingOpeningId(null); }} />
-                        <button style={iconBtn} onClick={() => saveOpening(b.customerId)}><Save size={14} /></button>
-                      </div>
-                    ) : (
-                      <span style={{ cursor: "pointer", borderBottom: "1px dashed #9ca3af" }} onClick={() => startEditOpening(b.customerId, b.opening)} title="แตะเพื่อแก้ไขยอดยกมา">
-                        ฿{fmt(b.opening)}
-                      </span>
-                    )}
+                    <span style={{ cursor: "pointer", borderBottom: "1px dashed #9ca3af" }} onClick={() => editOpeningModal(b.customerId, b.opening)} title="คลิกเพื่อแก้ไขยอดยกมา">
+                      ฿{fmt(b.opening)}
+                    </span>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(b.newGiven)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(b.totalGiven)}</td>
@@ -4933,8 +4926,8 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: b.remaining > 0 ? "#0f6e56" : "#6b7280" }}>฿{fmt(b.remaining)}</td>
                 </tr>
               ))}
-              {balances.length === 0 && (
-                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีข้อมูลลูกค้า — ไปที่หน้า "ข้อมูลลูกค้า" เพื่อเพิ่มก่อน</td></tr>
+              {balances.every((b) => b.totalGiven === 0 && b.opening === 0) && (
+                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ — กดปุ่ม "เพิ่มยอดยกมา" หรือ "บันทึกจ่ายมัดจำ" ด้านบนเพื่อเริ่มต้น</td></tr>
               )}
             </tbody>
           </table>
@@ -5030,6 +5023,24 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
             <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+
+      {openingModal && (
+        <Modal title="เพิ่ม/แก้ไขยอดยกมา" onClose={() => setOpeningModal(null)}>
+          <Field label="ลูกค้า">
+            <CustomerSelect customers={customers} value={openingModal.customerId} onChange={(cid) => setOpeningModal({ ...openingModal, customerId: cid, amount: String(customers.find((c) => c.id === cid)?.depositOpening || 0) })} />
+          </Field>
+          <Field label="ยอดยกมา (มัดจำคงเหลือเดิม)">
+            <input type="number" style={inputStyle} value={openingModal.amount} onChange={(e) => setOpeningModal({ ...openingModal, amount: e.target.value })} placeholder="0" />
+          </Field>
+          <p style={{ fontSize: 12, color: "#9ca3af", margin: "-4px 0 8px" }}>
+            * ยอดนี้คือมัดจำคงเหลือเดิมก่อนเริ่มใช้ระบบ จะรวมเข้ากับมัดจำที่จ่ายใหม่และใช้หักในใบรับสินค้าได้จริง
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setOpeningModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={saveOpening}><Save size={16} /> บันทึก</button>
           </div>
         </Modal>
       )}
