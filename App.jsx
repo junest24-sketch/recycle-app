@@ -4725,21 +4725,49 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 // ===================================================================
 function InventoryTab({ products, inventory }) {
   const [expanded, setExpanded] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showBasket, setShowBasket] = useState(false);
+
+  const toggleSelect = (productId) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+  const clearBasket = () => { setSelectedIds(new Set()); setShowBasket(false); };
+
+  const basketItems = inventory.summary.filter((s) => selectedIds.has(s.productId));
+  const basketTotalQty = basketItems.reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
+  const basketTotalValue = basketItems.reduce((sum, s) => sum + (Number(s.totalCost) || 0), 0);
+  const basketAvgCost = basketTotalQty > 0 ? basketTotalValue / basketTotalQty : 0;
+  // หน่วยของสินค้าที่เลือกอาจไม่เหมือนกัน เช่น กก. vs ชิ้น — เช็คก่อนว่าจำนวนรวมกันได้มีความหมายไหม
+  const basketUnits = [...new Set(basketItems.map((s) => s.unit))];
+  const basketSameUnit = basketUnits.length <= 1;
 
   return (
     <div>
       <Header title="ระบบสต๊อกสินค้า (Inventory)" subtitle="ติดตามยอดรับเข้า-เบิกออก คำนวณต้นทุนแบบ FIFO">
-        <ExportToolbar
-          onPDF={() => printAsPDF("tab-export-inventory", "สต๊อกสินค้า")}
-          onExcel={() => {
-            const rows = [
-              ["สินค้า", "คงเหลือ", "หน่วย", "ต้นทุนเฉลี่ย/หน่วย", "มูลค่าคงเหลือ"],
-              ...inventory.summary.map((s) => [s.name, s.qty, s.unit, s.avgCost, s.totalCost]),
-            ];
-            exportExcel(rows, "สต๊อกสินค้า.xlsx", "สต๊อก");
-          }}
-          onImage={() => printAsPDF("tab-export-inventory", "สต๊อกสินค้า")}
-        />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {selectedIds.size > 0 && (
+            <button style={btnSecondary} onClick={() => setShowBasket(true)}>
+              <ShoppingCart size={16} /> ดูตะกร้า
+              <span style={{ background: "#534ab7", color: "#fff", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "1px 7px", marginLeft: 4 }}>{selectedIds.size}</span>
+            </button>
+          )}
+          <ExportToolbar
+            onPDF={() => printAsPDF("tab-export-inventory", "สต๊อกสินค้า")}
+            onExcel={() => {
+              const rows = [
+                ["สินค้า", "คงเหลือ", "หน่วย", "ต้นทุนเฉลี่ย/หน่วย", "มูลค่าคงเหลือ"],
+                ...inventory.summary.map((s) => [s.name, s.qty, s.unit, s.avgCost, s.totalCost]),
+              ];
+              exportExcel(rows, "สต๊อกสินค้า.xlsx", "สต๊อก");
+            }}
+            onImage={() => printAsPDF("tab-export-inventory", "สต๊อกสินค้า")}
+          />
+        </div>
       </Header>
       <div id="tab-export-inventory">
       <Card>
@@ -4751,21 +4779,25 @@ function InventoryTab({ products, inventory }) {
               <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุนเฉลี่ย/หน่วย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>มูลค่าคงเหลือ</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>เลือก</th>
             </tr>
           </thead>
           <tbody>
             {inventory.summary.map((s) => (
               <React.Fragment key={s.productId}>
-                <tr style={{ cursor: "pointer" }} onClick={() => setExpanded(expanded === s.productId ? null : s.productId)}>
+                <tr style={{ cursor: "pointer", background: selectedIds.has(s.productId) ? "#f3f1fd" : "transparent" }} onClick={() => setExpanded(expanded === s.productId ? null : s.productId)}>
                   <td style={tdStyle}>{expanded === s.productId ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</td>
                   <td style={{ ...tdStyle, fontWeight: 500 }}>{s.name}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmtInt(s.qty)} {s.unit}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(s.avgCost)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(s.totalCost)}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selectedIds.has(s.productId)} onChange={() => toggleSelect(s.productId)} style={{ width: 16, height: 16, cursor: "pointer" }} />
+                  </td>
                 </tr>
                 {expanded === s.productId && (
                   <tr>
-                    <td colSpan={5} style={{ padding: "0 12px 16px 36px", background: "#f9fafb" }}>
+                    <td colSpan={6} style={{ padding: "0 12px 16px 36px", background: "#f9fafb" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, margin: "12px 0 8px", color: "#374151" }}>
                         <History size={14} /> ประวัติการเคลื่อนไหวสินค้า
                       </div>
@@ -4821,6 +4853,58 @@ function InventoryTab({ products, inventory }) {
         </table>
       </Card>
       </div>{/* end tab-export-inventory */}
+
+      {showBasket && (
+        <Modal title={`ตะกร้าสินค้าที่เลือก (${basketItems.length} รายการ)`} onClose={() => setShowBasket(false)}>
+          {basketItems.length === 0 ? (
+            <p style={{ color: "#9ca3af", fontSize: 13, textAlign: "center", padding: 20 }}>ยังไม่ได้เลือกสินค้า</p>
+          ) : (
+            <>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 480 }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>สินค้า</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>ราคาเฉลี่ย/หน่วย</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>มูลค่า</th>
+                      <th style={thStyle}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {basketItems.map((s) => (
+                      <tr key={s.productId}>
+                        <td style={tdStyle}>{s.name}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtInt(s.qty)} {s.unit}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(s.avgCost)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(s.totalCost)}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          <button style={iconBtn} onClick={() => toggleSelect(s.productId)} aria-label="นำออกจากตะกร้า"><X size={14} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 14, fontSize: 14 }}>
+                {basketSameUnit ? (
+                  <Row label="จำนวนรวม" value={`${fmt(basketTotalQty)} ${basketUnits[0] || ""}`} />
+                ) : (
+                  <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 8px" }}>* สินค้าที่เลือกมีหน่วยไม่เหมือนกัน จึงไม่รวมจำนวนให้</p>
+                )}
+                <Row label="ราคาเฉลี่ยถ่วงน้ำหนัก" value={basketSameUnit ? `฿${fmt(basketAvgCost)}` : "-"} />
+                <Row label="ยอดรวมมูลค่า" value={`฿${fmt(basketTotalValue)}`} bold color="#534ab7" />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+                <button style={btnSecondary} onClick={clearBasket}><Trash2 size={14} /> ล้างตะกร้า</button>
+                <button style={btnPrimary} onClick={() => setShowBasket(false)}>ปิด</button>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
