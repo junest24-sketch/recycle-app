@@ -160,6 +160,40 @@ function PrintPreviewOverlay({ preview, onClose }) {
   );
 }
 
+// ---------- Confirm dialog: global subscriber pattern (เหมือน printAsPDF) ----------
+// confirmAction ถูกเรียกจากหลายจุดในแอปที่ไม่มี prop เข้าถึง state ของ App โดยตรง
+let __confirmSetter = null;
+function registerConfirmDialog(setter) { __confirmSetter = setter; }
+
+function confirmAction(message, onConfirm, options = {}) {
+  if (__confirmSetter) {
+    __confirmSetter({ message, onConfirm, title: options.title, confirmLabel: options.confirmLabel });
+  } else {
+    // เผื่อกรณี dialog ยังไม่ได้ลงทะเบียน (ไม่ควรเกิดขึ้นในการใช้งานปกติ)
+    if (window.confirm(message)) onConfirm();
+  }
+}
+
+function ConfirmDialog({ pending, onClose }) {
+  if (!pending) return null;
+  return (
+    <Modal title={pending.title || "ยืนยันการลบ"} onClose={onClose}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "4px 0 16px" }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#faece7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Trash2 size={18} color="#993c1d" />
+        </div>
+        <p style={{ margin: 0, fontSize: 14, color: "#374151", lineHeight: 1.6 }}>{pending.message}</p>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button style={btnSecondary} onClick={onClose}>ยกเลิก</button>
+        <button style={btnDanger} onClick={() => { pending.onConfirm(); onClose(); }}>
+          <Trash2 size={14} /> {pending.confirmLabel || "ยืนยันการลบ"}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // ---------- Keyboard navigation helper: Enter = move to next field, last field = submit ----------
 function handleEnterNavigate(e, onSubmit) {
   if (e.key !== "Enter") return;
@@ -853,9 +887,11 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   React.useEffect(() => {
     registerPrintPreview(setPrintPreview);
+    registerConfirmDialog(setConfirmDialog);
   }, []);
 
 
@@ -1089,6 +1125,7 @@ useEffect(() => {
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" />
 
       <PrintPreviewOverlay preview={printPreview} onClose={() => setPrintPreview(null)} />
+      <ConfirmDialog pending={confirmDialog} onClose={() => setConfirmDialog(null)} />
 
       {/* Sidebar — fixed, independent scroll */}
       <div style={{ width: sidebarOpen ? 220 : 64, background: "#0c443c", color: "#e1f5ee", display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.2s ease", height: "100vh", overflowY: "auto", overflowX: "auto", position: "fixed", top: 0, left: 0, zIndex: 10 }}>
@@ -2417,7 +2454,7 @@ const save = async () => {
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button style={iconBtn} onClick={() => openEdit(p)}><Edit2 size={14} /></button>
-                      <button style={btnDanger} onClick={() => remove(p.id)}><Trash2 size={14} /></button>
+                      <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบสินค้า "${p.name}" ใช่หรือไม่?`, () => remove(p.id))}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
@@ -2597,7 +2634,7 @@ function CustomersTab({ customers, setCustomers }) {
                 <div style={{ fontWeight: 700, fontSize: 16, color: "#3c3489" }}>{c.deliveries} ครั้ง</div>
               </div>
               <button style={iconBtn} onClick={() => openEdit(c)} title="แก้ไข"><Edit2 size={15} /></button>
-              <button style={btnDanger} onClick={() => remove(c.id)} title="ลบ"><Trash2 size={15} /></button>
+              <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบลูกค้า "${c.name}" ใช่หรือไม่?`, () => remove(c.id))} title="ลบ"><Trash2 size={15} /></button>
             </div>
           </div>
         ))}
@@ -2886,7 +2923,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                     </button>
                     <button style={iconBtn} onClick={() => openView(po)} aria-label="พิมพ์ PDF"><Printer size={16} /></button>
                     <button style={iconBtn} onClick={() => openEdit(po)} aria-label="แก้ไข"><Edit2 size={16} /></button>
-                    <button style={btnDanger} onClick={() => remove(po.id)} aria-label="ลบ"><Trash2 size={16} /></button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบใบรับสินค้า "${po.id}" ใช่หรือไม่?`, () => remove(po.id))} aria-label="ลบ"><Trash2 size={16} /></button>
                   </div>
                 </div>
               </div>
@@ -3521,7 +3558,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                     </button>
                     <button style={iconBtn} onClick={() => setPrintLot(lot)} aria-label="พิมพ์" title="พิมพ์ใบเบิกสินค้า"><Printer size={16} /></button>
                     <button style={iconBtn} onClick={() => openEdit(lot)} aria-label="แก้ไข"><Edit2 size={16} /></button>
-                    <button style={btnDanger} onClick={() => remove(lot.id)} aria-label="ลบ"><Trash2 size={16} /></button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบใบเบิกสินค้า "${lot.id}" ใช่หรือไม่?`, () => remove(lot.id))} aria-label="ลบ"><Trash2 size={16} /></button>
                   </div>
                 </div>
               </div>
@@ -3907,7 +3944,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button style={iconBtn} onClick={() => openView(inv)}><Printer size={14} /> ดู Invoice</button>
                       <button style={iconBtn} onClick={() => openEdit(inv)}><Edit2 size={14} /> แก้ไข</button>
-                      <button style={btnDanger} onClick={() => remove(inv.id)}><Trash2 size={14} /> ลบ</button>
+                      <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบใบขาย "${inv.id}" ใช่หรือไม่?`, () => remove(inv.id))}><Trash2 size={14} /> ลบ</button>
                     </div>
                   </td>
                 </tr>
@@ -4701,7 +4738,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button style={iconBtn} onClick={() => startEditPayment(idx, p)}><Edit2 size={14} /> แก้ไข</button>
-                    <button style={btnDanger} onClick={() => deleteHistoryPayment(idx)}><Trash2 size={14} /> ลบ</button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการชำระเงิน ฿${fmt(p.amount)} วันที่ ${p.date} ใช่หรือไม่?`, () => deleteHistoryPayment(idx))}><Trash2 size={14} /> ลบ</button>
                   </div>
                 </div>
               )}
@@ -5048,7 +5085,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     <button style={iconBtn} onClick={() => openEdit(d)}><Edit2 size={14} /> แก้ไข</button>
-                    <button style={btnDanger} onClick={() => remove(d.id)}><Trash2 size={14} /> ลบ</button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการมัดจำของ "${custName(d.customerId)}" จำนวน ฿${fmt(d.amount)} ใช่หรือไม่?`, () => remove(d.id))}><Trash2 size={14} /> ลบ</button>
                   </div>
                 </td>
               </tr>
@@ -5259,7 +5296,7 @@ function LoansTab({ loans, setLoans, expenses, customers }) {
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button style={iconBtn} onClick={() => openSchedule(l)}><History size={14} /> ตารางผ่อน</button>
                       <button style={iconBtn} onClick={() => openEdit(l)}><Edit2 size={14} /> แก้ไข</button>
-                      <button style={btnDanger} onClick={() => remove(l.id)}><Trash2 size={14} /> ลบ</button>
+                      <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบสัญญา "${l.name || l.id}" ใช่หรือไม่?`, () => remove(l.id))}><Trash2 size={14} /> ลบ</button>
                     </div>
                   </td>
                 </tr>
@@ -5793,7 +5830,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                           <button style={iconBtn} onClick={() => openView(e)}><Printer size={14} /> ใบสำคัญจ่าย</button>
                           <button style={iconBtn} onClick={() => openEdit(e)}><Edit2 size={14} /> แก้ไข</button>
-                          <button style={btnDanger} onClick={() => remove(e.id)}><Trash2 size={14} /> ลบ</button>
+                          <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการค่าใช้จ่าย "${e.refNo || e.id}" ใช่หรือไม่?`, () => remove(e.id))}><Trash2 size={14} /> ลบ</button>
                         </div>
                       </td>
                     </tr>
@@ -6308,7 +6345,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={iconBtn} onClick={() => openAddSub(main)}><Plus size={14} /> เพิ่มหมวดหมู่ย่อย</button>
                 <button style={iconBtn} onClick={() => openEditMain(main)}><Edit2 size={14} /> แก้ไข</button>
-                <button style={btnDanger} onClick={() => removeMain(main)}><Trash2 size={14} /> ลบ</button>
+                <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบหมวดหมู่ใหญ่ "${main}" และหมวดหมู่ย่อยทั้งหมดในนี้ใช่หรือไม่?`, () => removeMain(main))}><Trash2 size={14} /> ลบ</button>
               </div>
             </div>
             <div style={{ overflowX: "auto" }}>
@@ -6330,7 +6367,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
                     <td style={{ ...tdStyle, textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                         <button style={iconBtn} onClick={() => openEditSub(main, sub)}><Edit2 size={14} /> แก้ไข</button>
-                        <button style={btnDanger} onClick={() => removeSub(main, sub.name)}><Trash2 size={14} /> ลบ</button>
+                        <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบหมวดหมู่ย่อย "${sub.name}" ใช่หรือไม่?`, () => removeSub(main, sub.name))}><Trash2 size={14} /> ลบ</button>
                       </div>
                     </td>
                   </tr>
@@ -6527,7 +6564,7 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button style={iconBtn} onClick={() => openEdit(a)}><Edit2 size={14} /></button>
-                <button style={btnDanger} onClick={() => remove(a.id)}><Trash2 size={14} /></button>
+                <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบบัญชี "${a.bankName} ${a.accountNo}" ใช่หรือไม่?`, () => remove(a.id))}><Trash2 size={14} /></button>
               </div>
             </div>
             <div style={{ fontSize: 13, color: "#6b7280" }}>
@@ -6767,7 +6804,7 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button style={iconBtn} onClick={() => { setForm({ ...t }); setModal({ mode: "edit", item: t }); }}><Edit2 size={14} /></button>
-              <button style={btnDanger} onClick={() => setBankTransfers(transfers.filter((x) => x.id !== t.id))}><Trash2 size={14} /></button>
+              <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการโยกเงิน "${t.id}" จำนวน ฿${fmt(t.amount)} ใช่หรือไม่?`, () => setBankTransfers(transfers.filter((x) => x.id !== t.id)))}><Trash2 size={14} /></button>
             </div>
           </div>
         ))}
@@ -7045,7 +7082,7 @@ function AssetsTab({ assets, setAssets }) {
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     <button style={iconBtn} onClick={() => { setForm({ ...a }); setModal({ mode: "edit", item: a }); }}><Edit2 size={14} /></button>
-                    <button style={btnDanger} onClick={() => setAssets(assets.filter((x) => x.id !== a.id))}><Trash2 size={14} /></button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบทรัพย์สิน "${a.name}" ใช่หรือไม่?`, () => setAssets(assets.filter((x) => x.id !== a.id)))}><Trash2 size={14} /></button>
                   </div>
                 </td>
               </tr>
@@ -7700,7 +7737,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     <button style={iconBtn} onClick={() => openView(d)}><Printer size={14} /> พิมพ์</button>
                     <button style={iconBtn} onClick={() => openEdit(d)}><Edit2 size={14} /> แก้ไข</button>
-                    <button style={btnDanger} onClick={() => remove(d.id)}><Trash2 size={14} /> ลบ</button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบใบส่งสินค้า "${d.id}" ใช่หรือไม่?`, () => remove(d.id))}><Trash2 size={14} /> ลบ</button>
                   </div>
                 </td>
               </tr>
@@ -8133,7 +8170,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f6e56" }}>฿{fmt(amount)}</td>
                     {editingShareholders && (
                       <td style={{ ...tdStyle, textAlign: "right" }}>
-                        <button style={btnDanger} onClick={() => removeShareholder(idx)}><Trash2 size={14} /></button>
+                        <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบผู้ถือหุ้น "${sh.name}" ใช่หรือไม่?`, () => removeShareholder(idx))}><Trash2 size={14} /></button>
                       </td>
                     )}
                   </tr>
@@ -8239,7 +8276,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
                 <td style={tdStyle}>{d.date}</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f6e56" }}>฿{fmt(d.amount)}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>
-                  <button style={btnDanger} onClick={() => removeDivPayment(d.id)}><Trash2 size={14} /> ลบ</button>
+                  <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการจ่ายเงินปันผลวันที่ ${d.date} จำนวน ฿${fmt(d.amount)} ใช่หรือไม่?`, () => removeDivPayment(d.id))}><Trash2 size={14} /> ลบ</button>
                 </td>
               </tr>
             ))}
