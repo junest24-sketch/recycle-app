@@ -101,60 +101,63 @@ function exportImage(elementId, filename = "export.png") {
 }
 
 // Print current page as PDF (via browser print dialog)
+// ---------- Print preview: global subscriber pattern ----------
+// printAsPDF ถูกเรียกจากหลายจุดในแอปที่ไม่มี prop เข้าถึง state ของ App โดยตรง
+// จึงใช้ตัวแปร global เก็บ callback ที่ App ลงทะเบียนไว้ตอน mount แทน
+let __printPreviewSetter = null;
+function registerPrintPreview(setter) { __printPreviewSetter = setter; }
+
 function printAsPDF(elementId, title = "") {
   const el = document.getElementById(elementId);
   if (!el) { window.print(); return; }
+  if (__printPreviewSetter) {
+    __printPreviewSetter({ html: el.innerHTML, title });
+  } else {
+    // เผื่อกรณี overlay ยังไม่ได้ลงทะเบียน (ไม่ควรเกิดขึ้นในการใช้งานปกติ)
+    window.print();
+  }
+}
 
-  // ใช้ iframe ที่ซ่อนไว้แทนการเปิดแท็บ/หน้าต่างใหม่ เพื่อไม่ให้โดนเบราว์เซอร์บล็อก popup
-  // (โดยเฉพาะมือถือที่มักบล็อก window.open แม้จะกดปุ่มโดยตรงก็ตาม)
-  let iframe = document.getElementById("__print_iframe__");
-  if (iframe) iframe.remove();
-  iframe = document.createElement("iframe");
-  iframe.id = "__print_iframe__";
-  iframe.style.position = "fixed";
-  iframe.style.right = "0";
-  iframe.style.bottom = "0";
-  iframe.style.width = "0";
-  iframe.style.height = "0";
-  iframe.style.border = "0";
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentWindow.document;
-  doc.open();
-  doc.write(`
-    <html><head><title>${title}</title>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap');
-      @page { size: A4; margin: 15mm; }
-      * { box-sizing: border-box; }
-      html,body{margin:0;padding:0;font-family:'Noto Sans Thai',sans-serif;font-size:13px;color:#1f2937;background:#fff}
-      body{padding:20px}
-      table{border-collapse:collapse;width:100%}
-      td,th{border:1px solid #ddd;padding:6px 10px}
-      th{background:#f3f4f6;font-weight:700}
-      tr:nth-child(even){background:#f9f9f9}
-      tfoot td{font-weight:700;background:#f3f4f6;border-top:2px solid #5a1414}
-      h1,h2,h3{margin:0 0 12px}
-      img{max-width:100%}
-      button{display:none !important}
-      thead{display:table-header-group}
-      tfoot{display:table-footer-group}
-      tr{page-break-inside:avoid}
-      table{page-break-inside:auto}
-      @media print{
-        @page { size: A4; margin: 15mm; }
-        body{padding:0}
-      }
-    </style>
-    </head><body>${title ? `<h2 style="margin-bottom:8px">${title}</h2>` : ""}${el.innerHTML}</body></html>
-  `);
-  doc.close();
-
-  // รอให้ฟอนต์/เลย์เอาต์โหลดเสร็จก่อนสั่งพิมพ์
-  setTimeout(() => {
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
-  }, 400);
+// หน้าต่างดูตัวอย่างเอกสารแบบเต็มจอ ก่อนสั่งพิมพ์จริง
+function PrintPreviewOverlay({ preview, onClose }) {
+  if (!preview) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, display: "flex", flexDirection: "column" }}>
+      <div className="print-preview-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", borderBottom: "1px solid #e5e7eb", background: "#f9fafb", flexShrink: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 15 }}>{preview.title || "ดูตัวอย่างเอกสาร"}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={btnSecondary} onClick={onClose}><ChevronLeft size={16} /> ย้อนกลับ</button>
+          <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflow: "auto", display: "flex", justifyContent: "center", padding: "24px 16px", background: "#e5e7eb" }}>
+        <div
+          id="print-preview-content"
+          style={{ background: "#fff", width: "100%", maxWidth: 794, padding: 28, boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 13, color: "#1f2937" }}
+          dangerouslySetInnerHTML={{ __html: preview.html }}
+        />
+      </div>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-preview-toolbar { display: none !important; }
+          #print-preview-content, #print-preview-content * { visibility: visible; }
+          #print-preview-content { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; max-width: none; }
+          @page { size: A4; margin: 15mm; }
+        }
+        #print-preview-content table { border-collapse: collapse; width: 100%; }
+        #print-preview-content td, #print-preview-content th { border: 1px solid #ddd; padding: 6px 10px; }
+        #print-preview-content th { background: #f3f4f6; font-weight: 700; }
+        #print-preview-content tr:nth-child(even) { background: #f9f9f9; }
+        #print-preview-content tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
+        #print-preview-content img { max-width: 100%; }
+        #print-preview-content button { display: none !important; }
+        #print-preview-content thead { display: table-header-group; }
+        #print-preview-content tfoot { display: table-footer-group; }
+        #print-preview-content tr { page-break-inside: avoid; }
+      `}</style>
+    </div>
+  );
 }
 
 // ---------- Keyboard navigation helper: Enter = move to next field, last field = submit ----------
@@ -849,6 +852,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [printPreview, setPrintPreview] = useState(null);
+
+  React.useEffect(() => {
+    registerPrintPreview(setPrintPreview);
+  }, []);
 
 
   const handleLogin = () => {
@@ -1079,6 +1087,8 @@ useEffect(() => {
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: "'Noto Sans Thai', 'Inter', system-ui, sans-serif", background: "#f3f4f1", color: "#1f2937" }}>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" />
+
+      <PrintPreviewOverlay preview={printPreview} onClose={() => setPrintPreview(null)} />
 
       {/* Sidebar — fixed, independent scroll */}
       <div style={{ width: sidebarOpen ? 220 : 64, background: "#0c443c", color: "#e1f5ee", display: "flex", flexDirection: "column", flexShrink: 0, transition: "width 0.2s ease", height: "100vh", overflowY: "auto", overflowX: "auto", position: "fixed", top: 0, left: 0, zIndex: 10 }}>
