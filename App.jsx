@@ -5505,6 +5505,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     mainCategory: EXPENSE_MAIN_CATEGORIES[0],
     subCategory: (EXPENSE_SUBCATEGORIES_DEFAULT[EXPENSE_MAIN_CATEGORIES[0]] || [])[0] || "",
     amount: 0,
+    vatEnabled: false,
+    whtRate: 0,
   });
 
   const blankForm = () => ({
@@ -5513,9 +5515,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     recordDate: new Date().toISOString().slice(0, 10),
     taxInvoiceNo: "",
     billDate: new Date().toISOString().slice(0, 10),
-    items: [blankItem()], // รายการค่าใช้จ่าย (เพิ่มได้หลายรายการในใบเดียว)
-    vatEnabled: false,
-    whtRate: 0,
+    items: [blankItem()], // รายการค่าใช้จ่าย (เพิ่มได้หลายรายการในใบเดียว) — แต่ละรายการมี VAT/หัก ณ ที่จ่ายของตัวเอง
     payments: [],
   });
   const [form, setForm] = useState(blankForm());
@@ -5524,16 +5524,22 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   const openEdit = (item) => {
     // รองรับข้อมูลเดิมที่ยังเป็นรายการเดียว (description/mainCategory/subCategory/amount ที่ระดับบนสุด)
     const items = item.items && item.items.length > 0
-      ? item.items
+      ? item.items.map((it) => ({
+          vatEnabled: item.vatEnabled || false, // ของเก่าที่ยังไม่มีต่อรายการ ให้สืบทอดจากระดับบิลเดิม
+          whtRate: Number(item.whtRate) || 0,
+          ...it,
+        }))
       : [{
           id: "EXI" + Date.now().toString().slice(-6),
           description: item.description || "",
           mainCategory: item.mainCategory || item.category || EXPENSE_MAIN_CATEGORIES[0],
           subCategory: item.subCategory || (item.mainCategory ? "" : item.category) || "",
           amount: Number(item.amount) || 0,
+          vatEnabled: item.vatEnabled || false,
+          whtRate: Number(item.whtRate) || 0,
         }];
     setForm(JSON.parse(JSON.stringify({
-      payments: [], whtRate: 0, vatEnabled: false, taxInvoiceNo: "",
+      payments: [], taxInvoiceNo: "",
       recordDate: item.recordDate || item.billDate || item.date, refNo: item.refNo || item.id,
       ...item,
       items,
@@ -5591,13 +5597,13 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
       mainCategory: "สินเชื่อ",
       subCategory: loan.type === "เช่าซื้อ" ? "ชำระค่าเช่าซื้อ" : "ชำระเงินกู้ (เงินต้น)",
       amount: Math.round(installment.payment * 100) / 100,
+      vatEnabled: false,
+      whtRate: 0,
     };
     setForm({
       ...form,
       items: [installmentItem],
       billDate: installment.dueDate,
-      vatEnabled: false,
-      whtRate: 0,
     });
     setPendingInstallment({ loanId: loan.id, no: installment.no });
     setInstallmentPicker(false);
@@ -5626,15 +5632,23 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     updateItem(idx, "subCategory", value);
   };
 
-  // --- คำนวณ VAT / หัก ณ ที่จ่าย / จำนวนเงินสุทธิ ---
+  // --- คำนวณ VAT / หัก ณ ที่จ่าย / จำนวนเงินสุทธิ (คำนวณแยกต่อรายการ แล้วรวมผลลัพธ์) ---
   const calcTotals = (e) => {
-    const amount = (e.items && e.items.length > 0)
-      ? e.items.reduce((s, it) => s + (Number(it.amount) || 0), 0)
-      : (Number(e.amount) || 0);
+    if (e.items && e.items.length > 0) {
+      let amount = 0, vat = 0, wht = 0;
+      e.items.forEach((it) => {
+        const itAmount = Number(it.amount) || 0;
+        amount += itAmount;
+        vat += it.vatEnabled ? itAmount * 0.07 : 0;
+        wht += itAmount * ((Number(it.whtRate) || 0) / 100);
+      });
+      return { amount, vat, wht, net: amount + vat - wht };
+    }
+    // รองรับข้อมูลเก่าที่ยังเป็นรายการเดียวระดับบิล
+    const amount = Number(e.amount) || 0;
     const vat = e.vatEnabled ? amount * 0.07 : 0;
     const wht = amount * ((Number(e.whtRate) || 0) / 100);
-    const net = amount + vat - wht;
-    return { amount, vat, wht, net };
+    return { amount, vat, wht, net: amount + vat - wht };
   };
 
   const { amount: formAmount, vat: formVat, wht: formWht, net: formNet } = calcTotals(form);
@@ -5663,14 +5677,13 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   const removeItem = (idx) => setForm({ ...form, items: (form.items || []).filter((_, i) => i !== idx) });
 
   const save = () => {
-    const items = (form.items || []).map((it) => ({ ...it, amount: Number(it.amount) || 0 }));
+    const items = (form.items || []).map((it) => ({ ...it, amount: Number(it.amount) || 0, vatEnabled: !!it.vatEnabled, whtRate: Number(it.whtRate) || 0 }));
     const totalAmount = items.reduce((s, it) => s + it.amount, 0);
     if (!(totalAmount > 0)) return;
     const cleaned = {
       ...form,
       items,
       amount: totalAmount, // เก็บยอดรวมไว้ที่ระดับบนสุดด้วย เพื่อความเข้ากันได้กับการคำนวณเดิม (dashboard ฯลฯ)
-      whtRate: Number(form.whtRate) || 0,
       payments: (form.payments || []).map((p) => ({ ...p, amount: Number(p.amount) || 0 })),
       loanInstallment: pendingInstallment || form.loanInstallment || null,
     };
@@ -5753,10 +5766,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
               const rows = [
                 ["เลขที่อ้างอิง", "วันที่ตามบิล", "เลขที่ใบกำกับ", "หมวดหมู่ใหญ่", "หมวดหมู่ย่อย", "รายละเอียด", "จำนวนเงิน", "VAT", "หัก ณ ที่จ่าย", "สุทธิ"],
                 ...filtered.map((e) => {
-                  const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, subCategory: e.subCategory, description: e.description, amount: e.amount }];
-                  const amount = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-                  const vat = e.vatEnabled ? amount * 0.07 : 0;
-                  const wht = amount * ((Number(e.whtRate) || 0) / 100);
+                  const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, subCategory: e.subCategory, description: e.description, amount: e.amount, vatEnabled: e.vatEnabled, whtRate: e.whtRate }];
+                  const { amount, vat, wht } = calcTotals({ ...e, items });
                   return [e.refNo || e.id, e.billDate || e.date, e.taxInvoiceNo || "", items.map(it=>it.mainCategory).join(", "), items.map(it=>it.subCategory).join(", "), items.map(it=>it.description).join(", "), amount, vat, wht, amount + vat - wht];
                 }),
               ];
@@ -5932,29 +5943,28 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   <input type="number" style={inputStyle} value={it.amount} onChange={(e) => updateItem(idx, "amount", e.target.value)} />
                 </Field>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px", marginTop: 4 }}>
+                <Field label="ภาษีมูลค่าเพิ่ม">
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, height: 38, fontSize: 14, cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!it.vatEnabled} onChange={(e) => updateItem(idx, "vatEnabled", e.target.checked)} style={{ width: 16, height: 16 }} />
+                    มี VAT 7%
+                  </label>
+                </Field>
+                <Field label="หัก ณ ที่จ่าย (%)">
+                  <input type="number" style={inputStyle} value={it.whtRate} onChange={(e) => updateItem(idx, "whtRate", e.target.value)} placeholder="0" />
+                </Field>
+              </div>
             </div>
           ))}
           <div style={{ marginBottom: 10 }}>
             <button style={btnSecondary} onClick={addItem}><Plus size={14} /> เพิ่มรายการ</button>
           </div>
-          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: -2, marginBottom: 16 }}>* พิมพ์ชื่อหมวดหมู่ใหญ่/ย่อยใหม่ได้เลย ระบบจะบันทึกเป็นหมวดหมู่ใหม่ในฐานข้อมูลให้อัตโนมัติ</p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
-            <Field label="ภาษีมูลค่าเพิ่ม">
-              <label style={{ display: "flex", alignItems: "center", gap: 8, height: 38, fontSize: 14, cursor: "pointer" }}>
-                <input type="checkbox" checked={!!form.vatEnabled} onChange={(e) => setForm({ ...form, vatEnabled: e.target.checked })} style={{ width: 16, height: 16 }} />
-                มี VAT 7%
-              </label>
-            </Field>
-            <Field label="หัก ณ ที่จ่าย (%)">
-              <input type="number" style={inputStyle} value={form.whtRate} onChange={(e) => setForm({ ...form, whtRate: e.target.value })} placeholder="0" />
-            </Field>
-          </div>
+          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: -2, marginBottom: 16 }}>* พิมพ์ชื่อหมวดหมู่ใหญ่/ย่อยใหม่ได้เลย ระบบจะบันทึกเป็นหมวดหมู่ใหม่ในฐานข้อมูลให้อัตโนมัติ — แต่ละรายการตั้งค่า VAT/หัก ณ ที่จ่ายแยกกันได้</p>
 
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 14 }}>
             <Row label="จำนวนเงินรวมทุกรายการ" value={`฿${fmt(formAmount)}`} />
-            <Row label={form.vatEnabled ? "ภาษีมูลค่าเพิ่ม (7%)" : "ภาษีมูลค่าเพิ่ม"} value={`+฿${fmt(formVat)}`} />
-            <Row label={`หัก ณ ที่จ่าย (${Number(form.whtRate) || 0}%)`} value={`-฿${fmt(formWht)}`} />
+            <Row label="ภาษีมูลค่าเพิ่มรวม" value={`+฿${fmt(formVat)}`} />
+            <Row label="หัก ณ ที่จ่ายรวม" value={`-฿${fmt(formWht)}`} />
             <Row label="จำนวนเงินสุทธิ" value={`฿${fmt(formNet)}`} bold />
           </div>
 
@@ -6096,10 +6106,10 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
   const cs = companySettings || {};
   const items = (expense.items && expense.items.length > 0)
     ? expense.items
-    : [{ description: expense.description, mainCategory: expense.mainCategory || expense.category, subCategory: expense.subCategory, amount: expense.amount }];
+    : [{ description: expense.description, mainCategory: expense.mainCategory || expense.category, subCategory: expense.subCategory, amount: expense.amount, vatEnabled: expense.vatEnabled, whtRate: expense.whtRate }];
   const amount = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-  const vat = expense.vatEnabled ? amount * 0.07 : 0;
-  const wht = amount * ((Number(expense.whtRate) || 0) / 100);
+  const vat = items.reduce((s, it) => s + (it.vatEnabled ? (Number(it.amount) || 0) * 0.07 : 0), 0);
+  const wht = items.reduce((s, it) => s + (Number(it.amount) || 0) * ((Number(it.whtRate) || 0) / 100), 0);
   const net = amount + vat - wht;
   const payments = expense.payments || [];
   const totalPaid = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
@@ -6142,6 +6152,8 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
                 <th style={thStyle}>รายละเอียด</th>
                 <th style={thStyle}>หมวดหมู่</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
+                <th style={{ ...thStyle, textAlign: "center" }}>VAT</th>
+                <th style={{ ...thStyle, textAlign: "center" }}>หัก ณ ที่จ่าย</th>
               </tr>
             </thead>
             <tbody>
@@ -6153,6 +6165,8 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
                     {it.subCategory && <span style={{ marginLeft: 6, color: "#6b7280" }}>› {it.subCategory}</span>}
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(it.amount)}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>{it.vatEnabled ? "7%" : "-"}</td>
+                  <td style={{ ...tdStyle, textAlign: "center" }}>{Number(it.whtRate) > 0 ? `${it.whtRate}%` : "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -6162,8 +6176,8 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <div style={{ width: 280 }}>
             <Row label="จำนวนเงิน" value={`฿${fmt(amount)}`} />
-            <Row label={expense.vatEnabled ? "ภาษีมูลค่าเพิ่ม (7%)" : "ภาษีมูลค่าเพิ่ม"} value={`+฿${fmt(vat)}`} />
-            <Row label={`หัก ณ ที่จ่าย (${Number(expense.whtRate) || 0}%)`} value={`-฿${fmt(wht)}`} />
+            <Row label="ภาษีมูลค่าเพิ่มรวม" value={`+฿${fmt(vat)}`} />
+            <Row label="หัก ณ ที่จ่ายรวม" value={`-฿${fmt(wht)}`} />
             <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: "2px solid #993c1d", fontWeight: 700, fontSize: 15 }}>
               <span>จำนวนเงินสุทธิ</span>
               <span>฿{fmt(net)}</span>
@@ -7391,11 +7405,13 @@ function TaxSummaryTab({ purchases, sales, expenses }) {
     return { id: po.id, date: po.date, description: `ใบรับสินค้า ${po.id}`, base: subtotal, vatRate: po.vatRate, vat };
   });
 
-  const expenseVatRows = expenses.filter((e) => inRange(e.billDate || e.date) && e.vatEnabled).map((e) => {
-    const items = (e.items && e.items.length > 0) ? e.items : [{ amount: e.amount }];
-    const base = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-    const vat = base * 0.07;
-    return { id: e.refNo || e.id, date: e.billDate || e.date, description: `ค่าใช้จ่าย ${e.refNo || e.id}`, base, vatRate: 7, vat };
+  const expenseVatRows = expenses.filter((e) => inRange(e.billDate || e.date)).flatMap((e) => {
+    const items = (e.items && e.items.length > 0) ? e.items : [{ amount: e.amount, vatEnabled: e.vatEnabled, description: e.description }];
+    return items.filter((it) => it.vatEnabled).map((it, i) => {
+      const base = Number(it.amount) || 0;
+      const vat = base * 0.07;
+      return { id: `${e.refNo || e.id}${items.length > 1 ? `-${i + 1}` : ""}`, date: e.billDate || e.date, description: `ค่าใช้จ่าย ${e.refNo || e.id}${it.description ? ` (${it.description})` : ""}`, base, vatRate: 7, vat };
+    });
   });
 
   const inputVatRows = [...purchaseVatRows, ...expenseVatRows].sort((a, b) => a.date.localeCompare(b.date));
@@ -7416,12 +7432,14 @@ function TaxSummaryTab({ purchases, sales, expenses }) {
   const vatTh = { ...thStyle, textAlign: "right" };
 
   // ===== หัก ณ ที่จ่าย (Withholding Tax) =====
-  const whtRows = expenses.filter((e) => inRange(e.billDate || e.date) && Number(e.whtRate) > 0).map((e) => {
-    const items = (e.items && e.items.length > 0) ? e.items : [{ amount: e.amount }];
-    const base = items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
-    const wht = base * ((Number(e.whtRate) || 0) / 100);
+  const whtRows = expenses.filter((e) => inRange(e.billDate || e.date)).flatMap((e) => {
+    const items = (e.items && e.items.length > 0) ? e.items : [{ amount: e.amount, whtRate: e.whtRate, description: e.description }];
     const vendor = e.vendorName || e.description || e.refNo || e.id;
-    return { id: e.refNo || e.id, date: e.billDate || e.date, description: vendor, base, whtRate: e.whtRate, wht };
+    return items.filter((it) => Number(it.whtRate) > 0).map((it, i) => {
+      const base = Number(it.amount) || 0;
+      const wht = base * ((Number(it.whtRate) || 0) / 100);
+      return { id: `${e.refNo || e.id}${items.length > 1 ? `-${i + 1}` : ""}`, date: e.billDate || e.date, description: it.description ? `${vendor} (${it.description})` : vendor, base, whtRate: it.whtRate, wht };
+    });
   }).sort((a, b) => a.date.localeCompare(b.date));
   const totalWhtBase = whtRows.reduce((s, r) => s + r.base, 0);
   const totalWht     = whtRows.reduce((s, r) => s + r.wht, 0);
