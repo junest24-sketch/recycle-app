@@ -4727,6 +4727,7 @@ function InventoryTab({ products, inventory }) {
   const [expanded, setExpanded] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [showBasket, setShowBasket] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
 
   const toggleSelect = (productId) => {
     setSelectedIds((prev) => {
@@ -4860,45 +4861,49 @@ function InventoryTab({ products, inventory }) {
             <p style={{ color: "#9ca3af", fontSize: 13, textAlign: "center", padding: 20 }}>ยังไม่ได้เลือกสินค้า</p>
           ) : (
             <>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 480 }}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>สินค้า</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>ราคาเฉลี่ย/หน่วย</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>มูลค่า</th>
-                      <th style={thStyle}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {basketItems.map((s) => (
-                      <tr key={s.productId}>
-                        <td style={tdStyle}>{s.name}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>{fmtInt(s.qty)} {s.unit}</td>
-                        <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(s.avgCost)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(s.totalCost)}</td>
-                        <td style={{ ...tdStyle, textAlign: "center" }}>
-                          <button style={iconBtn} onClick={() => toggleSelect(s.productId)} aria-label="นำออกจากตะกร้า"><X size={14} /></button>
-                        </td>
+              <div id="basket-pdf-content">
+                <h3 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 700 }}>ตะกร้าสินค้าที่เลือก — {today}</h3>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 480 }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>สินค้า</th>
+                        <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
+                        <th style={{ ...thStyle, textAlign: "right" }}>ราคาเฉลี่ย/หน่วย</th>
+                        <th style={{ ...thStyle, textAlign: "right" }}>มูลค่า</th>
+                        <th style={thStyle}></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {basketItems.map((s) => (
+                        <tr key={s.productId}>
+                          <td style={tdStyle}>{s.name}</td>
+                          <td style={{ ...tdStyle, textAlign: "right" }}>{fmtInt(s.qty)} {s.unit}</td>
+                          <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(s.avgCost)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(s.totalCost)}</td>
+                          <td style={{ ...tdStyle, textAlign: "center" }}>
+                            <button style={iconBtn} onClick={() => toggleSelect(s.productId)} aria-label="นำออกจากตะกร้า"><X size={14} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 14, fontSize: 14 }}>
-                {basketSameUnit ? (
-                  <Row label="จำนวนรวม" value={`${fmt(basketTotalQty)} ${basketUnits[0] || ""}`} />
-                ) : (
-                  <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 8px" }}>* สินค้าที่เลือกมีหน่วยไม่เหมือนกัน จึงไม่รวมจำนวนให้</p>
-                )}
-                <Row label="ราคาเฉลี่ยถ่วงน้ำหนัก" value={basketSameUnit ? `฿${fmt(basketAvgCost)}` : "-"} />
-                <Row label="ยอดรวมมูลค่า" value={`฿${fmt(basketTotalValue)}`} bold color="#534ab7" />
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 14, fontSize: 14 }}>
+                  {basketSameUnit ? (
+                    <Row label="จำนวนรวม" value={`${fmt(basketTotalQty)} ${basketUnits[0] || ""}`} />
+                  ) : (
+                    <p style={{ fontSize: 12, color: "#9ca3af", margin: "0 0 8px" }}>* สินค้าที่เลือกมีหน่วยไม่เหมือนกัน จึงไม่รวมจำนวนให้</p>
+                  )}
+                  <Row label="ราคาเฉลี่ยถ่วงน้ำหนัก" value={basketSameUnit ? `฿${fmt(basketAvgCost)}` : "-"} />
+                  <Row label="ยอดรวมมูลค่า" value={`฿${fmt(basketTotalValue)}`} bold color="#534ab7" />
+                </div>
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
                 <button style={btnSecondary} onClick={clearBasket}><Trash2 size={14} /> ล้างตะกร้า</button>
+                <button style={btnSecondary} onClick={() => printAsPDF("basket-pdf-content", "ตะกร้าสินค้าที่เลือก")}><Download size={14} /> พิมพ์ / PDF</button>
                 <button style={btnPrimary} onClick={() => setShowBasket(false)}>ปิด</button>
               </div>
             </>
