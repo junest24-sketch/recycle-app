@@ -7530,20 +7530,40 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
   const endDate   = `${year}-${String(month).padStart(2,"0")}-${String(new Date(year, month, 0).getDate()).padStart(2,"0")}`;
   const inRange = (d) => d >= startDate && d <= endDate;
 
-  // ===== รายได้จากการขาย =====
+  // ===== รายได้ =====
   const salesInRange = sales.filter((s) => inRange(s.date));
   const totalRevenue = salesInRange.reduce((sum, inv) => {
     const subtotal = inv.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
     const ad = subtotal - (inv.discount || 0);
     return sum + ad;
   }, 0);
+  const totalOtherIncome = 0; // รายได้อื่น — ยังไม่มีข้อมูลในระบบ ใส่ 0 ไปก่อน
+  const totalIncome = totalRevenue + totalOtherIncome;
 
-  // ===== ต้นทุนขาย (จากต้นทุนสินค้าที่ขายออกจริงในเดือนนี้ — นับจากใบขายตรงและใบเบิกสินค้า ไม่ใช่ยอดซื้อทั้งเดือน) =====
-  const totalCost = (inventory?.movements || [])
-    .filter((m) => (m.type === "out" || m.type === "withdraw") && inRange(m.date))
-    .reduce((sum, m) => sum + (Number(m.costConsumed) || 0), 0);
+  // ===== สินค้าคงเหลือต้นงวด/ปลายงวด + ต้นทุนขาย (คำนวณจากมูลค่าสต็อกจริงตามช่วงเวลา) =====
+  const movements = inventory?.movements || [];
+  // มูลค่าสต็อก ณ จุดใดจุดหนึ่ง = ผลรวมมูลค่า "in" ลบมูลค่า "out"/"withdraw" (costConsumed) ของรายการที่เกิดขึ้น "ก่อน" วันที่ที่กำหนด (exclusive)
+  const stockValueBefore = (dateExclusive) => {
+    let value = 0;
+    movements.forEach((m) => {
+      if (m.date >= dateExclusive) return;
+      if (m.type === "in") value += (Number(m.qty) || 0) * (Number(m.price) || 0);
+      else value -= Number(m.costConsumed) || 0;
+    });
+    return value;
+  };
+  const beginningInventory = stockValueBefore(startDate);
+  const endingInventory = stockValueBefore(new Date(new Date(endDate).getTime() + 86400000).toISOString().slice(0, 10)); // รวมถึงสิ้นวันสุดท้ายของเดือน
 
-  const grossProfit = totalRevenue - totalCost;
+  // ซื้อสินค้าระหว่างงวด (มูลค่าใบรับสินค้าที่อนุมัติแล้ว ไม่นับยอดยกมา)
+  const purchasesInRange = movements
+    .filter((m) => m.type === "in" && !m.isOpening && inRange(m.date))
+    .reduce((s, m) => s + (Number(m.qty) || 0) * (Number(m.price) || 0), 0);
+
+  const goodsAvailableForSale = beginningInventory + purchasesInRange;
+  const totalCost = goodsAvailableForSale - endingInventory;
+
+  const grossProfit = totalIncome - totalCost;
 
   // ===== ค่าใช้จ่ายดำเนินงาน =====
   const expensesInRange = expenses.filter((e) => inRange(e.billDate || e.date));
@@ -7580,7 +7600,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
   const totalExpenses = expenseByCategory.reduce((s, c) => s + c.amount, 0);
 
   const netProfit = grossProfit - totalExpenses;
-  const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+  const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
   // ===== เงินปันผล =====
   const totalSharePercent = shareholders.reduce((s, sh) => s + (Number(sh.percent) || 0), 0);
@@ -7605,7 +7625,13 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
             const rows = [
               [`รายงานกำไร-ขาดทุน ${periodLabel}`],[""],
               ["รายได้จากการขาย", totalRevenue],
-              ["ต้นทุนขาย", totalCost],
+              ["รายได้อื่น", totalOtherIncome],
+              ["รวมรายได้", totalIncome],[""],
+              ["สินค้าคงเหลือยกมาต้นงวด", beginningInventory],
+              ["บวก ซื้อสินค้า", purchasesInRange],
+              ["สินค้าที่มีไว้เพื่อขาย", goodsAvailableForSale],
+              ["หัก สินค้าคงเหลือปลายงวด", endingInventory],
+              ["ต้นทุนขาย", totalCost],[""],
               ["กำไรขั้นต้น", grossProfit],[""],
               ["ค่าใช้จ่ายดำเนินงาน","" ],
               ...expenseByCategory.map(c => [c.category, c.amount]),
@@ -7632,8 +7658,8 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
         {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
           <div style={{ background: "#e1f5ee", borderRadius: 12, padding: "14px 18px" }}>
-            <div style={{ fontSize: 12, color: "#0f6e56", marginBottom: 4 }}>รายได้จากการขาย</div>
-            <div style={{ fontWeight: 700, fontSize: 20, color: "#0f6e56" }}>฿{fmt(totalRevenue)}</div>
+            <div style={{ fontSize: 12, color: "#0f6e56", marginBottom: 4 }}>รวมรายได้</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: "#0f6e56" }}>฿{fmt(totalIncome)}</div>
           </div>
           <div style={{ background: "#faece7", borderRadius: 12, padding: "14px 18px" }}>
             <div style={{ fontSize: 12, color: "#993c1d", marginBottom: 4 }}>ต้นทุนขาย + ค่าใช้จ่าย</div>
@@ -7652,16 +7678,30 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
         {/* P&L Statement */}
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
           <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>งบกำไรขาดทุน — {periodLabel}</h3>
-          <Row label="รายได้จากการขาย" value={`฿${fmt(totalRevenue)}`} bold />
-          <Row label="หัก ต้นทุนขาย (ตามต้นทุนสินค้าที่ขาย/เบิกออกจริง)" value={`-฿${fmt(totalCost)}`} />
+
+          <Row label="รายได้จากการขาย" value={`฿${fmt(totalRevenue)}`} />
+          <Row label="รายได้อื่น" value={`฿${fmt(totalOtherIncome)}`} />
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
+          <Row label="รวมรายได้" value={`฿${fmt(totalIncome)}`} bold />
+
+          <div style={{ marginTop: 16, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>ต้นทุนขาย:</div>
+          <Row label="　สินค้าคงเหลือยกมาต้นงวด" value={`฿${fmt(beginningInventory)}`} />
+          <Row label="　บวก ซื้อสินค้า" value={`+฿${fmt(purchasesInRange)}`} />
+          <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
+          <Row label="　สินค้าที่มีไว้เพื่อขาย" value={`฿${fmt(goodsAvailableForSale)}`} />
+          <Row label="　หัก สินค้าคงเหลือปลายงวด" value={`-฿${fmt(endingInventory)}`} />
+          <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
+          <Row label="　ต้นทุนขาย" value={`฿${fmt(totalCost)}`} bold />
+
+          <div style={{ borderTop: "1px solid #e5e7eb", margin: "12px 0" }} />
           <Row label="กำไรขั้นต้น (Gross Profit)" value={`฿${fmt(grossProfit)}`} bold color="#185fa5" />
-          <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>หัก ค่าใช้จ่ายดำเนินงาน:</div>
+
+          <div style={{ marginTop: 12, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>หัก ค่าใช้จ่าย:</div>
           {expenseByCategory.map((c) => (
             <Row key={c.category} label={`　${c.category}`} value={`-฿${fmt(c.amount)}`} />
           ))}
           {expenseByCategory.length === 0 && <Row label="　ไม่มีค่าใช้จ่าย" value="฿0" />}
-          <Row label="รวมค่าใช้จ่ายดำเนินงาน" value={`-฿${fmt(totalExpenses)}`} />
+          <Row label="รวมค่าใช้จ่าย" value={`-฿${fmt(totalExpenses)}`} />
           <div style={{ borderTop: "2px solid #0c443c", margin: "8px 0" }} />
           <Row label="กำไรสุทธิ (Net Profit)" value={`฿${fmt(netProfit)}`} bold color={netProfit >= 0 ? "#0f6e56" : "#993c1d"} />
         </div>
