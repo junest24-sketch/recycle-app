@@ -4912,7 +4912,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
               </tr>
             </thead>
             <tbody>
-              {balances.filter((b) => b.totalGiven > 0 || b.opening > 0).map((b) => (
+              {balances.map((b) => (
                 <tr key={b.customerId}>
                   <td style={tdStyle}>{b.name}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
@@ -4933,8 +4933,8 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: b.remaining > 0 ? "#0f6e56" : "#6b7280" }}>฿{fmt(b.remaining)}</td>
                 </tr>
               ))}
-              {balances.every((b) => b.totalGiven === 0 && b.opening === 0) && (
-                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ</td></tr>
+              {balances.length === 0 && (
+                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีข้อมูลลูกค้า — ไปที่หน้า "ข้อมูลลูกค้า" เพื่อเพิ่มก่อน</td></tr>
               )}
             </tbody>
           </table>
