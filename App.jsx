@@ -104,9 +104,24 @@ function exportImage(elementId, filename = "export.png") {
 function printAsPDF(elementId, title = "") {
   const el = document.getElementById(elementId);
   if (!el) { window.print(); return; }
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) { alert("กรุณาอนุญาต popup เพื่อพิมพ์ PDF"); return; }
-  printWindow.document.write(`
+
+  // ใช้ iframe ที่ซ่อนไว้แทนการเปิดแท็บ/หน้าต่างใหม่ เพื่อไม่ให้โดนเบราว์เซอร์บล็อก popup
+  // (โดยเฉพาะมือถือที่มักบล็อก window.open แม้จะกดปุ่มโดยตรงก็ตาม)
+  let iframe = document.getElementById("__print_iframe__");
+  if (iframe) iframe.remove();
+  iframe = document.createElement("iframe");
+  iframe.id = "__print_iframe__";
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`
     <html><head><title>${title}</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap');
@@ -122,6 +137,10 @@ function printAsPDF(elementId, title = "") {
       h1,h2,h3{margin:0 0 12px}
       img{max-width:100%}
       button{display:none !important}
+      thead{display:table-header-group}
+      tfoot{display:table-footer-group}
+      tr{page-break-inside:avoid}
+      table{page-break-inside:auto}
       @media print{
         @page { size: A4; margin: 15mm; }
         body{padding:0}
@@ -129,9 +148,13 @@ function printAsPDF(elementId, title = "") {
     </style>
     </head><body>${title ? `<h2 style="margin-bottom:8px">${title}</h2>` : ""}${el.innerHTML}</body></html>
   `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+  doc.close();
+
+  // รอให้ฟอนต์/เลย์เอาต์โหลดเสร็จก่อนสั่งพิมพ์
+  setTimeout(() => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+  }, 400);
 }
 
 // ---------- Keyboard navigation helper: Enter = move to next field, last field = submit ----------
