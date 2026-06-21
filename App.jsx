@@ -872,6 +872,7 @@ export default function App() {
   const [loans, setLoans] = useState(initialLoans);
   const [unitOptions, setUnitOptions] = useState(UNIT_OPTIONS_DEFAULT);
   const [expenseCategories, setExpenseCategories] = useState(EXPENSE_SUBCATEGORIES_DEFAULT);
+  const [productCategories, setProductCategories] = useState(PRODUCT_TYPES);
 
   const inventory = useMemo(() => computeInventory(products, purchases, sales, withdrawals), [products, purchases, sales, withdrawals]);
 
@@ -900,6 +901,7 @@ export default function App() {
         if (data.users)         setUsers(data.users)
         if (data.unitOptions)   setUnitOptions(data.unitOptions)
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
+        if (data.productCategories) setProductCategories(data.productCategories)
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -920,6 +922,7 @@ export default function App() {
   useSupabaseSync('companySettings',   companySettings,   setCompanySettings,   dbLoaded)
   useSupabaseSync('unitOptions',       unitOptions,       setUnitOptions,       dbLoaded)
   useSupabaseSync('expenseCategories', expenseCategories, setExpenseCategories, dbLoaded)
+  useSupabaseSync('productCategories', productCategories, setProductCategories, dbLoaded)
 
 useEffect(() => {
   loadProducts().then(setProducts);
@@ -928,6 +931,7 @@ useEffect(() => {
   const navItems = [
     { key: "dashboard", label: "แดชบอร์ด", icon: TrendingUp },
     { key: "products", label: "ข้อมูลสินค้า", icon: Package },
+    { key: "productCategories", label: "หมวดหมู่สินค้า", icon: Boxes },
     { key: "customers", label: "ข้อมูลลูกค้า", icon: Users },
     { key: "purchases", label: "ใบรับสินค้า", icon: ArrowDownToLine },
     { key: "withdrawals", label: "เบิกสินค้าเพื่อขาย", icon: PackageMinus },
@@ -1154,7 +1158,8 @@ useEffect(() => {
 
       {/* Main content — independently scrollable */}
       <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} />}
-        {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} />}
+        {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
+        {tab === "productCategories" && <ProductCategoriesTab productCategories={productCategories} setProductCategories={setProductCategories} products={products} setProducts={setProducts} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} />}
@@ -2211,15 +2216,23 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 // ===================================================================
 // PRODUCTS TAB
 // ===================================================================
-function ProductsTab({ products, setProducts, unitOptions, setUnitOptions }) {
+function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, productCategories, setProductCategories }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ id: "", name: "", type: PRODUCT_TYPES[0], unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 });
+  const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 });
 
   const filtered = products.filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search));
 
- const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: PRODUCT_TYPES[0], unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 }); setModal({ mode: "add" }); };
+ const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0 }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, ...item }); setModal({ mode: "edit", item }); };
+
+  // เมื่อพิมพ์ประเภทสินค้าใหม่ที่ยังไม่มี ให้เพิ่มเข้าฐานข้อมูล productCategories ทันที (ใช้ได้ทุกเครื่องหลังจากนี้)
+  const handleTypeChange = (value) => {
+    if (value && !productCategories.includes(value)) {
+      setProductCategories([...productCategories, value]);
+    }
+    setForm({ ...form, type: value });
+  };
 
 const remove = async (id) => {
   const prev = products;
@@ -2337,9 +2350,9 @@ const save = async () => {
             <Field label="รหัสสินค้า"><input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} disabled={modal.mode === "edit"} /></Field>
             <Field label="ชื่อสินค้า"><input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
             <Field label="ประเภท">
-  <input style={inputStyle} list="product-type-options" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} placeholder="เลือกหรือพิมพ์ประเภทใหม่" />
+  <input style={inputStyle} list="product-type-options" value={form.type} onChange={(e) => handleTypeChange(e.target.value)} placeholder="เลือกหรือพิมพ์ประเภทใหม่" />
   <datalist id="product-type-options">
-    {PRODUCT_TYPES.map((t) => <option key={t} value={t} />)}
+    {productCategories.map((t) => <option key={t} value={t} />)}
   </datalist>
 </Field>
             <Field label="หน่วย">
@@ -2377,6 +2390,102 @@ const save = async () => {
               </div>
             )}
           </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ===================================================================
+// PRODUCT CATEGORIES TAB (หมวดหมู่สินค้า — ฐานข้อมูลแยกต่างหาก)
+// ===================================================================
+function ProductCategoriesTab({ productCategories, setProductCategories, products, setProducts }) {
+  const [search, setSearch] = useState("");
+  const [modal, setModal] = useState(null); // {mode:'add'|'edit', oldName}
+  const [name, setName] = useState("");
+
+  const countFor = (cat) => products.filter((p) => p.type === cat).length;
+
+  const filtered = productCategories.filter((c) => c.includes(search));
+
+  const openAdd = () => { setName(""); setModal({ mode: "add" }); };
+  const openEdit = (cat) => { setName(cat); setModal({ mode: "edit", oldName: cat }); };
+
+  const save = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (modal.mode === "add") {
+      if (productCategories.includes(trimmed)) { alert("มีหมวดหมู่นี้อยู่แล้ว"); return; }
+      setProductCategories([...productCategories, trimmed]);
+    } else {
+      if (trimmed !== modal.oldName && productCategories.includes(trimmed)) { alert("มีหมวดหมู่นี้อยู่แล้ว"); return; }
+      // เปลี่ยนชื่อหมวดหมู่ — อัปเดตทั้งในฐานข้อมูลหมวดหมู่ และสินค้าทุกตัวที่ใช้หมวดหมู่นี้อยู่
+      setProductCategories(productCategories.map((c) => (c === modal.oldName ? trimmed : c)));
+      if (trimmed !== modal.oldName) {
+        setProducts(products.map((p) => (p.type === modal.oldName ? { ...p, type: trimmed } : p)));
+      }
+    }
+    setModal(null);
+  };
+
+  const remove = (cat) => {
+    const used = countFor(cat);
+    if (used > 0) {
+      alert(`ลบไม่ได้ — มีสินค้า ${used} รายการที่ใช้หมวดหมู่นี้อยู่ กรุณาเปลี่ยนหมวดหมู่ของสินค้านั้นก่อน`);
+      return;
+    }
+    setProductCategories(productCategories.filter((c) => c !== cat));
+  };
+
+  return (
+    <div>
+      <Header title="หมวดหมู่สินค้า" subtitle="ฐานข้อมูลประเภทสินค้า ใช้เลือกตอนเพิ่ม/แก้ไขสินค้า">
+        <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> เพิ่มหมวดหมู่</button>
+      </Header>
+
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาหมวดหมู่สินค้า..." />
+
+      <Card>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>ชื่อหมวดหมู่</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จำนวนสินค้าที่ใช้</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((cat) => (
+              <tr key={cat}>
+                <td style={tdStyle}><Badge text={cat} /></td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>{countFor(cat)} รายการ</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button style={iconBtn} onClick={() => openEdit(cat)}><Edit2 size={14} /> แก้ไข</button>
+                    <button style={btnDanger} onClick={() => remove(cat)}><Trash2 size={14} /> ลบ</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={3} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบหมวดหมู่สินค้า</td></tr>}
+          </tbody>
+        </table>
+      </Card>
+
+      {modal && (
+        <Modal title={modal.mode === "add" ? "เพิ่มหมวดหมู่สินค้า" : "แก้ไขหมวดหมู่สินค้า"} onClose={() => setModal(null)}>
+          <Field label="ชื่อหมวดหมู่">
+            <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น กระดาษ, พลาสติก" />
+          </Field>
+          {modal.mode === "edit" && (
+            <p style={{ fontSize: 12, color: "#9ca3af", margin: "-4px 0 8px" }}>
+              * ถ้าเปลี่ยนชื่อ สินค้าทุกรายการที่ใช้หมวดหมู่นี้อยู่จะถูกเปลี่ยนชื่อตามไปด้วยอัตโนมัติ
+            </p>
+          )}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
             <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
