@@ -345,9 +345,11 @@ function computeDepositBalances(customers, deposits, purchases) {
     });
   });
   return customers.map((c) => {
-    const totalGiven = given[c.id] || 0;
+    const opening = Number(c.depositOpening) || 0;
+    const newGiven = given[c.id] || 0;
+    const totalGiven = opening + newGiven;
     const totalUsed = used[c.id] || 0;
-    return { customerId: c.id, name: c.name, totalGiven, totalUsed, remaining: totalGiven - totalUsed };
+    return { customerId: c.id, name: c.name, opening, newGiven, totalGiven, totalUsed, remaining: totalGiven - totalUsed };
   });
 }
 
@@ -1216,7 +1218,7 @@ useEffect(() => {
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
-        {tab === "deposits" && <DepositsTab customers={customers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
+        {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
@@ -2724,7 +2726,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
   // ยอดมัดจำคงเหลือของลูกค้าที่เลือก (ไม่รวมยอดที่กำลังหักในใบนี้ จากใบอื่นๆทั้งหมด)
   const depositBalanceForCustomer = (customerId, excludePoId) => {
-    const totalGiven = (deposits || []).filter((d) => d.customerId === customerId).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    const opening = Number(customers.find((c) => c.id === customerId)?.depositOpening) || 0;
+    const totalGiven = opening + (deposits || []).filter((d) => d.customerId === customerId).reduce((s, d) => s + (Number(d.amount) || 0), 0);
     const totalUsedOtherPOs = purchases
       .filter((po) => po.customerId === customerId && po.id !== excludePoId)
       .reduce((s, po) => s + (po.payments || []).filter((p) => p.fromStoreBankId === "DEPOSIT").reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
@@ -4317,7 +4320,8 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
   // ยอดมัดจำคงเหลือของลูกค้า (เฉพาะกรณีจ่ายใบรับสินค้า — เผื่อหักมัดจำ)
   const depositBalanceForCustomer = (customerId, excludePoId) => {
-    const totalGiven = (deposits || []).filter((d) => d.customerId === customerId).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+    const opening = Number(customers.find((c) => c.id === customerId)?.depositOpening) || 0;
+    const totalGiven = opening + (deposits || []).filter((d) => d.customerId === customerId).reduce((s, d) => s + (Number(d.amount) || 0), 0);
     const totalUsedOtherPOs = purchases
       .filter((po) => po.customerId === customerId && po.id !== excludePoId)
       .reduce((s, po) => s + (po.payments || []).filter((p) => p.fromStoreBankId === "DEPOSIT").reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
@@ -4822,9 +4826,11 @@ function InventoryTab({ products, inventory }) {
 }
 // DEPOSITS TAB (เงินมัดจำจ่ายล่วงหน้าให้ลูกค้า)
 // ===================================================================
-function DepositsTab({ customers, deposits, setDeposits, purchases, storeBankAccounts }) {
+function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [editingOpeningId, setEditingOpeningId] = useState(null);
+  const [openingDraft, setOpeningDraft] = useState("");
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
 
@@ -4874,6 +4880,16 @@ function DepositsTab({ customers, deposits, setDeposits, purchases, storeBankAcc
     return b ? `${b.bankName} ${b.accountNo}` : "-";
   };
 
+  const startEditOpening = (customerId, currentValue) => {
+    setEditingOpeningId(customerId);
+    setOpeningDraft(String(currentValue || 0));
+  };
+  const saveOpening = (customerId) => {
+    setCustomers(customers.map((c) => c.id === customerId ? { ...c, depositOpening: Number(openingDraft) || 0 } : c));
+    setEditingOpeningId(null);
+    setOpeningDraft("");
+  };
+
   return (
     <div>
       <Header title="เงินมัดจำ (จ่ายล่วงหน้าให้ลูกค้า)" subtitle="บันทึกเงินมัดจำที่จ่ายให้ลูกค้าล่วงหน้า และดูยอดมัดจำคงเหลือของลูกค้าแต่ละราย">
@@ -4883,29 +4899,47 @@ function DepositsTab({ customers, deposits, setDeposits, purchases, storeBankAcc
       <div style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>สรุปยอดมัดจำคงเหลือต่อลูกค้า</h3>
         <Card>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
             <thead>
               <tr>
                 <th style={thStyle}>ลูกค้า</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>มัดจำที่จ่ายใหม่</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>มัดจำที่จ่ายรวม</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>หักไปแล้ว (ในใบรับสินค้า)</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
               </tr>
             </thead>
             <tbody>
-              {balances.filter((b) => b.totalGiven > 0).map((b) => (
+              {balances.filter((b) => b.totalGiven > 0 || b.opening > 0).map((b) => (
                 <tr key={b.customerId}>
                   <td style={tdStyle}>{b.name}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(b.totalGiven)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                    {editingOpeningId === b.customerId ? (
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", alignItems: "center" }}>
+                        <input type="number" autoFocus style={{ ...inputStyle, width: 100, textAlign: "right" }} value={openingDraft} onChange={(e) => setOpeningDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveOpening(b.customerId); if (e.key === "Escape") setEditingOpeningId(null); }} />
+                        <button style={iconBtn} onClick={() => saveOpening(b.customerId)}><Save size={14} /></button>
+                      </div>
+                    ) : (
+                      <span style={{ cursor: "pointer", borderBottom: "1px dashed #9ca3af" }} onClick={() => startEditOpening(b.customerId, b.opening)} title="แตะเพื่อแก้ไขยอดยกมา">
+                        ฿{fmt(b.opening)}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(b.newGiven)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(b.totalGiven)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b" }}>฿{fmt(b.totalUsed)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: b.remaining > 0 ? "#0f6e56" : "#6b7280" }}>฿{fmt(b.remaining)}</td>
                 </tr>
               ))}
-              {balances.every((b) => b.totalGiven === 0) && (
-                <tr><td colSpan={4} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ</td></tr>
+              {balances.every((b) => b.totalGiven === 0 && b.opening === 0) && (
+                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ</td></tr>
               )}
             </tbody>
           </table>
+          </div>
+          <p style={{ fontSize: 12, color: "#9ca3af", margin: "8px 0 0", padding: "0 4px" }}>* คลิกที่ตัวเลข "ยอดยกมา" เพื่อแก้ไขได้โดยตรง</p>
         </Card>
       </div>
 
