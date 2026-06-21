@@ -110,16 +110,24 @@ function printAsPDF(elementId, title = "") {
     <html><head><title>${title}</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap');
-      body{margin:0;padding:20px;font-family:'Noto Sans Thai',sans-serif;font-size:12px}
+      @page { size: A4; margin: 15mm; }
+      * { box-sizing: border-box; }
+      html,body{margin:0;padding:0;font-family:'Noto Sans Thai',sans-serif;font-size:13px;color:#1f2937;background:#fff}
+      body{padding:20px}
       table{border-collapse:collapse;width:100%}
       td,th{border:1px solid #ddd;padding:6px 10px}
       th{background:#f3f4f6;font-weight:700}
       tr:nth-child(even){background:#f9f9f9}
       tfoot td{font-weight:700;background:#f3f4f6;border-top:2px solid #5a1414}
       h1,h2,h3{margin:0 0 12px}
-      @media print{body{padding:0}}
+      img{max-width:100%}
+      button{display:none !important}
+      @media print{
+        @page { size: A4; margin: 15mm; }
+        body{padding:0}
+      }
     </style>
-    </head><body><h2 style="margin-bottom:8px">${title}</h2>${el.innerHTML}</body></html>
+    </head><body>${title ? `<h2 style="margin-bottom:8px">${title}</h2>` : ""}${el.innerHTML}</body></html>
   `);
   printWindow.document.close();
   printWindow.focus();
@@ -1180,7 +1188,7 @@ useEffect(() => {
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
-        {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} />}
+        {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} companySettings={companySettings} />}
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
@@ -3206,7 +3214,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
         <button style={btnSecondary} onClick={onClose}>ปิด</button>
-        <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
+        <button style={btnPrimary} onClick={() => printAsPDF("purchase-pdf-content", `${cs.purchaseTitle || "ใบรับสินค้า"} ${po.id}`)}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
       </div>
     </Modal>
   );
@@ -3263,11 +3271,13 @@ function syncWithdrawalsToSales(sales, withdrawalLots) {
   });
 }
 
-function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, setWithdrawals, inventory, customers }) {
+function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, setWithdrawals, inventory, customers, companySettings }) {
+  const cs = companySettings || {};
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'}
   const [search, setSearch] = useState("");
   const [aggregateSearch, setAggregateSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
+  const [printLot, setPrintLot] = useState(null); // ใบเบิกสินค้าที่กำลังจะพิมพ์
 
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
@@ -3484,6 +3494,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                     <button style={iconBtn} onClick={() => setExpanded(isExpanded ? null : lot.id)} aria-label="รายละเอียด" title="ดูรายละเอียด">
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
+                    <button style={iconBtn} onClick={() => setPrintLot(lot)} aria-label="พิมพ์" title="พิมพ์ใบเบิกสินค้า"><Printer size={16} /></button>
                     <button style={iconBtn} onClick={() => openEdit(lot)} aria-label="แก้ไข"><Edit2 size={16} /></button>
                     <button style={btnDanger} onClick={() => remove(lot.id)} aria-label="ลบ"><Trash2 size={16} /></button>
                   </div>
@@ -3650,6 +3661,73 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
             <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+
+      {printLot && (
+        <Modal title={`ใบเบิกสินค้า · ${printLot.id}`} onClose={() => setPrintLot(null)} wide>
+          <div id="withdrawal-pdf-content" style={{ background: "#fff", padding: 24, border: "1px solid #e5e7eb", borderRadius: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${cs.accentColor || "#3c3489"}`, paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {cs.logo && (
+                  <img src={cs.logo} alt="logo" style={{ height: 50, maxWidth: 100, objectFit: "contain" }} />
+                )}
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#3c3489" }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+                  {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
+                  {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
+                  {cs.phone && <div style={{ fontSize: 12, color: "#6b7280" }}>โทร: {cs.phone}</div>}
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>ใบเบิกสินค้า (LOT)</div>
+                </div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 12, color: "#6b7280" }}>
+                <div>เลขที่: {printLot.id}</div>
+                <div>วันที่: {printLot.date}</div>
+                {printLot.targetSaleId && <div>อ้างอิงใบขาย: {printLot.targetSaleId}</div>}
+                {sales.find((s) => s.id === printLot.targetSaleId) && (
+                  <div>ลูกค้า: {custName(sales.find((s) => s.id === printLot.targetSaleId)?.customerId)}</div>
+                )}
+              </div>
+            </div>
+
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead><tr style={{ background: "#f3f4f6" }}>
+                <th style={thStyle}>#</th>
+                <th style={thStyle}>สินค้าต้นทาง</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>จำนวนที่เบิก</th>
+                <th style={thStyle}>สินค้าปลายทาง</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>มูลค่า</th>
+              </tr></thead>
+              <tbody>
+                {(printLot.items || []).map((it, i) => (
+                  <tr key={i}>
+                    <td style={tdStyle}>{i + 1}</td>
+                    <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
+                    <td style={tdStyle}>{prodName(it.targetProductId)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(Number(it.value) || 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2} style={{ ...tdStyle, fontWeight: 700 }}>รวม</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(lotQtyTotal(printLot))}</td>
+                  <td style={tdStyle}></td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#3c3489" }}>฿{fmt(lotTotal(printLot))}</td>
+                </tr>
+              </tfoot>
+            </table>
+
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 48, fontSize: 12 }}>
+              <div style={{ textAlign: "center", width: "45%" }}><div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้เบิกสินค้า</div></div>
+              <div style={{ textAlign: "center", width: "45%" }}><div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้อนุมัติ</div></div>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setPrintLot(null)}>ปิด</button>
+            <button style={btnPrimary} onClick={() => printAsPDF("withdrawal-pdf-content", `ใบเบิกสินค้า ${printLot.id}`)}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
           </div>
         </Modal>
       )}
@@ -3989,7 +4067,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 
   return (
     <Modal title={`${cs.salesTitle || "Invoice"} ${inv.id}`} onClose={onClose} wide>
-      <div style={{ background: "#fff", padding: "24px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+      <div id="sales-invoice-pdf-content" style={{ background: "#fff", padding: "24px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${accentColor}`, paddingBottom: 12, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {cs.logo && (
@@ -4126,7 +4204,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
         <button style={btnSecondary} onClick={onClose}>ปิด</button>
-        <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
+        <button style={btnPrimary} onClick={() => printAsPDF("sales-invoice-pdf-content", `${cs.salesTitle || "Invoice"} ${inv.id}`)}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
       </div>
     </Modal>
   );
@@ -5812,7 +5890,7 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
 
   return (
     <Modal title={`ใบสำคัญจ่าย · ${expense.refNo || expense.id}`} onClose={onClose} wide>
-      <div style={{ background: "#fff", padding: "24px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
+      <div id="expense-voucher-pdf-content" style={{ background: "#fff", padding: "24px", border: "1px solid #e5e7eb", borderRadius: 8 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${cs.accentColor || "#993c1d"}`, paddingBottom: 12, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {cs.logo && (
@@ -5915,7 +5993,7 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
         <button style={btnSecondary} onClick={onClose}>ปิด</button>
-        <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
+        <button style={btnPrimary} onClick={() => printAsPDF("expense-voucher-pdf-content", `ใบสำคัญจ่าย ${expense.refNo || expense.id}`)}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
       </div>
     </Modal>
   );
@@ -7517,7 +7595,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
 
       {modal && modal.mode === "view" && (
         <Modal title={`ใบส่งสินค้า · ${modal.item.id}`} onClose={() => setModal(null)} wide>
-          <div style={{ background: "#fff", padding: 24, border: "1px solid #e5e7eb", borderRadius: 8 }}>
+          <div id="delivery-pdf-content" style={{ background: "#fff", padding: 24, border: "1px solid #e5e7eb", borderRadius: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${cs.accentColor || "#185fa5"}`, paddingBottom: 12, marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 {cs.logo && (
@@ -7573,7 +7651,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ปิด</button>
-            <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์</button>
+            <button style={btnPrimary} onClick={() => printAsPDF("delivery-pdf-content", `ใบส่งสินค้า ${modal.item.id}`)}><Download size={16} /> พิมพ์</button>
           </div>
         </Modal>
       )}
