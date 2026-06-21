@@ -1811,9 +1811,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
               {renderCard(expensesCard)}
             </div>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px" }}>
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
               <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ค่าใช้จ่าย แบ่งตามหมวดหมู่ย่อย</h3>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>หมวดหมู่ย่อย</th>
@@ -1869,12 +1869,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </div>
             )}
           </div>
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflowX: "auto" }}>
             <div style={{ background: "#5a1414", color: "#fff", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>มูลค่าสต๊อกรวม</h3>
               <span style={{ fontSize: 12, color: "#e7c9c9" }}>วันที่ {today}</span>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
               <thead>
                 <tr>
                   <th style={thStyle}>ประเภทสินค้า / รายการสินค้า</th>
@@ -2154,11 +2154,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </div>
 
               {/* ตารางรายละเอียดธนาคาร */}
-              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflowX: "auto", marginBottom: 14 }}>
                 <div style={{ background: "#185fa5", color: "#fff", padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>
                   ยอดเงินในธนาคารแต่ละบัญชี{dateRange ? ` — ${periodLabel}` : ""}
                 </div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
                   <thead><tr>
                     <th style={thStyle}>ธนาคาร</th>
                     <th style={thStyle}>เลขบัญชี</th>
@@ -6169,7 +6169,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {filtered.map((main) => (
           <div key={main} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-            <div style={{ background: "#f3f4f6", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: "#f3f4f6", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontWeight: 700, fontSize: 14 }}>{main}</span>
                 <span style={{ fontSize: 12, color: "#9ca3af" }}>{countMain(main)} รายการที่ใช้หมวดหมู่นี้</span>
@@ -6180,7 +6180,8 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
                 <button style={btnDanger} onClick={() => removeMain(main)}><Trash2 size={14} /> ลบ</button>
               </div>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
               <tbody>
                 {subsOf(main).map((sub) => (
                   <tr key={sub.name}>
@@ -6208,6 +6209,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         ))}
         {filtered.length === 0 && <p style={{ color: "#9ca3af", textAlign: "center", padding: 30 }}>ไม่พบหมวดหมู่ค่าใช้จ่าย</p>}
@@ -6615,7 +6617,7 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {transfers.map((t) => (
-          <div key={t.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+          <div key={t.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <span style={{ fontFamily: "monospace", fontSize: 12, color: "#9ca3af" }}>{t.id}</span>
@@ -6733,7 +6735,7 @@ function ReceivablesTab({ customers, sales, purchases }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", overflowY: "hidden", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
         {[{ key: "receivable", label: `ลูกหนี้ค้างรับ (${receivables.length} ราย)` }, { key: "payable", label: `เจ้าหนี้ค้างจ่าย (${payables.length} ราย)` }].map((opt) => (
           <button key={opt.key} onClick={() => setActiveView(opt.key)}
             style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
@@ -6749,11 +6751,12 @@ function ReceivablesTab({ customers, sales, purchases }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {receivables.map((r) => (
             <div key={r.customerId} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <div style={{ background: "#e6f1fb", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "#e6f1fb", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: "#185fa5" }}>{custName(r.customerId)}</span>
                 <span style={{ fontWeight: 700, fontSize: 16, color: "#185fa5" }}>ค้างรับ ฿{fmt(r.totalRemaining)}</span>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
                 <thead><tr>
                   <th style={thStyle}>เลข Invoice</th>
                   <th style={thStyle}>วันที่</th>
@@ -6773,6 +6776,7 @@ function ReceivablesTab({ customers, sales, purchases }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ))}
           {receivables.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ไม่มียอดค้างรับ — ลูกค้าทุกรายชำระครบแล้ว ✓</div>}
@@ -6783,11 +6787,12 @@ function ReceivablesTab({ customers, sales, purchases }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {payables.map((p) => (
             <div key={p.customerId} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <div style={{ background: "#faece7", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "#faece7", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: "#993c1d" }}>{custName(p.customerId)}</span>
                 <span style={{ fontWeight: 700, fontSize: 16, color: "#993c1d" }}>ค้างจ่าย ฿{fmt(p.totalRemaining)}</span>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
                 <thead><tr>
                   <th style={thStyle}>เลข PO</th>
                   <th style={thStyle}>วันที่</th>
@@ -6807,6 +6812,7 @@ function ReceivablesTab({ customers, sales, purchases }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ))}
           {payables.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ไม่มียอดค้างจ่าย — ชำระครบทุกใบแล้ว ✓</div>}
@@ -6877,8 +6883,8 @@ function AssetsTab({ assets, setAssets }) {
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อทรัพย์สิน, หมวดหมู่..." />
 
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
           <thead>
             <tr>
               <th style={thStyle}>รหัส</th>
@@ -7870,7 +7876,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
         />
       </Header>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, overflowX: "auto", overflowY: "hidden", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
         {[
           { key: "monthly", label: "รายเดือน" },
           { key: "yearly", label: "สรุปรายปี" },
@@ -7968,7 +7974,8 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
             </div>
           )}
 
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
             <thead>
               <tr>
                 <th style={thStyle}>ชื่อผู้ถือหุ้น/หุ้นส่วน</th>
@@ -8011,6 +8018,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
               </tr>
             </tfoot>
           </table>
+          </div>
           {totalSharePercent !== 100 && (
             <p style={{ fontSize: 12, color: "#993c1d", marginTop: 8 }}>⚠️ สัดส่วนหุ้นรวมต้องเท่ากับ 100% (ปัจจุบัน {totalSharePercent}%)</p>
           )}
@@ -8044,7 +8052,8 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
         <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>กำไรสุทธิรายเดือน — ปี {year}</h3>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
           <thead>
             <tr>
               <th style={thStyle}>เดือน</th>
@@ -8075,6 +8084,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
             </tr>
           </tfoot>
         </table>
+        </div>
       </div>
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px" }}>
@@ -8083,7 +8093,8 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           <button style={btnPrimary} onClick={openDivPayForm}><Plus size={16} /> บันทึกจ่ายเงินปันผล</button>
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 400 }}>
           <thead>
             <tr>
               <th style={thStyle}>วันที่จ่าย</th>
@@ -8115,6 +8126,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
             </tfoot>
           )}
         </table>
+        </div>
 
         {divPayForm && (
           <Modal title="บันทึกจ่ายเงินปันผล" onClose={() => setDivPayForm(null)}>
