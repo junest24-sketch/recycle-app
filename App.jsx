@@ -861,6 +861,7 @@ export default function App() {
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
   const [deposits, setDeposits] = useState(initialDeposits);
   const [deliveries, setDeliveries] = useState([]);
+  const [bankTransfers, setBankTransfers] = useState([]);
   const [expenses, setExpenses] = useState(initialExpenses);
   const [loans, setLoans] = useState(initialLoans);
   const [unitOptions, setUnitOptions] = useState(UNIT_OPTIONS_DEFAULT);
@@ -883,6 +884,7 @@ export default function App() {
         if (data.sales)         setSales(data.sales)
         if (data.withdrawals)   setWithdrawals(data.withdrawals)
         if (data.deposits)      setDeposits(data.deposits)
+        if (data.bankTransfers) setBankTransfers(data.bankTransfers)
         if (data.expenses)      setExpenses(data.expenses)
         if (data.loans)         setLoans(data.loans)
         if (data.storeBankAccounts) setStoreBankAccounts(data.storeBankAccounts)
@@ -902,6 +904,7 @@ export default function App() {
   useSupabaseSync('sales',             sales,             setSales,             dbLoaded)
   useSupabaseSync('withdrawals',       withdrawals,       setWithdrawals,       dbLoaded)
   useSupabaseSync('deposits',          deposits,          setDeposits,          dbLoaded)
+  useSupabaseSync('bankTransfers',     bankTransfers,     setBankTransfers,     dbLoaded)
   useSupabaseSync('expenses',          expenses,          setExpenses,          dbLoaded)
   useSupabaseSync('loans',             loans,             setLoans,             dbLoaded)
   useSupabaseSync('storeBankAccounts', storeBankAccounts, setStoreBankAccounts, dbLoaded)
@@ -1152,7 +1155,7 @@ useEffect(() => {
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} />}
-        {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} />}
+        {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
         {tab === "assets" && <AssetsTab />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
@@ -5711,8 +5714,8 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
   );
 }
 
-function BankTransferTab({ storeBankAccounts }) {
-  const [transfers, setTransfers] = useState([]);
+function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers }) {
+  const transfers = bankTransfers || [];
   const [modal, setModal] = useState(null);
   const blankForm = () => ({
     id: "TF" + Date.now().toString().slice(-6),
@@ -5733,8 +5736,8 @@ function BankTransferTab({ storeBankAccounts }) {
     if (!form.fromBankId || !form.toBankId || !(Number(form.amount) > 0)) return;
     if (form.fromBankId === form.toBankId) { alert("บัญชีต้นทางและปลายทางต้องต่างกัน"); return; }
     const t = { ...form, amount: Number(form.amount) };
-    if (modal.mode === "add") setTransfers([t, ...transfers]);
-    else setTransfers(transfers.map((x) => x.id === modal.item.id ? t : x));
+    if (modal.mode === "add") setBankTransfers([t, ...transfers]);
+    else setBankTransfers(transfers.map((x) => x.id === modal.item.id ? t : x));
     setModal(null);
   };
 
@@ -5787,7 +5790,7 @@ function BankTransferTab({ storeBankAccounts }) {
             </div>
             <div style={{ display: "flex", gap: 6 }}>
               <button style={iconBtn} onClick={() => { setForm({ ...t }); setModal({ mode: "edit", item: t }); }}><Edit2 size={14} /></button>
-              <button style={btnDanger} onClick={() => setTransfers(transfers.filter((x) => x.id !== t.id))}><Trash2 size={14} /></button>
+              <button style={btnDanger} onClick={() => setBankTransfers(transfers.filter((x) => x.id !== t.id))}><Trash2 size={14} /></button>
             </div>
           </div>
         ))}
