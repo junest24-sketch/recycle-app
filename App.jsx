@@ -57,6 +57,9 @@ const BANK_NAMES = ["กสิกรไทย", "ไทยพาณิชย์"
 
 const fmt = (n) => Number(n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n) => Number(n || 0).toLocaleString("th-TH", { maximumFractionDigits: 2 });
+// ปัดเศษสตางค์ของยอดเงินให้เป็นจำนวนเต็มบาท — ใช้ตอนกรอกยอดจ่าย/รับเงินจริง
+const roundUpAmount = (n) => Math.ceil(Number(n) || 0);
+const roundDownAmount = (n) => Math.floor(Number(n) || 0);
 
 // ---------- Export Utilities ----------
 // Download Excel (.xlsx) from a 2D array of rows
@@ -463,6 +466,10 @@ const btnDanger = {
 const iconBtn = {
   background: "#fff", border: "1px solid #d1d5db", padding: "6px 10px", borderRadius: 8,
   cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "#374151",
+};
+const roundBtn = {
+  background: "#fff", border: "1px solid #d1d5db", padding: "5px 7px", borderRadius: 6,
+  cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#374151", lineHeight: 1, flexShrink: 0,
 };
 
 const thStyle = { textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" };
@@ -2972,9 +2979,13 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
               const remainingDepositForThisRow = availableDeposit - usedInThisFormSoFar;
               return (
                 <div key={p.id}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.6fr 1fr auto", gap: 8, marginBottom: 4, alignItems: "center" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr 1.6fr 1fr auto", gap: 8, marginBottom: 4, alignItems: "center" }}>
                     <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
-                    <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                      <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundUpAmount(p.amount))}>▲</button>
+                      <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundDownAmount(p.amount))}>▼</button>
+                    </div>
                     <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayment(idx, "fromStoreBankId", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                       <option value="">-- เลือกบัญชี/วิธีจ่าย --</option>
                       <option value="CASH">เงินสดหน้าร้าน</option>
@@ -3907,7 +3918,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             </div>
             {(form.payments || []).length === 0 && <p style={{ color: "#9ca3af", fontSize: 13, margin: 0 }}>ยังไม่มีรายการรับชำระ</p>}
             {(form.payments || []).map((p, idx) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "130px 1fr 1fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "130px 1fr 1fr 1.3fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
                 <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
                 <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)}>
                   {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -3918,7 +3929,11 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                     <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>
                   ))}
                 </select>
-                <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                  <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                  <button type="button" title="ปัดขึ้นเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundUpAmount(p.amount))}>▲</button>
+                  <button type="button" title="ปัดลงเป็นจำนวนเต็มบาท" style={roundBtn} onClick={() => updatePayment(idx, "amount", roundDownAmount(p.amount))}>▼</button>
+                </div>
                 <button style={btnDanger} onClick={() => removePayment(idx)}><Trash2 size={14} /></button>
               </div>
             ))}
