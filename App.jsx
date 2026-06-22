@@ -4564,7 +4564,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
   const deleteHistoryPayment = (idx) => {
     if (!historyModal) return;
-    if (!window.confirm("ยืนยันลบรายการชำระเงินงวดนี้?")) return;
     const realId = historyModal.doc?.id ?? historyModal.id;
     if (historyModal.kind === "purchase") {
       setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: (po.payments || []).filter((_, i) => i !== idx) } : po));
