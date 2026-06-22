@@ -1776,6 +1776,16 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   ))}
                   {purchaseByType.length === 0 && <tr><td colSpan={4} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่มีข้อมูลในช่วงเวลานี้</td></tr>}
                 </tbody>
+                {purchaseByType.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                      <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(purchaseByType.reduce((s, g) => s + g.qty, 0))}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>฿{fmt(purchaseByType.reduce((s, g) => s + g.value, 0))}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
 
@@ -1801,10 +1811,20 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   ))}
                   {purchaseByProduct.length === 0 && <tr><td colSpan={4} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่มีข้อมูลในช่วงเวลานี้</td></tr>}
                 </tbody>
+                {purchaseByProduct.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                      <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>—</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>฿{fmt(purchaseByProduct.reduce((s, g) => s + g.value, 0))}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
-          </div>{/* end dash-export-purchases */}
+          </div>
         </>
       )}
 
@@ -1842,6 +1862,16 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   ))}
                   {salesByType.length === 0 && <tr><td colSpan={4} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่มีข้อมูลในช่วงเวลานี้</td></tr>}
                 </tbody>
+                {salesByType.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                      <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(salesByType.reduce((s, g) => s + g.qty, 0))}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(salesByType.reduce((s, g) => s + g.value, 0))}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
 
@@ -1867,10 +1897,20 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   ))}
                   {salesByProduct.length === 0 && <tr><td colSpan={4} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่มีข้อมูลในช่วงเวลานี้</td></tr>}
                 </tbody>
+                {salesByProduct.length > 0 && (
+                  <tfoot>
+                    <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                      <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>—</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(salesByProduct.reduce((s, g) => s + g.value, 0))}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
-          </div>{/* end dash-export-sales */}
+          </div>
         </>
       )}
 
@@ -5091,6 +5131,18 @@ function InventoryTab({ products, inventory }) {
               </React.Fragment>
             ))}
           </tbody>
+          {inventory.summary.length > 0 && (
+            <tfoot>
+              <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                <td style={tdStyle}></td>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด ({inventory.summary.length} รายการ)</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>—</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>—</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(inventory.summary.reduce((s, x) => s + x.totalCost, 0))}</td>
+                <td style={tdStyle}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </Card>
       </div>{/* end tab-export-inventory */}
@@ -5300,6 +5352,15 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
             ))}
             {filtered.length === 0 && <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีรายการมัดจำ</td></tr>}
           </tbody>
+          {filtered.length > 0 && (
+            <tfoot>
+              <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                <td style={{ ...tdStyle, fontWeight: 700 }} colSpan={2}>รวมทั้งหมด ({filtered.length} รายการ)</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>+฿{fmt(filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0))}</td>
+                <td colSpan={3} style={tdStyle}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </Card>
 
