@@ -2361,8 +2361,8 @@ function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, produ
     return `${MONTH_NAMES_TH[Number(m)]} ${y}`;
   };
 
- const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "" }); setModal({ mode: "add" }); };
-  const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, openingMonth: "", ...item }); setModal({ mode: "edit", item }); };
+ const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0 }); setModal({ mode: "add" }); };
+  const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0, ...item }); setModal({ mode: "edit", item }); };
 
   // เมื่อพิมพ์ประเภทสินค้าใหม่ที่ยังไม่มี ให้เพิ่มเข้าฐานข้อมูล productCategories ทันที (ใช้ได้ทุกเครื่องหลังจากนี้)
   const handleTypeChange = (value) => {
@@ -2384,7 +2384,7 @@ const remove = async (id) => {
 
 const save = async () => {
   if (!form.name.trim()) return;
-  const cleaned = { ...form, openingQty: Number(form.openingQty) || 0, openingCost: Number(form.openingCost) || 0 };
+  const cleaned = { ...form, openingQty: Number(form.openingQty) || 0, openingCost: Number(form.openingCost) || 0, buyPrice: Number(form.buyPrice) || 0 };
 
   if (modal.mode === "add") {
     setProducts([...products, cleaned]); // อัปเดตหน้าจอทันที
@@ -2440,6 +2440,7 @@ const save = async () => {
               <th style={thStyle}>ชื่อสินค้า</th>
               <th style={thStyle}>ประเภท</th>
               <th style={thStyle}>หน่วย</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#854f0b" }}>ราคารับซื้อ/หน่วย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา (จำนวน)</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุน/หน่วย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>มูลค่ายกมา</th>
@@ -2455,6 +2456,9 @@ const save = async () => {
                   <td style={{ ...tdStyle, fontWeight: 600 }}>{p.name}</td>
                   <td style={tdStyle}><Badge text={p.type} /></td>
                   <td style={tdStyle}>{p.unit}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(p.buyPrice) > 0 ? "#854f0b" : "#d1d5db" }}>
+                    {Number(p.buyPrice) > 0 ? `฿${fmt(p.buyPrice)}` : "—"}
+                  </td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(p.openingQty || 0)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(p.openingCost || 0)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>
@@ -2472,7 +2476,7 @@ const save = async () => {
                 </tr>
               );
             })}
-            {filtered.length === 0 && <tr><td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบสินค้า</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบสินค้า</td></tr>}
           </tbody>
           {products.length > 0 && (
             <tfoot>
@@ -2517,6 +2521,13 @@ const save = async () => {
               </datalist>
             </Field>
           </div>
+          <div style={{ background: "#fffbeb", borderRadius: 8, padding: "12px 16px", marginTop: 8, border: "1px solid #fde68a" }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#854f0b" }}>ราคารับซื้อปัจจุบัน</div>
+            <Field label={`ราคารับซื้อ/หน่วย (บาท/${form.unit || "หน่วย"}) — ใช้เป็น default ตอนสร้างใบรับสินค้า แก้ทับได้รายบิล`}>
+              <input type="number" min={0} style={inputStyle} value={form.buyPrice || 0} onChange={(e) => setForm({ ...form, buyPrice: e.target.value })} placeholder="0" />
+            </Field>
+          </div>
+
           <div style={{ background: "#f0f9f5", borderRadius: 8, padding: "12px 16px", marginTop: 8 }}>
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: "#0f6e56" }}>ยอดคงเหลือยกมา (ก่อนเริ่มใช้ระบบ)</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
@@ -2791,13 +2802,18 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
   const updateItem = (idx, field, value) => {
     const items = [...form.items];
-    items[idx] = { ...items[idx], [field]: value };
+    // เมื่อเลือกสินค้าใหม่ ให้ดึง buyPrice มาเป็น default ราคา/หน่วย (แก้ทับได้รายบิล)
+    if (field === "productId") {
+      const prod = products.find((p) => p.id === value);
+      items[idx] = { ...items[idx], productId: value, price: (prod && Number(prod.buyPrice) > 0) ? Number(prod.buyPrice) : items[idx].price };
+    } else {
+      items[idx] = { ...items[idx], [field]: value };
+    }
     setForm({ ...form, items });
   };
   const addItem = () => setForm({ ...form, items: [...form.items, blankItem()] });
   const removeItem = (idx) => setForm({ ...form, items: form.items.filter((_, i) => i !== idx) });
 
-  // --- การจ่ายชำระแบบแบ่งจ่ายได้หลายครั้ง ---
   const addPayment = () => {
     setForm({ ...form, payments: [...(form.payments || []), blankPayment()] });
   };
