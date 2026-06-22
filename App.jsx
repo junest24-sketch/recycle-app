@@ -2886,6 +2886,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
     if (!form.id.trim() || form.items.length === 0) return;
     const cleaned = {
       ...form,
+      updated_at: new Date().toISOString(),
       items: form.items.map((it) => ({ ...it, qty: Number(it.qty) || 0, deduct: Number(it.deduct) || 0, net: (Number(it.qty) || 0) - (Number(it.deduct) || 0), price: Number(it.price) || 0 })),
       payments: (form.payments || []).map((p) => ({ ...p, amount: Number(p.amount) || 0 })),
     };
@@ -2896,7 +2897,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
   const remove = (id) => setPurchases(purchases.filter((p) => p.id !== id));
 
-  const approve = (id) => setPurchases(purchases.map((p) => (p.id === id ? { ...p, status: "อนุมัติแล้ว" } : p)));
+  const approve = (id) => setPurchases(purchases.map((p) => (p.id === id ? { ...p, status: "อนุมัติแล้ว", updated_at: new Date().toISOString() } : p)));
   const cancelPO = (id) => setPurchases(purchases.map((p) => (p.id === id ? { ...p, status: "ยกเลิก" } : p)));
   const revertToPending = (id) => setPurchases(purchases.map((p) => (p.id === id ? { ...p, status: "รออนุมัติ" } : p)));
 
@@ -4504,12 +4505,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     const cleaned = payRows.filter((p) => Number(p.amount) > 0).map((p) => ({ ...p, amount: Number(p.amount) }));
     if (cleaned.length === 0) return;
     const realId = payModal.doc?.id ?? payModal.id;
+    const ts = new Date().toISOString();
     if (payModal.kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: [...(po.payments || []), ...cleaned], writeOff: writeOffChecked } : po));
+      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: [...(po.payments || []), ...cleaned], writeOff: writeOffChecked, updated_at: ts } : po));
     } else if (payModal.kind === "expense") {
-      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: [...(e.payments || []), ...cleaned], writeOff: writeOffChecked } : e));
+      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: [...(e.payments || []), ...cleaned], writeOff: writeOffChecked, updated_at: ts } : e));
     } else {
-      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: [...(inv.payments || []), ...cleaned], writeOff: writeOffChecked } : inv));
+      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: [...(inv.payments || []), ...cleaned], writeOff: writeOffChecked, updated_at: ts } : inv));
     }
     setPayModal(null);
     setPayRows(null);
