@@ -4405,8 +4405,10 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 // PAYMENTS TAB (รับชำระ/จ่ายชำระ — รวมรายการค้างชำระจากใบรับสินค้าและใบขาย)
 // ===================================================================
 function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits, expenses, setExpenses }) {
-  const [activeView, setActiveView] = useState("unpaid-purchase"); // "unpaid-purchase" | "unpaid-sale" | "unpaid-expense" | "purchase" | "sale"
+  const [activeView, setActiveView] = useState("unpaid-purchase");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [payModal, setPayModal] = useState(null); // { kind: "purchase"|"sale", doc }
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
@@ -4477,6 +4479,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
     return list
       .filter((r) => r.id.includes(search) || rowSearchLabel(r).includes(search))
+      .filter((r) => (!dateFrom || (r.date || "") >= dateFrom) && (!dateTo || (r.date || "") <= dateTo))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, customers]);
 
@@ -4666,7 +4669,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         ))}
       </div>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบ หรือชื่อลูกค้า..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบ หรือชื่อลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
 
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -6954,6 +6957,9 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
     note: "",
   });
   const [form, setForm] = useState(blankForm());
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const bankName = (id) => {
     const b = storeBankAccounts.find((b) => b.id === id);
