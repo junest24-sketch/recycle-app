@@ -5,7 +5,9 @@ import {
   Search, Download, X, ChevronRight, ChevronLeft, ChevronDown, Menu, ArrowDownToLine,
   ArrowUpFromLine, History, TrendingUp, Save, Printer, Landmark,
   CheckCircle2, XCircle, Clock, CreditCard, PackageMinus, ArrowRight, Wallet, Receipt,
-  Image, FileSpreadsheet, FileDown, Truck, Check
+  Image, FileSpreadsheet, FileDown, Truck, Check,
+  LayoutDashboard, ShoppingBag, BarChart3, BadgeDollarSign, ArrowLeftRight,
+  Building2, ScrollText, PieChart, Settings, Tag, ClipboardList, Banknote
 } from "lucide-react";
 import { isSupabaseReady } from './supabase'
 import { useSupabaseSync, loadAllFromSupabase } from './useSupabaseSync'
@@ -1052,25 +1054,25 @@ useEffect(() => {
 }, []);
 
   const navItems = [
-    { key: "dashboard", label: "แดชบอร์ด", icon: TrendingUp },
-    { key: "products", label: "ข้อมูลสินค้า", icon: Package },
-    { key: "customers", label: "ข้อมูลลูกค้า", icon: Users },
-    { key: "purchases", label: "ใบรับสินค้า", icon: ArrowDownToLine },
-    { key: "withdrawals", label: "เบิกสินค้าเพื่อขาย", icon: PackageMinus },
-    { key: "sales", label: "ขายสินค้า", icon: ShoppingCart },
-    { key: "payments", label: "รับชำระ/จ่ายชำระ", icon: CheckCircle2 },
-    { key: "delivery", label: "ใบส่งสินค้า", icon: Truck },
-    { key: "inventory", label: "สต๊อกสินค้า", icon: Boxes },
-    { key: "deposits", label: "เงินมัดจำ", icon: Wallet },
-    { key: "expenses", label: "ค่าใช้จ่าย", icon: Receipt },
-    { key: "expenseCategories", label: "หมวดหมู่ค่าใช้จ่าย", icon: Boxes },
-    { key: "loans", label: "เงินกู้ยืม/เช่าซื้อ", icon: CreditCard },
-    { key: "bankaccounts", label: "บัญชีธนาคารร้าน", icon: Landmark },
-    { key: "banktransfer", label: "โยกเงินระหว่างธนาคาร", icon: ArrowRight },
-    { key: "assets", label: "ทะเบียนทรัพย์สิน", icon: Package },
-    { key: "settings", label: "ตั้งค่ากิจการ", icon: Save },
-    { key: "report", label: "รายงานกำไร", icon: TrendingUp },
-    { key: "tax", label: "ภาษีซื้อ-ภาษีขาย", icon: Receipt },
+    { key: "dashboard",         label: "แดชบอร์ด",              icon: LayoutDashboard },
+    { key: "purchases",         label: "ใบรับสินค้า",            icon: ArrowDownToLine },
+    { key: "withdrawals",       label: "ใบเบิกสินค้า",           icon: PackageMinus },
+    { key: "sales",             label: "ขายสินค้า",              icon: ShoppingCart },
+    { key: "expenses",          label: "ค่าใช้จ่าย",             icon: Receipt },
+    { key: "payments",          label: "รับชำระ/จ่ายชำระ",       icon: BadgeDollarSign },
+    { key: "deposits",          label: "เงินมัดจำ",              icon: Wallet },
+    { key: "banktransfer",      label: "โยกเงินระหว่างธนาคาร",   icon: ArrowLeftRight },
+    { key: "delivery",          label: "ใบส่งสินค้า",            icon: Truck },
+    { key: "inventory",         label: "สต๊อกสินค้า",            icon: Boxes },
+    { key: "bankaccounts",      label: "บัญชีธนาคารร้าน",        icon: Landmark },
+    { key: "loans",             label: "เงินกู้ยืม/เช่าซื้อ",    icon: Banknote },
+    { key: "assets",            label: "ทะเบียนทรัพย์สิน",       icon: Building2 },
+    { key: "report",            label: "รายงานกำไร",             icon: BarChart3 },
+    { key: "tax",               label: "สรุปภาษี",               icon: PieChart },
+    { key: "products",          label: "ข้อมูลสินค้า",            icon: Package },
+    { key: "customers",         label: "ข้อมูลลูกค้า",            icon: Users },
+    { key: "expenseCategories", label: "หมวดหมู่ค่าใช้จ่าย",     icon: Tag },
+    { key: "settings",          label: "ตั้งค่ากิจการ",           icon: Settings },
   ];
 
 
