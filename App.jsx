@@ -975,26 +975,38 @@ export default function App() {
   useEffect(() => {
     if (!isSupabaseReady) { setDbLoaded(true); setSyncStatus('offline'); return }
     setSyncStatus('loading')
+    // ลบรายการที่ id ซ้ำออกก่อน set state (ป้องกันบิลซ้ำจากปัญหา sync เก่า)
+    const dedup = (arr) => {
+      if (!Array.isArray(arr)) return arr
+      const seen = new Set()
+      return arr.filter(item => {
+        if (!item || !item.id) return true
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+      })
+    }
+
     loadAllFromSupabase().then(data => {
       if (data) {
-        if (data.customers)     setCustomers(data.customers)
-        if (data.purchases)     setPurchases(data.purchases)
-        if (data.sales)         setSales(data.sales)
-        if (data.withdrawals)   setWithdrawals(data.withdrawals)
-        if (data.deposits)      setDeposits(data.deposits)
-        if (data.bankTransfers) setBankTransfers(data.bankTransfers)
-        if (data.expenses)      setExpenses(data.expenses)
-        if (data.loans)         setLoans(data.loans)
-        if (data.storeBankAccounts) setStoreBankAccounts(data.storeBankAccounts)
+        if (data.customers)     setCustomers(dedup(data.customers))
+        if (data.purchases)     setPurchases(dedup(data.purchases))
+        if (data.sales)         setSales(dedup(data.sales))
+        if (data.withdrawals)   setWithdrawals(dedup(data.withdrawals))
+        if (data.deposits)      setDeposits(dedup(data.deposits))
+        if (data.bankTransfers) setBankTransfers(dedup(data.bankTransfers))
+        if (data.expenses)      setExpenses(dedup(data.expenses))
+        if (data.loans)         setLoans(dedup(data.loans))
+        if (data.storeBankAccounts) setStoreBankAccounts(dedup(data.storeBankAccounts))
         if (data.shopProfile)   setShopProfile(data.shopProfile)
         if (data.companySettings) setCompanySettings(data.companySettings)
         if (data.users)         setUsers(data.users)
         if (data.unitOptions)   setUnitOptions(data.unitOptions)
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
         if (data.productCategories) setProductCategories(data.productCategories)
-        if (data.assets) setAssets(data.assets)
+        if (data.assets) setAssets(dedup(data.assets))
         if (data.shareholders) setShareholders(data.shareholders)
-        if (data.dividendPayments) setDividendPayments(data.dividendPayments)
+        if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -5563,14 +5575,6 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 
   // หมวดหมู่ใหญ่/ย่อย เก็บเป็นฐานข้อมูลแยก (expenseCategories) ใช้ร่วมกันทุกเครื่อง บันทึกถาวรขึ้น Supabase
 
-  const blankPayment = () => ({
-    id: "EXP" + Date.now().toString().slice(-6),
-    date: new Date().toISOString().slice(0, 10),
-    amount: 0,
-    fromStoreBankId: "",
-    method: PAYMENT_METHODS[0],
-  });
-
   const blankItem = () => ({
     id: "EXI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000),
     description: "",
@@ -5730,14 +5734,6 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   const { amount: formAmount, vat: formVat, wht: formWht, net: formNet } = calcTotals(form);
   const formPaid = (form.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const formRemaining = formNet - formPaid;
-
-  const addPayment = () => setForm({ ...form, payments: [...(form.payments || []), blankPayment()] });
-  const updatePayment = (idx, field, value) => {
-    const payments = [...(form.payments || [])];
-    payments[idx] = { ...payments[idx], [field]: value };
-    setForm({ ...form, payments });
-  };
-  const removePayment = (idx) => setForm({ ...form, payments: (form.payments || []).filter((_, i) => i !== idx) });
 
   const addItem = () => setForm({ ...form, items: [...(form.items || []), blankItem()] });
   const updateItem = (idx, field, value) => {
@@ -6067,30 +6063,12 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, marginBottom: 8 }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>การชำระเงิน (แบ่งชำระได้หลายครั้ง)</div>
-            <button style={btnSecondary} onClick={addPayment}><Plus size={14} /> เพิ่มการจ่ายเงิน</button>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>การชำระเงิน</div>
           </div>
 
-          {(form.payments || []).length === 0 ? (
-            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "16px", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
-              ยังไม่มีการชำระเงิน — กด "เพิ่มการจ่ายเงิน" เพื่อบันทึกแต่ละครั้งที่จ่าย
-            </div>
-          ) : (
-            (form.payments || []).map((p, idx) => (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.6fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "center" }}>
-                <input type="date" style={inputStyle} value={p.date} onChange={(e) => updatePayment(idx, "date", e.target.value)} />
-                <input type="number" style={{ ...inputStyle, textAlign: "right" }} placeholder="จำนวนเงิน" value={p.amount} onChange={(e) => updatePayment(idx, "amount", e.target.value)} />
-                <select style={inputStyle} value={p.fromStoreBankId} onChange={(e) => updatePayment(idx, "fromStoreBankId", e.target.value)}>
-                  <option value="">-- เลือกบัญชี --</option>
-                  {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
-                </select>
-                <select style={inputStyle} value={p.method} onChange={(e) => updatePayment(idx, "method", e.target.value)}>
-                  {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-                <button style={btnDanger} onClick={() => removePayment(idx)}><Trash2 size={14} /></button>
-              </div>
-            ))
-          )}
+          <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#854f0b" }}>
+            บันทึกการจ่ายเงินสำหรับบิลนี้ได้ที่หน้า <strong>"รับชำระ / จ่ายชำระ"</strong> แทน — กดปุ่ม "ค้างจ่าย (ค่าใช้จ่าย)" เพื่อหารายการนี้และบันทึกจ่ายได้ที่นั่น
+          </div>
 
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 16px", marginTop: 12, fontSize: 13 }}>
             <Row label="ยอดที่ต้องชำระ" value={`฿${fmt(formNet)}`} />
