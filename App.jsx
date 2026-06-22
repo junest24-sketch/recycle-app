@@ -4297,7 +4297,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   // ---------- รายการใบรับสินค้าทั้งหมด (รวมที่ชำระครบแล้ว) ----------
   const allPurchaseRows = useMemo(() => {
     return purchases
-      .filter((po) => (po.status || "") === "อนุมัติแล้ว")
+      .filter((po) => (po.status || "") !== "ยกเลิก")
       .map((po) => {
         const subtotal = po.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
         const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
