@@ -2355,15 +2355,26 @@ function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, produ
   // inline price editing: { productId, field } — ช่องที่กำลังแก้ไขอยู่ในตาราง
   const [inlineEdit, setInlineEdit] = useState(null);
   const [inlineVal, setInlineVal] = useState("");
+  const inlineEditRef = useRef(null);
+  const inlineValRef = useRef("");
 
-  const startInline = (p, field) => { setInlineEdit({ id: p.id, field }); setInlineVal(String(Number(p[field]) || 0)); };
+  const startInline = (p, field) => {
+    const val = String(Number(p[field]) || 0);
+    inlineEditRef.current = { id: p.id, field };
+    inlineValRef.current = val;
+    setInlineEdit({ id: p.id, field });
+    setInlineVal(val);
+  };
   const commitInline = async () => {
-    if (!inlineEdit) return;
-    const updated = products.map((p) => p.id === inlineEdit.id ? { ...p, [inlineEdit.field]: Number(inlineVal) || 0 } : p);
-    setProducts(updated);
-    const prod = updated.find((p) => p.id === inlineEdit.id);
-    if (prod) await updateProduct(prod);
+    const edit = inlineEditRef.current;
+    const val = inlineValRef.current;
+    if (!edit) return;
+    inlineEditRef.current = null;
     setInlineEdit(null);
+    const updated = products.map((p) => p.id === edit.id ? { ...p, [edit.field]: Number(val) || 0 } : p);
+    setProducts(updated);
+    const prod = updated.find((p) => p.id === edit.id);
+    if (prod) await updateProduct(prod);
   };
 
   const filtered = [...products].filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search)).reverse();
@@ -2472,7 +2483,7 @@ const save = async () => {
                     type="number" autoFocus
                     style={{ ...inputStyle, textAlign: "right", width: "100%", fontWeight: 700 }}
                     value={inlineVal}
-                    onChange={(e) => setInlineVal(e.target.value)}
+                    onChange={(e) => { setInlineVal(e.target.value); inlineValRef.current = e.target.value; }}
                     onBlur={commitInline}
                     onKeyDown={(e) => { if (e.key === "Enter") commitInline(); if (e.key === "Escape") setInlineEdit(null); }}
                   />
