@@ -10,6 +10,9 @@ function fromRow(row) {
     unit: row.unit,
     openingQty: row.opening_qty,
     openingCost: row.opening_cost,
+    openingMonth: row.opening_month || "",
+    buyPrice: row.buy_price || 0,
+    vipPrice: row.vip_price || 0,
   }
 }
 
@@ -22,6 +25,9 @@ function toRow(product) {
     unit: product.unit,
     opening_qty: product.openingQty,
     opening_cost: product.openingCost,
+    opening_month: product.openingMonth || "",
+    buy_price: Number(product.buyPrice) || 0,
+    vip_price: Number(product.vipPrice) || 0,
     updated_at: new Date().toISOString(),
   }
 }
