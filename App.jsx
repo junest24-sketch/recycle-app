@@ -2825,7 +2825,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
     fromStoreBankId: storeBankAccounts[0]?.id || "",
     method: PAYMENT_METHODS[0],
   });
-  const blankForm = () => ({ id: "", date: new Date().toISOString().slice(0, 10), customerId: "", status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", items: [blankItem()], payments: [], vatRate: 0, vehiclePlate: "" });
+  const blankForm = () => ({ id: "", date: new Date().toISOString().slice(0, 10), customerId: "", status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", items: [blankItem()], payments: [], vatRate: 0, vehiclePlate: "", priceType: "normal" });
   const [form, setForm] = useState(blankForm());
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
@@ -2854,10 +2854,16 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
   const updateItem = (idx, field, value) => {
     const items = [...form.items];
-    // เมื่อเลือกสินค้าใหม่ ให้ดึง buyPrice มาเป็น default ราคา/หน่วย (แก้ทับได้รายบิล)
+    // เมื่อเลือกสินค้าใหม่ ให้ดึงราคาตามประเภทที่เลือกในใบรับ (หน้าร้าน/VIP)
     if (field === "productId") {
       const prod = products.find((p) => p.id === value);
-      items[idx] = { ...items[idx], productId: value, price: (prod && Number(prod.buyPrice) > 0) ? Number(prod.buyPrice) : items[idx].price };
+      let price = items[idx].price;
+      if (prod) {
+        price = form.priceType === "vip"
+          ? (Number(prod.vipPrice) || Number(prod.buyPrice) || price)
+          : (Number(prod.buyPrice) || price);
+      }
+      items[idx] = { ...items[idx], productId: value, price };
     } else {
       items[idx] = { ...items[idx], [field]: value };
     }
@@ -3078,6 +3084,24 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
             </Field>
             <Field label="ลูกค้า (ผู้ขาย)">
               <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid })} />
+            </Field>
+            <Field label="ประเภทราคา">
+              <div style={{ display: "flex", gap: 8, height: 38, alignItems: "center" }}>
+                {[{ value: "normal", label: "ราคาหน้าร้าน", color: "#854f0b", bg: "#fffbeb" }, { value: "vip", label: "ราคา VIP", color: "#534ab7", bg: "#f0effe" }].map((opt) => (
+                  <button key={opt.value} type="button"
+                    style={{ padding: "6px 16px", borderRadius: 6, border: `2px solid ${form.priceType === opt.value ? opt.color : "#e5e7eb"}`, background: form.priceType === opt.value ? opt.bg : "#fff", color: form.priceType === opt.value ? opt.color : "#6b7280", fontWeight: form.priceType === opt.value ? 700 : 400, fontSize: 13, cursor: "pointer" }}
+                    onClick={() => {
+                      const newItems = form.items.map((it) => {
+                        const prod = products.find((p) => p.id === it.productId);
+                        if (!prod) return it;
+                        const price = opt.value === "vip" ? (Number(prod.vipPrice) || Number(prod.buyPrice) || it.price) : (Number(prod.buyPrice) || it.price);
+                        return { ...it, price };
+                      });
+                      setForm({ ...form, priceType: opt.value, items: newItems });
+                    }}
+                  >{opt.label}</button>
+                ))}
+              </div>
             </Field>
           </div>
 
