@@ -2947,8 +2947,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
           const paid = paidTotal(po);
           const total = grandTotal(po);
           const remaining = total - paid;
-          const payBadge = remaining <= 0 ? { bg: "#eaf3de", color: "#27500a", icon: CheckCircle2, label: "ชำระแล้ว" }
-            : paid > 0 ? { bg: "#faeeda", color: "#854f0b", icon: Clock, label: "ชำระบางส่วน" }
+          const payBadge = (po.writeOff || remaining <= 0.01) ? { bg: "#eaf3de", color: "#27500a", icon: CheckCircle2, label: "ชำระแล้ว" }
+            : paid > 0.01 ? { bg: "#faeeda", color: "#854f0b", icon: Clock, label: "ชำระบางส่วน" }
             : { bg: "#fcebeb", color: "#791f1f", icon: Clock, label: "ค้างจ่าย" };
           const PIcon = payBadge.icon;
           const isExpanded = expanded === po.id;
@@ -4029,7 +4029,8 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
           <tbody>
             {filtered.map((inv) => {
               const t = calcInvoiceTotals(inv);
-              const sc = statusColor(inv.paymentStatus);
+              const livePayStatus = (inv.writeOff || t.remaining <= 0.01) ? "ชำระแล้ว" : t.paid > 0.01 ? "ชำระบางส่วน" : "ค้างรับ";
+              const sc = statusColor(livePayStatus);
               return (
                 <tr key={inv.id}>
                   <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{inv.id}</td>
@@ -4041,9 +4042,9 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(t.total)} บาท</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <div style={{ fontSize: 12, color: "#0f6e56" }}>รับแล้ว ฿{fmt(t.paid)}</div>
-                    {t.remaining > 0 && <div style={{ fontSize: 12, color: "#993c1d" }}>ค้าง ฿{fmt(t.remaining)}</div>}
+                    {livePayStatus !== "ชำระแล้ว" && t.remaining > 0.01 && <div style={{ fontSize: 12, color: "#993c1d" }}>ค้าง ฿{fmt(t.remaining)}</div>}
                   </td>
-                  <td style={tdStyle}><span style={{ background: sc.bg, color: sc.color, padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500 }}>{inv.paymentStatus}</span></td>
+                  <td style={tdStyle}><span style={{ background: sc.bg, color: sc.color, padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500 }}>{livePayStatus}</span></td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                       <button style={iconBtn} onClick={() => openView(inv)}><Printer size={14} /> ดู Invoice</button>
@@ -4446,6 +4447,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     let list = [...allPurchaseRows, ...allSaleRows];
     if (activeView === "purchase") list = allPurchaseRows;
     if (activeView === "sale") list = allSaleRows;
+    if (activeView === "expense") list = allExpenseRows;
     if (activeView === "unpaid-purchase") list = allPurchaseRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
@@ -4628,6 +4630,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           { key: "unpaid-expense", label: `ค้างจ่าย (ค่าใช้จ่าย) (${unpaidExpenses.length})` },
           { key: "purchase", label: `ใบรับสินค้าทั้งหมด (${allPurchaseRows.length})` },
           { key: "sale", label: `ใบขายทั้งหมด (${allSaleRows.length})` },
+          { key: "expense", label: `ค่าใช้จ่ายทั้งหมด (${allExpenseRows.length})` },
         ].map((opt) => (
           <button key={opt.key} onClick={() => setActiveView(opt.key)}
             style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
