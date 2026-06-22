@@ -15,13 +15,38 @@ export async function loadAllFromSupabase() {
   return result
 }
 
+// --- Merge arrays by id: รวม local + remote โดยไม่ให้บิลซ้ำ ---
+// กฎ:
+//   1. local เป็น source of truth สำหรับรายการที่ local มีอยู่แล้ว (ใช้ค่า local ทับ remote เสมอ)
+//   2. รายการที่ remote มีแต่ local ไม่มี → เพิ่มเข้า local (sync จากเครื่องอื่น)
+//   3. ถ้า array ไม่มี id field → ใช้ remote ทั้งก้อน (fallback สำหรับ primitive arrays)
+function mergeArrays(localArr, remoteArr) {
+  if (!Array.isArray(localArr) || !Array.isArray(remoteArr)) return remoteArr
+
+  const hasId = (item) => item && typeof item === 'object' && 'id' in item
+  if (!localArr.every(hasId) || !remoteArr.every(hasId)) return remoteArr
+
+  const localById = new Map(localArr.map(item => [item.id, item]))
+  const remoteById = new Map(remoteArr.map(item => [item.id, item]))
+
+  // รายการที่ local มี → ใช้ local เสมอ (local เป็น truth สำหรับรายการที่มีอยู่แล้ว)
+  // รายการที่ remote มีแต่ local ไม่มี → เพิ่มจาก remote (บิลที่เครื่องอื่นบันทึก)
+  const merged = [...localArr]
+  for (const [id, remoteItem] of remoteById) {
+    if (!localById.has(id)) {
+      merged.push(remoteItem)
+    }
+  }
+
+  return merged
+}
+
 export function useSupabaseSync(key, value, setValue, loaded) {
   const saveTimer = useRef(null)
   const maxWaitTimer = useRef(null)
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
   const lastSaveTime = useRef(0)
-  const lastChangeTime = useRef(0)
 
   // --- บันทึกขึ้น Supabase (debounce 2 วิ + บังคับ save ทุก 5 วิ แม้พิมพ์ต่อเนื่อง) ---
   useEffect(() => {
@@ -38,12 +63,9 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       saveToSupabase(key, value).finally(() => { isSaving.current = false })
     }
 
-    lastChangeTime.current = Date.now()
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(doSave, 2000)
 
-    // ถ้ายังไม่มี max-wait timer ทำงานอยู่ ให้ตั้งใหม่
-    // เพื่อบังคับ save อย่างน้อยทุก 5 วิ แม้ค่าจะเปลี่ยนรัวๆ จน debounce ถูก reset ตลอด
     if (!maxWaitTimer.current) {
       maxWaitTimer.current = setTimeout(doSave, 5000)
     }
@@ -51,22 +73,38 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     return () => clearTimeout(saveTimer.current)
   }, [key, value, loaded])
 
-  // --- Polling ดึงข้อมูลจาก Supabase กลับมา (กันข้อมูลเก่ากว่าทับข้อมูลใหม่กว่า) ---
+  // --- Polling ดึงข้อมูลจาก Supabase กลับมา พร้อม merge by id ---
   useEffect(() => {
     if (!isSupabaseReady || !loaded) return
+
     const interval = setInterval(async () => {
-      if (isSaving.current || Date.now() - lastSaveTime.current < 30000) return
-      const { data, error } = await supabase.from('app_data').select('value').eq('key', key).single()
+      // ข้ามถ้ากำลัง save อยู่ หรือเพิ่ง save ไปไม่ถึง 15 วิ
+      if (isSaving.current || Date.now() - lastSaveTime.current < 15000) return
+
+      const { data, error } = await supabase.from('app_data')
+        .select('value, updated_at')
+        .eq('key', key)
+        .single()
       if (error || !data) return
 
-      // กันทับ: ถ้าทั้งสองฝั่งเป็น array และฝั่ง Supabase มีรายการน้อยกว่าฝั่งเครื่อง
-      // แปลว่า Supabase อาจมีข้อมูลเก่ากว่า/ไม่ครบ -> ไม่ทับ
-      if (Array.isArray(data.value) && Array.isArray(value) && data.value.length < value.length) {
+      const remoteValue = data.value
+
+      // ถ้าทั้งสองฝั่งเป็น array ให้ merge by id แทนการเปรียบ length
+      if (Array.isArray(remoteValue) && Array.isArray(value)) {
+        const merged = mergeArrays(value, remoteValue)
+        // อัปเดตเฉพาะถ้า merged มีรายการใหม่จาก remote
+        if (merged.length > value.length) {
+          setValue(merged)
+          // save merged กลับขึ้น Supabase เพื่อให้เครื่องอื่น poll ได้ครบ
+          saveToSupabase(key, merged)
+        }
         return
       }
 
-      setValue(data.value)
+      // non-array (object/primitive) → ใช้ remote ทับ local ตามเดิม
+      setValue(remoteValue)
     }, 10000)
+
     return () => clearInterval(interval)
   }, [key, value, setValue, loaded])
 }
