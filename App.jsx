@@ -3152,17 +3152,17 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>สินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 650 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 650, tableLayout: "fixed" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>สินค้า</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
-                  <th style={thStyle}>หน่วย</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>หัก</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>สุทธิ</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>ราคา/หน่วย</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
-                  <th style={thStyle}></th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 100 }}>จำนวน</th>
+                  <th style={{ ...thStyle, width: 60 }}>หน่วย</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 90 }}>หัก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 70 }}>สุทธิ</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 110 }}>ราคา/หน่วย</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 100 }}>จำนวนเงิน</th>
+                  <th style={{ ...thStyle, width: 44 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -3171,11 +3171,11 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                     <td style={tdStyle}>
                       <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
                     </td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                     <td style={{ ...tdStyle, color: "#9ca3af" }}>{prodUnit(it.productId)}</td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 80, textAlign: "right" }} value={it.deduct} onChange={(e) => updateItem(idx, "deduct", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deduct} onChange={(e) => updateItem(idx, "deduct", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 500, color: "#9ca3af" }}>{fmt((Number(it.qty) || 0) - (Number(it.deduct) || 0))}</td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(lineTotal(it))}</td>
                     <td style={tdStyle}><button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button></td>
                   </tr>
