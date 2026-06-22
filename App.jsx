@@ -509,11 +509,26 @@ function Header({ title, subtitle, children }) {
   );
 }
 
-function SearchBar({ value, onChange, placeholder }) {
+function SearchBar({ value, onChange, placeholder, dateFrom, dateTo, onDateFromChange, onDateToChange }) {
   return (
-    <div style={{ position: "relative", marginBottom: 16 }}>
-      <Search size={16} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
-      <input style={{ ...inputStyle, paddingLeft: 32 }} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+      <div style={{ position: "relative", flex: "1 1 200px", minWidth: 180 }}>
+        <Search size={16} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }} />
+        <input style={{ ...inputStyle, paddingLeft: 32 }} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      </div>
+      {onDateFromChange && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto" }}>
+          <span style={{ fontSize: 12, color: "#6b7280", whiteSpace: "nowrap" }}>วันที่</span>
+          <input type="date" style={{ ...inputStyle, width: 140 }} value={dateFrom || ""} onChange={(e) => onDateFromChange(e.target.value)} />
+          <span style={{ fontSize: 12, color: "#6b7280" }}>ถึง</span>
+          <input type="date" style={{ ...inputStyle, width: 140 }} value={dateTo || ""} onChange={(e) => onDateToChange(e.target.value)} />
+          {(dateFrom || dateTo) && (
+            <button style={{ ...btnSecondary, padding: "4px 8px", fontSize: 12 }} onClick={() => { onDateFromChange(""); onDateToChange(""); }}>
+              <X size={12} /> ล้าง
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1052,7 +1067,6 @@ useEffect(() => {
     { key: "loans", label: "เงินกู้ยืม/เช่าซื้อ", icon: CreditCard },
     { key: "bankaccounts", label: "บัญชีธนาคารร้าน", icon: Landmark },
     { key: "banktransfer", label: "โยกเงินระหว่างธนาคาร", icon: ArrowRight },
-    { key: "receivables", label: "ลูกหนี้/เจ้าหนี้", icon: FileText },
     { key: "assets", label: "ทะเบียนทรัพย์สิน", icon: Package },
     { key: "settings", label: "ตั้งค่ากิจการ", icon: Save },
     { key: "report", label: "รายงานกำไร", icon: TrendingUp },
@@ -1283,7 +1297,6 @@ useEffect(() => {
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
-        {tab === "receivables" && <ReceivablesTab customers={customers} sales={sales} purchases={purchases} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
         {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} />}
@@ -2114,33 +2127,37 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         const cashGroupTotal = cashGroupRows.reduce((s, b) => s + b.balance, 0);
         const unsetGroupTotal = unsetGroupRows.reduce((s, b) => s + b.balance, 0);
 
-        // 2. ลูกหนี้ค้างรับ (ยอดคงค้าง ณ ปัจจุบันเสมอ)
+        // 2. ลูกหนี้ค้างรับ (ยอดคงค้าง ณ ปัจจุบันเสมอ — ตรงกับหน้ารับ/จ่ายชำระ)
         const totalReceivable = sales.reduce((s, inv) => {
           const subtotal = inv.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0);
           const ad = subtotal - (inv.discount || 0);
           const total = ad + ad * ((inv.vatRate || 0) / 100);
           const paid = (inv.payments || []).reduce((ss, p) => ss + (Number(p.amount) || 0), 0);
-          return s + Math.max(0, total - paid);
+          const remaining = total - paid;
+          if (inv.writeOff || remaining <= 0.01) return s;
+          return s + remaining;
         }, 0);
 
-        // 3. เจ้าหนี้ค้างจ่าย (ยอดคงค้าง ณ ปัจจุบัน)
-        const totalPayable = purchases.filter(po => po.status === "อนุมัติแล้ว").reduce((s, po) => {
+        // 3. เจ้าหนี้ค้างจ่าย (ยอดคงค้าง ณ ปัจจุบัน — ตรงกับหน้ารับ/จ่ายชำระ)
+        const totalPayable = purchases.filter(po => (po.status || "") !== "ยกเลิก").reduce((s, po) => {
           const subtotal = po.items.reduce((ss, it) => ss + (it.net || 0) * (it.price || 0), 0);
           const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
           const total = subtotal + vat;
           const paid = (po.payments || []).reduce((ss, p) => ss + (Number(p.amount) || 0), 0);
-          return s + Math.max(0, total - paid);
+          const remaining = total - paid;
+          if (po.writeOff || remaining <= 0.01) return s;
+          return s + remaining;
         }, 0);
 
         // 4. เงินมัดจำคงเหลือ (ยอดคงค้าง ณ ปัจจุบัน)
-        // ยอดมัดจำคงเหลือ = มัดจำที่จ่ายทั้งหมด - มัดจำที่ถูกหักในใบรับสินค้า (payments ที่ fromStoreBankId === "DEPOSIT")
-        // เดิมใช้ d.usedAmount ซึ่งไม่เคยถูกตั้งค่าที่ไหนเลย ทำให้ยอดคงเหลือไม่เคยลดลง (overstated)
+        // รวมยอดยกมา (c.depositOpening) + มัดจำที่จ่ายเพิ่ม (deposits array) - มัดจำที่ถูกหักในใบรับสินค้า
         const totalDeposit = (() => {
-          const given = (deposits || []).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+          const openingTotal = customers.reduce((s, c) => s + (Number(c.depositOpening) || 0), 0);
+          const newGiven = (deposits || []).reduce((s, d) => s + (Number(d.amount) || 0), 0);
           const used = purchases.reduce((s, po) => s + (po.payments || [])
             .filter((p) => p.fromStoreBankId === "DEPOSIT")
             .reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
-          return Math.max(0, given - used);
+          return Math.max(0, openingTotal + newGiven - used);
         })();
 
         // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
@@ -2815,6 +2832,8 @@ function CustomersTab({ customers, setCustomers }) {
 function PurchasesTab({ products, customers, purchases, setPurchases, storeBankAccounts, deposits, companySettings }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [expanded, setExpanded] = useState(null);
 
   const blankItem = () => ({ productId: "", qty: 0, deduct: 0, price: 0 });
@@ -2833,7 +2852,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
   const custBankAccounts = (customerId) => customers.find((c) => c.id === customerId)?.bankAccounts || [];
 
-  const filtered = purchases.filter((po) => po.id.includes(search) || custName(po.customerId).includes(search)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
+  const filtered = purchases.filter((po) => po.id.includes(search) || custName(po.customerId).includes(search)).filter((po) => (!dateFrom || (po.date || "") >= dateFrom) && (!dateTo || (po.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
 
   // ยอดมัดจำคงเหลือของลูกค้าที่เลือก (ไม่รวมยอดที่กำลังหักในใบนี้ จากใบอื่นๆทั้งหมด)
   const depositBalanceForCustomer = (customerId, excludePoId) => {
@@ -2938,7 +2957,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
         </div>
       </Header>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบรับ หรือชื่อลูกค้า..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบรับ หรือชื่อลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
       </div>
      <div id="tab-export-purchases" style={{ flex: 1, overflow: "auto" }}>
 <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 700 }}>
@@ -3442,6 +3461,8 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const cs = companySettings || {};
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'}
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [aggregateSearch, setAggregateSearch] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [printLot, setPrintLot] = useState(null); // ใบเบิกสินค้าที่กำลังจะพิมพ์
@@ -3593,7 +3614,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const filtered = withdrawals.filter((w) =>
     w.id.includes(search) || (w.targetSaleId || "").includes(search) ||
     (w.items || []).some((it) => prodName(it.sourceProductId).includes(search) || prodName(it.targetProductId).includes(search))
-  ).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
+  ).filter((w) => (!dateFrom || (w.date || "") >= dateFrom) && (!dateTo || (w.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
 
   const lotTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.value) || 0), 0);
   const lotQtyTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0);
@@ -3626,7 +3647,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
         <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> สร้างใบเบิกสินค้า (LOT)</button>
       </Header>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ LOT, สินค้า หรือเลข Invoice..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ LOT, สินค้า หรือเลข Invoice..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
       </div>
       <div style={{ flex: 1, overflow: "auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -3905,6 +3926,8 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
 function SalesTab({ products, customers, sales, setSales, inventory, withdrawals, storeBankAccounts, companySettings }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const blankItem = () => ({ productId: "", qty: 0, deduct: 0, price: 0 });
   const blankPayment = () => ({ id: "SP" + Date.now().toString().slice(-6), date: new Date().toISOString().slice(0, 10), amount: 0, method: PAYMENT_METHODS[0], toStoreBankId: "", note: "" });
@@ -3919,7 +3942,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
 
-  const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
+  const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).filter((inv) => (!dateFrom || (inv.date || "") >= dateFrom) && (!dateTo || (inv.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
 
   const openAdd = () => { setForm({ ...blankForm(), id: genId("INV", sales) }); setModal({ mode: "add" }); };
   const openEdit = (item) => {
@@ -4011,7 +4034,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
         </div>
       </Header>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลข Invoice หรือชื่อลูกค้า..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลข Invoice หรือชื่อลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
       </div>
       <div id="tab-export-sales" style={{ flex: 1, overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
@@ -5132,6 +5155,8 @@ function InventoryTab({ products, inventory }) {
 function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [openingModal, setOpeningModal] = useState(null); // {customerId, amount}
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
@@ -5174,7 +5199,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
     return list;
   }, [purchases]);
 
-  const filtered = deposits.filter((d) => custName(d.customerId).includes(search) || d.id.includes(search)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const filtered = deposits.filter((d) => custName(d.customerId).includes(search) || d.id.includes(search)).filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
   const fromLabel = (id) => {
     if (id === "CASH") return "เงินสดหน้าร้าน";
@@ -5239,7 +5264,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
         </Card>
       </div>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาลูกค้า หรือเลขที่รายการมัดจำ..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาลูกค้า หรือเลขที่รายการมัดจำ..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
 
       <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>ประวัติการจ่ายมัดจำ</h3>
       <Card>
@@ -5665,6 +5690,8 @@ function LoanScheduleModal({ loan, expenses, onClose }) {
 function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories, companySettings }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [installmentPicker, setInstallmentPicker] = useState(false); // เปิด picker ดึงงวดผ่อน
   const [pendingInstallment, setPendingInstallment] = useState(null); // {loanId, no} ของงวดที่เลือกไว้ รอบันทึก
   const [pickerLoanId, setPickerLoanId] = useState(""); // สัญญาที่เลือกใน dropdown ของ picker
@@ -5889,6 +5916,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
       const itemMatch = items.some((it) => (it.mainCategory || "").includes(search) || (it.subCategory || "").includes(search) || (it.description || "").includes(search));
       return itemMatch || e.id.includes(search) || (e.refNo || "").includes(search) || (e.taxInvoiceNo || "").includes(search);
     })
+    .filter((e) => (!dateFrom || (e.billDate || e.date || "") >= dateFrom) && (!dateTo || (e.billDate || e.date || "") <= dateTo))
     .sort((a, b) => ((a.billDate || a.date) < (b.billDate || b.date) ? 1 : (a.billDate || a.date) > (b.billDate || b.date) ? -1 : 0));
 
   const totalAll = expenses.reduce((s, e) => s + calcTotals(e).net, 0);
@@ -5966,7 +5994,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
         <div>
-          <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบกำกับภาษี, หมวดหมู่ หรือรายละเอียด..." />
+          <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบกำกับภาษี, หมวดหมู่ หรือรายละเอียด..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
           <Card>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -6970,7 +6998,8 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {transfers.map((t) => (
+        <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่, บัญชี..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
+        {transfers.filter((t) => (t.id || "").includes(search) && (!dateFrom || (t.date || "") >= dateFrom) && (!dateTo || (t.date || "") <= dateTo)).map((t) => (
           <div key={t.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -7023,165 +7052,14 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
 }
 
 // ===================================================================
-// RECEIVABLES TAB (ลูกหนี้/เจ้าหนี้ — ค้างรับ/ค้างจ่าย)
-// ===================================================================
-function ReceivablesTab({ customers, sales, purchases }) {
-  const [activeView, setActiveView] = useState("receivable"); // "receivable" | "payable"
-  const custName = (id) => customers.find((c) => c.id === id)?.name || id;
-
-  // ลูกหนี้ (Accounts Receivable) = ใบขายที่ยังค้างรับ
-  const receivables = useMemo(() => {
-    const map = {};
-    sales.forEach((inv) => {
-      const subtotal = inv.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
-      const ad = subtotal - (inv.discount || 0);
-      const total = ad + ad * ((inv.vatRate || 0) / 100);
-      const paid = (inv.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      const remaining = total - paid;
-      if (remaining > 0.01) {
-        if (!map[inv.customerId]) map[inv.customerId] = { customerId: inv.customerId, invoices: [], totalRemaining: 0, totalAmount: 0 };
-        map[inv.customerId].invoices.push({ id: inv.id, date: inv.date, total, paid, remaining });
-        map[inv.customerId].totalRemaining += remaining;
-        map[inv.customerId].totalAmount += total;
-      }
-    });
-    Object.values(map).forEach((m) => m.invoices.sort((a, b) => (b.date || "").localeCompare(a.date || "")));
-    return Object.values(map).sort((a, b) => b.totalRemaining - a.totalRemaining);
-  }, [sales, customers]);
-
-  // เจ้าหนี้ (Accounts Payable) = ใบรับสินค้าที่ยังค้างจ่าย
-  const payables = useMemo(() => {
-    const map = {};
-    purchases.forEach((po) => {
-      if ((po.status || "") !== "อนุมัติแล้ว") return;
-      const subtotal = po.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
-      const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
-      const total = subtotal + vat;
-      const paid = (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-      const remaining = total - paid;
-      if (remaining > 0.01) {
-        if (!map[po.customerId]) map[po.customerId] = { customerId: po.customerId, orders: [], totalRemaining: 0 };
-        map[po.customerId].orders.push({ id: po.id, date: po.date, total, paid, remaining });
-        map[po.customerId].totalRemaining += remaining;
-      }
-    });
-    Object.values(map).forEach((m) => m.orders.sort((a, b) => (b.date || "").localeCompare(a.date || "")));
-    return Object.values(map).sort((a, b) => b.totalRemaining - a.totalRemaining);
-  }, [purchases, customers]);
-
-  const totalReceivable = receivables.reduce((s, r) => s + r.totalRemaining, 0);
-  const totalPayable = payables.reduce((s, p) => s + p.totalRemaining, 0);
-
-  return (
-    <div>
-      <Header title="ลูกหนี้ / เจ้าหนี้" subtitle="ยอดค้างรับจากลูกค้า และยอดค้างจ่ายให้ลูกค้า (ผู้ขายของเก่า)" />
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดลูกหนี้ค้างรับรวม</div>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "#185fa5" }}>฿{fmt(totalReceivable)}</div>
-          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{receivables.length} ราย</div>
-        </div>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดเจ้าหนี้ค้างจ่ายรวม</div>
-          <div style={{ fontWeight: 700, fontSize: 22, color: "#993c1d" }}>฿{fmt(totalPayable)}</div>
-          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{payables.length} ราย</div>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", overflowY: "hidden", paddingBottom: 4, WebkitOverflowScrolling: "touch" }}>
-        {[{ key: "receivable", label: `ลูกหนี้ค้างรับ (${receivables.length} ราย)` }, { key: "payable", label: `เจ้าหนี้ค้างจ่าย (${payables.length} ราย)` }].map((opt) => (
-          <button key={opt.key} onClick={() => setActiveView(opt.key)}
-            style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
-              borderColor: activeView === opt.key ? "#185fa5" : "#d1d5db",
-              background: activeView === opt.key ? "#e6f1fb" : "#fff",
-              color: activeView === opt.key ? "#185fa5" : "#6b7280" }}>
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {activeView === "receivable" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {receivables.map((r) => (
-            <div key={r.customerId} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <div style={{ background: "#e6f1fb", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: "#185fa5" }}>{custName(r.customerId)}</span>
-                <span style={{ fontWeight: 700, fontSize: 16, color: "#185fa5" }}>ค้างรับ ฿{fmt(r.totalRemaining)}</span>
-              </div>
-              <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-                <thead><tr>
-                  <th style={thStyle}>เลข Invoice</th>
-                  <th style={thStyle}>วันที่</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>ยอดรวม</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>รับแล้ว</th>
-                  <th style={{ ...thStyle, textAlign: "right", color: "#185fa5" }}>ค้างรับ</th>
-                </tr></thead>
-                <tbody>
-                  {r.invoices.map((inv) => (
-                    <tr key={inv.id}>
-                      <td style={{ ...tdStyle, fontFamily: "monospace" }}>{inv.id}</td>
-                      <td style={tdStyle}>{inv.date}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(inv.total)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{fmt(inv.paid)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>{fmt(inv.remaining)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </div>
-          ))}
-          {receivables.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ไม่มียอดค้างรับ — ลูกค้าทุกรายชำระครบแล้ว ✓</div>}
-        </div>
-      )}
-
-      {activeView === "payable" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {payables.map((p) => (
-            <div key={p.customerId} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-              <div style={{ background: "#faece7", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: 14, color: "#993c1d" }}>{custName(p.customerId)}</span>
-                <span style={{ fontWeight: 700, fontSize: 16, color: "#993c1d" }}>ค้างจ่าย ฿{fmt(p.totalRemaining)}</span>
-              </div>
-              <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-                <thead><tr>
-                  <th style={thStyle}>เลข PO</th>
-                  <th style={thStyle}>วันที่</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>ยอดรวม</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จ่ายแล้ว</th>
-                  <th style={{ ...thStyle, textAlign: "right", color: "#993c1d" }}>ค้างจ่าย</th>
-                </tr></thead>
-                <tbody>
-                  {p.orders.map((po) => (
-                    <tr key={po.id}>
-                      <td style={{ ...tdStyle, fontFamily: "monospace" }}>{po.id}</td>
-                      <td style={tdStyle}>{po.date}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(po.total)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{fmt(po.paid)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(po.remaining)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            </div>
-          ))}
-          {payables.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ไม่มียอดค้างจ่าย — ชำระครบทุกใบแล้ว ✓</div>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ===================================================================
 // ASSETS TAB (ทะเบียนทรัพย์สิน)
+// ===================================================================
 // ===================================================================
 function AssetsTab({ assets, setAssets }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const ASSET_CATEGORIES = ["ยานพาหนะ", "เครื่องจักร/อุปกรณ์", "อาคาร/สิ่งปลูกสร้าง", "คอมพิวเตอร์/IT", "เฟอร์นิเจอร์/ของตกแต่ง", "อื่นๆ"];
 
@@ -7201,7 +7079,7 @@ function AssetsTab({ assets, setAssets }) {
   const accumulatedDepreciation = (a) => Math.min(Number(a.cost), annualDepreciation(a) * yearsUsed(a));
   const bookValue = (a) => Math.max(0, Number(a.cost) - accumulatedDepreciation(a));
 
-  const filtered = assets.filter((a) => a.name.includes(search) || a.category.includes(search) || a.id.includes(search))
+  const filtered = assets.filter((a) => a.name.includes(search) || a.category.includes(search) || a.id.includes(search)).filter((a) => (!dateFrom || (a.purchaseDate || "") >= dateFrom) && (!dateTo || (a.purchaseDate || "") <= dateTo))
     .sort((a, b) => (b.purchaseDate || "").localeCompare(a.purchaseDate || "") || (b.id || "").localeCompare(a.id || ""));
 
   const save = () => {
@@ -7235,7 +7113,7 @@ function AssetsTab({ assets, setAssets }) {
         ))}
       </div>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อทรัพย์สิน, หมวดหมู่..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาชื่อทรัพย์สิน, หมวดหมู่..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
@@ -7828,6 +7706,8 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
   const cs = companySettings || {};
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
@@ -7873,6 +7753,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
 
   const filtered = deliveries
     .filter((d) => d.id.includes(search) || custName(d.customerId).includes(search) || (d.vehicleNo || "").includes(search))
+    .filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo))
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
   const deliveryNetTotal = (d) => (d.items || []).reduce((s, it) => s + netQtyOf(it), 0);
@@ -7899,7 +7780,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
       </Header>
 
       <div id="tab-export-delivery">
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่, ลูกค้า, ทะเบียนรถ..." />
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่, ลูกค้า, ทะเบียนรถ..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
 
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
