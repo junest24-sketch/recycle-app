@@ -2351,7 +2351,20 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, productCategories, setProductCategories }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "" });
+  const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0, vipPrice: 0 });
+  // inline price editing: { productId, field } — ช่องที่กำลังแก้ไขอยู่ในตาราง
+  const [inlineEdit, setInlineEdit] = useState(null);
+  const [inlineVal, setInlineVal] = useState("");
+
+  const startInline = (p, field) => { setInlineEdit({ id: p.id, field }); setInlineVal(String(Number(p[field]) || 0)); };
+  const commitInline = async () => {
+    if (!inlineEdit) return;
+    const updated = products.map((p) => p.id === inlineEdit.id ? { ...p, [inlineEdit.field]: Number(inlineVal) || 0 } : p);
+    setProducts(updated);
+    const prod = updated.find((p) => p.id === inlineEdit.id);
+    if (prod) await updateProduct(prod);
+    setInlineEdit(null);
+  };
 
   const filtered = [...products].filter((p) => p.name.includes(search) || p.id.includes(search) || p.type.includes(search)).reverse();
 
@@ -2361,8 +2374,8 @@ function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, produ
     return `${MONTH_NAMES_TH[Number(m)]} ${y}`;
   };
 
- const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0 }); setModal({ mode: "add" }); };
-  const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0, ...item }); setModal({ mode: "edit", item }); };
+ const openAdd = () => { setForm({ id: genSeqId("P", products), name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0, vipPrice: 0 }); setModal({ mode: "add" }); };
+  const openEdit = (item) => { setForm({ openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0, vipPrice: 0, ...item }); setModal({ mode: "edit", item }); };
 
   // เมื่อพิมพ์ประเภทสินค้าใหม่ที่ยังไม่มี ให้เพิ่มเข้าฐานข้อมูล productCategories ทันที (ใช้ได้ทุกเครื่องหลังจากนี้)
   const handleTypeChange = (value) => {
@@ -2384,7 +2397,7 @@ const remove = async (id) => {
 
 const save = async () => {
   if (!form.name.trim()) return;
-  const cleaned = { ...form, openingQty: Number(form.openingQty) || 0, openingCost: Number(form.openingCost) || 0, buyPrice: Number(form.buyPrice) || 0 };
+  const cleaned = { ...form, openingQty: Number(form.openingQty) || 0, openingCost: Number(form.openingCost) || 0, buyPrice: Number(form.buyPrice) || 0, vipPrice: Number(form.vipPrice) || 0 };
 
   if (modal.mode === "add") {
     setProducts([...products, cleaned]); // อัปเดตหน้าจอทันที
@@ -2440,7 +2453,8 @@ const save = async () => {
               <th style={thStyle}>ชื่อสินค้า</th>
               <th style={thStyle}>ประเภท</th>
               <th style={thStyle}>หน่วย</th>
-              <th style={{ ...thStyle, textAlign: "right", color: "#854f0b" }}>ราคารับซื้อ/หน่วย</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#854f0b" }}>ราคาหน้าร้าน/หน่วย</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#534ab7" }}>ราคา VIP/หน่วย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา (จำนวน)</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุน/หน่วย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>มูลค่ายกมา</th>
@@ -2450,15 +2464,37 @@ const save = async () => {
           <tbody>
             {filtered.map((p) => {
               const val = (Number(p.openingQty) || 0) * (Number(p.openingCost) || 0);
+              const inlinePriceCell = (field, color) => {
+                const isEditing = inlineEdit?.id === p.id && inlineEdit?.field === field;
+                const price = Number(p[field]) || 0;
+                if (isEditing) return (
+                  <input
+                    type="number" autoFocus
+                    style={{ ...inputStyle, textAlign: "right", width: "100%", fontWeight: 700 }}
+                    value={inlineVal}
+                    onChange={(e) => setInlineVal(e.target.value)}
+                    onBlur={commitInline}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitInline(); if (e.key === "Escape") setInlineEdit(null); }}
+                  />
+                );
+                return (
+                  <div
+                    onClick={() => startInline(p, field)}
+                    title="คลิกเพื่อแก้ไขราคา"
+                    style={{ cursor: "pointer", fontWeight: 700, color: price > 0 ? color : "#d1d5db", padding: "2px 4px", borderRadius: 4, userSelect: "none" }}
+                  >
+                    {price > 0 ? `฿${fmt(price)}` : <span style={{ fontSize: 12 }}>กดเพื่อกรอก</span>}
+                  </div>
+                );
+              };
               return (
                 <tr key={p.id}>
                   <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{p.id}</td>
                   <td style={{ ...tdStyle, fontWeight: 600 }}>{p.name}</td>
                   <td style={tdStyle}><Badge text={p.type} /></td>
                   <td style={tdStyle}>{p.unit}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: Number(p.buyPrice) > 0 ? "#854f0b" : "#d1d5db" }}>
-                    {Number(p.buyPrice) > 0 ? `฿${fmt(p.buyPrice)}` : "—"}
-                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{inlinePriceCell("buyPrice", "#854f0b")}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{inlinePriceCell("vipPrice", "#534ab7")}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(p.openingQty || 0)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(p.openingCost || 0)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>
@@ -2476,7 +2512,7 @@ const save = async () => {
                 </tr>
               );
             })}
-            {filtered.length === 0 && <tr><td colSpan={9} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบสินค้า</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={10} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบสินค้า</td></tr>}
           </tbody>
           {products.length > 0 && (
             <tfoot>
@@ -2522,10 +2558,15 @@ const save = async () => {
             </Field>
           </div>
           <div style={{ background: "#fffbeb", borderRadius: 8, padding: "12px 16px", marginTop: 8, border: "1px solid #fde68a" }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#854f0b" }}>ราคารับซื้อปัจจุบัน</div>
-            <Field label={`ราคารับซื้อ/หน่วย (บาท/${form.unit || "หน่วย"}) — ใช้เป็น default ตอนสร้างใบรับสินค้า แก้ทับได้รายบิล`}>
-              <input type="number" min={0} style={inputStyle} value={form.buyPrice || 0} onChange={(e) => setForm({ ...form, buyPrice: e.target.value })} placeholder="0" />
-            </Field>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: "#854f0b" }}>ราคารับซื้อ (กดที่ช่องราคาในตารางเพื่อแก้เร็วขึ้น)</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <Field label={`ราคาหน้าร้าน/หน่วย (บาท/${form.unit || "หน่วย"})`}>
+                <input type="number" min={0} style={inputStyle} value={form.buyPrice || 0} onChange={(e) => setForm({ ...form, buyPrice: e.target.value })} placeholder="0" />
+              </Field>
+              <Field label={`ราคา VIP/หน่วย (บาท/${form.unit || "หน่วย"})`}>
+                <input type="number" min={0} style={inputStyle} value={form.vipPrice || 0} onChange={(e) => setForm({ ...form, vipPrice: e.target.value })} placeholder="0" />
+              </Field>
+            </div>
           </div>
 
           <div style={{ background: "#f0f9f5", borderRadius: 8, padding: "12px 16px", marginTop: 8 }}>
