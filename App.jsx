@@ -170,13 +170,14 @@ function printAsPDF(elementId, title = "") {
     <div class="page" id="page">${el.innerHTML}</div>
   </div>
   <script>
-    var scale = 100;
+    var scale = 50;
     function zoom(delta) {
       scale = Math.min(150, Math.max(50, scale + delta));
       document.getElementById('page').style.transform = 'scale(' + scale/100 + ')';
       document.getElementById('page').style.marginBottom = scale < 100 ? ((scale - 100) * 2.97) + 'mm' : '0';
       document.getElementById('zoom-label').textContent = scale + '%';
     }
+    zoom(0);
   <\/script>
 </body>
 </html>`);
