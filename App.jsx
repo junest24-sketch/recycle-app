@@ -196,14 +196,11 @@ function printAsPDF(elementId, title = "") {
 // หน้าต่างดูตัวอย่างเอกสารแบบเต็มจอ ก่อนสั่งพิมพ์จริง
 function PrintPreviewOverlay({ preview, onClose }) {
   if (!preview) return null;
+  const [zoom, setZoom] = React.useState(50);
 
   const handlePrint = () => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-      // มือถือ — share/print ผ่านเบราว์เซอร์
-      window.print();
-      return;
-    }
+    if (isMobile) { window.print(); return; }
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) { window.print(); return; }
     win.document.write(`<!DOCTYPE html>
@@ -224,27 +221,32 @@ tfoot { display: table-footer-group; }
 tr { page-break-inside: avoid; page-break-after: auto; }
 @page { size: A4 portrait; margin: 10mm; }
 @media print { body { padding: 0; } }
-</style></head><body>
-${preview.html}
-</body></html>`);
+</style></head><body>${preview.html}</body></html>`);
     win.document.close();
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, display: "flex", flexDirection: "column" }}>
       {/* Toolbar */}
-      <div className="print-preview-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid #e5e7eb", background: "#1f2937", flexShrink: 0, gap: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, color: "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview.title || "ดูตัวอย่างเอกสาร"}</div>
-        <button style={{ ...btnSecondary, fontSize: 12, padding: "6px 12px", flexShrink: 0 }} onClick={onClose}><ChevronLeft size={14} /> ย้อนกลับ</button>
-        <button style={{ ...btnPrimary, fontSize: 12, padding: "6px 12px", flexShrink: 0 }} onClick={handlePrint}><Download size={14} /> พิมพ์ PDF</button>
+      <div style={{ display: "flex", alignItems: "center", padding: "8px 12px", background: "#1f2937", flexShrink: 0, gap: 8 }}>
+        <button style={{ ...btnSecondary, fontSize: 12, padding: "6px 10px", flexShrink: 0 }} onClick={onClose}><ChevronLeft size={14} /> ย้อนกลับ</button>
+        <div style={{ flex: 1, fontWeight: 700, fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview.title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <button onClick={() => setZoom(z => Math.max(30, z - 10))} style={{ background: "#374151", color: "#fff", border: "none", width: 30, height: 30, borderRadius: 6, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+          <span style={{ color: "#fff", fontSize: 12, minWidth: 38, textAlign: "center" }}>{zoom}%</span>
+          <button onClick={() => setZoom(z => Math.min(150, z + 10))} style={{ background: "#374151", color: "#fff", border: "none", width: 30, height: 30, borderRadius: 6, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+        </div>
+        <button style={{ ...btnPrimary, fontSize: 12, padding: "6px 10px", flexShrink: 0 }} onClick={handlePrint}><Download size={14} /> PDF</button>
       </div>
-      {/* Content — scroll ได้ทุกทิศ, pinch-to-zoom ได้ */}
+      {/* Content */}
       <div style={{ flex: 1, overflow: "auto", background: "#e5e7eb", WebkitOverflowScrolling: "touch" }}>
-        <div
-          id="print-preview-content"
-          style={{ background: "#fff", minWidth: "600px", margin: "12px auto", padding: "8px 12px", boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 11, color: "#1f2937" }}
-          dangerouslySetInnerHTML={{ __html: preview.html }}
-        />
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 8px", minWidth: "max-content" }}>
+          <div
+            id="print-preview-content"
+            style={{ background: "#fff", width: "210mm", padding: "8mm", boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 11, color: "#1f2937", transform: `scale(${zoom/100})`, transformOrigin: "top left", transition: "transform 0.15s" }}
+            dangerouslySetInnerHTML={{ __html: preview.html }}
+          />
+        </div>
       </div>
       <style>{`
         #print-preview-content table { border-collapse: collapse; width: 100%; }
