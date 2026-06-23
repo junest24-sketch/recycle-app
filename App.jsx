@@ -112,24 +112,92 @@ function registerPrintPreview(setter) { __printPreviewSetter = setter; }
 function printAsPDF(elementId, title = "") {
   const el = document.getElementById(elementId);
   if (!el) { window.print(); return; }
-  if (__printPreviewSetter) {
-    __printPreviewSetter({ html: el.innerHTML, title });
-  } else {
-    // เผื่อกรณี overlay ยังไม่ได้ลงทะเบียน (ไม่ควรเกิดขึ้นในการใช้งานปกติ)
-    window.print();
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) {
+    // popup blocked — fallback to overlay
+    if (__printPreviewSetter) {
+      __printPreviewSetter({ html: el.innerHTML, title });
+    }
+    return;
   }
+
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans Thai', sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 10mm; }
+    table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
+    td, th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; }
+    th { background: #f3f4f6; font-weight: 700; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
+    img { max-width: 100%; }
+    button { display: none !important; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    @page { size: A4 portrait; margin: 10mm; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  ${el.innerHTML}
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 500);
+    };
+  <\/script>
+</body>
+</html>`);
+  win.document.close();
 }
 
 // หน้าต่างดูตัวอย่างเอกสารแบบเต็มจอ ก่อนสั่งพิมพ์จริง
 function PrintPreviewOverlay({ preview, onClose }) {
   if (!preview) return null;
+
+  const handlePrint = () => {
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { window.print(); return; }
+    win.document.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${preview.title || 'เอกสาร'}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans Thai', sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 10mm; }
+table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
+td, th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; }
+th { background: #f3f4f6; font-weight: 700; }
+tr:nth-child(even) { background: #f9f9f9; }
+tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
+img { max-width: 100%; }
+button { display: none !important; }
+thead { display: table-header-group; }
+tfoot { display: table-footer-group; }
+tr { page-break-inside: avoid; page-break-after: auto; }
+@page { size: A4 portrait; margin: 10mm; }
+@media print { body { padding: 0; } }
+</style></head><body>
+${preview.html}
+<script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>
+</body></html>`);
+    win.document.close();
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, display: "flex", flexDirection: "column" }}>
       <div className="print-preview-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", borderBottom: "1px solid #e5e7eb", background: "#f9fafb", flexShrink: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 15 }}>{preview.title || "ดูตัวอย่างเอกสาร"}</div>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={btnSecondary} onClick={onClose}><ChevronLeft size={16} /> ย้อนกลับ</button>
-          <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
+          <button style={btnPrimary} onClick={handlePrint}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
         </div>
       </div>
       <div style={{ flex: 1, overflow: "auto", background: "#e5e7eb", padding: "24px 16px" }}>
@@ -140,31 +208,13 @@ function PrintPreviewOverlay({ preview, onClose }) {
         />
       </div>
       <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          .print-preview-toolbar { display: none !important; }
-          #print-preview-content, #print-preview-content * { visibility: visible; }
-          #print-preview-content {
-            position: static !important;
-            width: 100% !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            min-height: unset !important;
-            font-size: 10px !important;
-          }
-          @page { size: A4 portrait; margin: 8mm; }
-        }
-        #print-preview-content table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
-        #print-preview-content td, #print-preview-content th { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; }
+        #print-preview-content table { border-collapse: collapse; width: 100%; }
+        #print-preview-content td, #print-preview-content th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; }
         #print-preview-content th { background: #f3f4f6; font-weight: 700; }
         #print-preview-content tr:nth-child(even) { background: #f9f9f9; }
         #print-preview-content tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
         #print-preview-content img { max-width: 100%; }
         #print-preview-content button { display: none !important; }
-        #print-preview-content thead { display: table-header-group; }
-        #print-preview-content tfoot { display: table-footer-group; }
-        #print-preview-content tr { page-break-inside: avoid; page-break-after: auto; }
       `}</style>
     </div>
   );
