@@ -113,6 +113,15 @@ function printAsPDF(elementId, title = "") {
   const el = document.getElementById(elementId);
   if (!el) { window.print(); return; }
 
+  // มือถือ → ใช้ overlay (ไม่ต้องเปิด tab ใหม่ กลับแอพได้ทันที)
+  // คอม → เปิดหน้าต่างใหม่ (พิมพ์/PDF สะดวกกว่า)
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    if (__printPreviewSetter) { __printPreviewSetter({ html: el.innerHTML, title }); }
+    return;
+  }
+
   const win = window.open('', '_blank', 'width=900,height=700');
   if (!win) {
     if (__printPreviewSetter) { __printPreviewSetter({ html: el.innerHTML, title }); }
@@ -120,6 +129,69 @@ function printAsPDF(elementId, title = "") {
   }
 
   win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #e5e7eb; font-family: 'Noto Sans Thai', sans-serif; }
+    .toolbar { position: sticky; top: 0; background: #1f2937; color: #fff; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 100; gap: 12px; }
+    .toolbar span { font-size: 14px; font-weight: 600; flex: 1; }
+    .toolbar .zoom-controls { display: flex; align-items: center; gap: 6px; }
+    .toolbar .zoom-controls button { background: #374151; color: #fff; border: none; width: 32px; height: 32px; border-radius: 6px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .toolbar .zoom-controls span { font-size: 13px; min-width: 44px; text-align: center; }
+    .toolbar .print-btn { background: #0f6e56; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: 'Noto Sans Thai', sans-serif; white-space: nowrap; }
+    .page-wrap { padding: 20px 16px; display: flex; justify-content: center; }
+    .page { background: #fff; width: 210mm; padding: 10mm; box-shadow: 0 2px 16px rgba(0,0,0,0.15); font-size: 11px; color: #1f2937; transform-origin: top center; transition: transform 0.15s; }
+    table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
+    td, th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; }
+    th { background: #f3f4f6; font-weight: 700; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
+    img { max-width: 100%; }
+    button { display: none !important; }
+    .toolbar button, .toolbar .print-btn { display: flex !important; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    @page { size: A4 portrait; margin: 10mm; }
+    @media print {
+      .toolbar { display: none !important; }
+      body { background: #fff; }
+      .page-wrap { padding: 0; }
+      .page { width: 100%; margin: 0; padding: 0; box-shadow: none; transform: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>${title}</span>
+    <div class="zoom-controls">
+      <button onclick="zoom(-10)">−</button>
+      <span id="zoom-label">50%</span>
+      <button onclick="zoom(+10)">+</button>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+  </div>
+  <div class="page-wrap">
+    <div class="page" id="page">${el.innerHTML}</div>
+  </div>
+  <script>
+    var scale = 50;
+    function zoom(delta) {
+      scale = Math.min(150, Math.max(50, scale + delta));
+      document.getElementById('page').style.transform = 'scale(' + scale/100 + ')';
+      document.getElementById('page').style.marginBottom = scale < 100 ? ((scale - 100) * 2.97) + 'mm' : '0';
+      document.getElementById('zoom-label').textContent = scale + '%';
+    }
+    zoom(0);
+  <\/script>
+</body>
+</html>`);
+  win.document.close();
+}
 <html>
 <head>
   <meta charset="utf-8">
