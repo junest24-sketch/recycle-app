@@ -144,8 +144,16 @@ function PrintPreviewOverlay({ preview, onClose }) {
           body * { visibility: hidden; }
           .print-preview-toolbar { display: none !important; }
           #print-preview-content, #print-preview-content * { visibility: visible; }
-          #print-preview-content { position: fixed; left: 0; top: 0; width: 100%; box-shadow: none; margin: 0; padding: 0; min-height: unset; }
-          @page { size: A4; margin: 10mm; }
+          #print-preview-content {
+            position: static !important;
+            width: 100% !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            min-height: unset !important;
+            font-size: 10px !important;
+          }
+          @page { size: A4 portrait; margin: 8mm; }
         }
         #print-preview-content table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
         #print-preview-content td, #print-preview-content th { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; }
