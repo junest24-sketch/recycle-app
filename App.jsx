@@ -3429,25 +3429,27 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               );
             })}
           </tbody>
+          <tfoot>
+            {po.vatRate > 0 && (
+              <tr>
+                <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>{fmt(subtotal)} บาท</td>
+              </tr>
+            )}
+            {po.vatRate > 0 && (
+              <tr>
+                <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
+              </tr>
+            )}
+            <tr style={{ background: "#f0fdf4" }}>
+              <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)} บาท</td>
+            </tr>
+          </tfoot>
         </table>
 
-        <div style={{ pageBreakInside: "avoid" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-            <div style={{ width: 280 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
-                <span>ยอดก่อน VAT</span><span>{fmt(subtotal)} บาท</span>
-              </div>
-              {(po.vatRate > 0) && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12, color: "#993c1d" }}>
-                  <span>VAT {po.vatRate}%</span><span>+{fmt(vat)} บาท</span>
-                </div>
-              )}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderTop: "2px solid #0f6e56", fontWeight: 700, fontSize: 14 }}>
-                <span>จำนวนเงินสุทธิ</span>
-                <span>{fmt(total)} บาท</span>
-              </div>
-            </div>
-          </div>
+        <div style={{ pageBreakInside: "avoid", pageBreakBefore: "auto" }}>
 
           {cs.footerNote && (
             <div style={{ marginTop: 8, padding: "6px 10px", background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#6b7280" }}>
