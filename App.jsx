@@ -115,10 +115,7 @@ function printAsPDF(elementId, title = "") {
 
   const win = window.open('', '_blank', 'width=900,height=700');
   if (!win) {
-    // popup blocked — fallback to overlay
-    if (__printPreviewSetter) {
-      __printPreviewSetter({ html: el.innerHTML, title });
-    }
+    if (__printPreviewSetter) { __printPreviewSetter({ html: el.innerHTML, title }); }
     return;
   }
 
@@ -130,30 +127,35 @@ function printAsPDF(elementId, title = "") {
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Noto Sans Thai', sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 10mm; }
+    body { background: #e5e7eb; font-family: 'Noto Sans Thai', sans-serif; }
+    .toolbar { position: sticky; top: 0; background: #1f2937; color: #fff; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 100; }
+    .toolbar span { font-size: 14px; font-weight: 600; }
+    .toolbar button { background: #0f6e56; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: 'Noto Sans Thai', sans-serif; }
+    .page { background: #fff; width: 210mm; margin: 20px auto; padding: 10mm; box-shadow: 0 2px 16px rgba(0,0,0,0.15); font-size: 11px; color: #1f2937; }
     table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
     td, th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; }
     th { background: #f3f4f6; font-weight: 700; }
     tr:nth-child(even) { background: #f9f9f9; }
     tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
     img { max-width: 100%; }
-    button { display: none !important; }
+    button.print-btn { display: block !important; }
     thead { display: table-header-group; }
     tfoot { display: table-footer-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
     @page { size: A4 portrait; margin: 10mm; }
     @media print {
-      body { padding: 0; }
+      .toolbar { display: none !important; }
+      body { background: #fff; }
+      .page { width: 100%; margin: 0; padding: 0; box-shadow: none; }
     }
   </style>
 </head>
 <body>
-  ${el.innerHTML}
-  <script>
-    window.onload = function() {
-      setTimeout(function() { window.print(); }, 500);
-    };
-  <\/script>
+  <div class="toolbar">
+    <span>${title}</span>
+    <button onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+  </div>
+  <div class="page">${el.innerHTML}</div>
 </body>
 </html>`);
   win.document.close();
