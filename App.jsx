@@ -198,6 +198,12 @@ function PrintPreviewOverlay({ preview, onClose }) {
   if (!preview) return null;
 
   const handlePrint = () => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      // มือถือ — share/print ผ่านเบราว์เซอร์
+      window.print();
+      return;
+    }
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) { window.print(); return; }
     win.document.write(`<!DOCTYPE html>
@@ -220,24 +226,23 @@ tr { page-break-inside: avoid; page-break-after: auto; }
 @media print { body { padding: 0; } }
 </style></head><body>
 ${preview.html}
-<script>window.onload=function(){setTimeout(function(){window.print();},500);};<\/script>
 </body></html>`);
     win.document.close();
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, display: "flex", flexDirection: "column" }}>
-      <div className="print-preview-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px", borderBottom: "1px solid #e5e7eb", background: "#f9fafb", flexShrink: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>{preview.title || "ดูตัวอย่างเอกสาร"}</div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={btnSecondary} onClick={onClose}><ChevronLeft size={16} /> ย้อนกลับ</button>
-          <button style={btnPrimary} onClick={handlePrint}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
-        </div>
+      {/* Toolbar */}
+      <div className="print-preview-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid #e5e7eb", background: "#1f2937", flexShrink: 0, gap: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview.title || "ดูตัวอย่างเอกสาร"}</div>
+        <button style={{ ...btnSecondary, fontSize: 12, padding: "6px 12px", flexShrink: 0 }} onClick={onClose}><ChevronLeft size={14} /> ย้อนกลับ</button>
+        <button style={{ ...btnPrimary, fontSize: 12, padding: "6px 12px", flexShrink: 0 }} onClick={handlePrint}><Download size={14} /> พิมพ์ PDF</button>
       </div>
-      <div style={{ flex: 1, overflow: "auto", background: "#e5e7eb", padding: "24px 16px" }}>
+      {/* Content — scroll ได้ทุกทิศ, pinch-to-zoom ได้ */}
+      <div style={{ flex: 1, overflow: "auto", background: "#e5e7eb", WebkitOverflowScrolling: "touch" }}>
         <div
           id="print-preview-content"
-          style={{ background: "#fff", width: "210mm", minHeight: "297mm", margin: "0 auto", padding: "10mm", boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 11, color: "#1f2937", boxSizing: "border-box" }}
+          style={{ background: "#fff", minWidth: "600px", margin: "12px auto", padding: "8px 12px", boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 11, color: "#1f2937" }}
           dangerouslySetInnerHTML={{ __html: preview.html }}
         />
       </div>
