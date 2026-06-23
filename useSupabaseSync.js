@@ -17,20 +17,6 @@ export async function loadAllFromSupabase() {
   return result
 }
 
-// Merge: เพิ่มเฉพาะ record ใหม่จาก remote ที่ local ไม่มี
-// ไม่ทับ record ที่ local มีอยู่แล้วในทุกกรณี — local เป็น truth เสมอ
-function mergeNewOnly(localArr, remoteArr) {
-  if (!Array.isArray(localArr) || !Array.isArray(remoteArr)) return null
-  const hasId = (x) => x && typeof x === 'object' && 'id' in x
-  if (!localArr.every(hasId) || !remoteArr.every(hasId)) return null
-
-  const localIds = new Set(localArr.map(x => x.id))
-  const newItems = remoteArr.filter(x => !localIds.has(x.id))
-
-  if (newItems.length === 0) return null // ไม่มีอะไรใหม่
-  return [...localArr, ...newItems]
-}
-
 export function useSupabaseSync(key, value, setValue, loaded) {
   const valueRef = useRef(value)
   useEffect(() => { valueRef.current = value }, [value])
@@ -53,7 +39,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       maxWaitTimer.current = null
       isSaving.current = true
       lastSaveTime.current = Date.now()
-      // ใช้ valueRef.current เพื่อได้ค่าล่าสุดเสมอ ไม่ใช่ค่าเก่าจาก closure
       saveToSupabase(key, valueRef.current).finally(() => {
         isSaving.current = false
       })
@@ -61,7 +46,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
 
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(doSave, 1500)
-
     if (!maxWaitTimer.current) {
       maxWaitTimer.current = setTimeout(doSave, 4000)
     }
@@ -69,41 +53,64 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     return () => { clearTimeout(saveTimer.current) }
   }, [key, value, loaded])
 
-  // ---------- POLL: ดึงข้อมูลจาก Supabase ทุก 20 วิ ----------
-  // เพิ่มเฉพาะ record ใหม่จากเครื่องอื่น ไม่ทับข้อมูล local เด็ดขาด
+  // ---------- REALTIME: รับการเปลี่ยนแปลงจากเครื่องอื่นทันที ----------
   useEffect(() => {
     if (!isSupabaseReady || !loaded) return
 
-    const poll = async () => {
-      // ข้ามถ้ากำลัง save หรือเพิ่ง save ไปไม่ถึง 30 วิ
-      if (isSaving.current || Date.now() - lastSaveTime.current < 30000) return
+    const channel = supabase
+      .channel(`sync-${key}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'app_data', filter: `key=eq.${key}` },
+        async (payload) => {
+          // ข้ามถ้าเครื่องนี้เพิ่ง save ไปเอง (ไม่ต้องโหลดกลับมาทับ)
+          if (isSaving.current || Date.now() - lastSaveTime.current < 5000) return
 
-      const { data, error } = await supabase
-        .from('app_data')
-        .select('value, updated_at')
-        .eq('key', key)
-        .single()
+          // โหลด key นี้ใหม่จาก Supabase — ได้ข้อมูลหลัง save เสร็จแน่นอน
+          const { data, error } = await supabase
+            .from('app_data')
+            .select('value')
+            .eq('key', key)
+            .single()
 
-      if (error || !data) return
+          if (error || !data) return
 
-      const remoteValue = data.value
-      const localValue = valueRef.current
+          const remoteValue = data.value
+          const localValue = valueRef.current
 
-      if (Array.isArray(remoteValue) && Array.isArray(localValue)) {
-        // เพิ่มเฉพาะ record ใหม่จาก remote ที่ local ไม่มี
-        const merged = mergeNewOnly(localValue, remoteValue)
-        if (merged) {
-          setValue(merged)
-          // save merged กลับขึ้น Supabase เพื่อให้เครื่องอื่นได้ด้วย
-          saveToSupabase(key, merged)
+          if (Array.isArray(remoteValue) && Array.isArray(localValue)) {
+            // เพิ่มเฉพาะ record ใหม่จาก remote ที่ local ไม่มี
+            // (ป้องกันกรณีที่ 2 เครื่องแก้ record เดิมพร้อมกัน — local ยังเป็น truth)
+            const localIds = new Set(localValue.map(x => x.id))
+            const newItems = remoteValue.filter(x => x.id && !localIds.has(x.id))
+            
+            // อัปเดต record ที่มีอยู่แล้วถ้า remote ใหม่กว่า (updated_at)
+            const updatedLocal = localValue.map(localItem => {
+              const remoteItem = remoteValue.find(r => r.id === localItem.id)
+              if (!remoteItem) return localItem
+              const localTime = localItem.updated_at || ''
+              const remoteTime = remoteItem.updated_at || ''
+              // ใช้ remote เฉพาะถ้า remote มี updated_at และใหม่กว่า local อย่างชัดเจน
+              if (remoteTime && remoteTime > localTime) return remoteItem
+              return localItem
+            })
+
+            const merged = [...updatedLocal, ...newItems]
+            const hasChanges = newItems.length > 0 || 
+              updatedLocal.some((item, i) => item !== localValue[i])
+            
+            if (hasChanges) setValue(merged)
+            return
+          }
+
+          // non-array: ใช้ remote (settings, companyProfile ฯลฯ)
+          setValue(remoteValue)
         }
-        return
-      }
+      )
+      .subscribe()
 
-      // non-array: ไม่ทับ local เลย — local เป็น truth เสมอ
+    return () => {
+      supabase.removeChannel(channel)
     }
-
-    const interval = setInterval(poll, 20000)
-    return () => clearInterval(interval)
   }, [key, setValue, loaded])
 }
