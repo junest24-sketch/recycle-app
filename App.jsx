@@ -132,10 +132,10 @@ function PrintPreviewOverlay({ preview, onClose }) {
           <button style={btnPrimary} onClick={() => window.print()}><Download size={16} /> พิมพ์ / บันทึก PDF</button>
         </div>
       </div>
-      <div style={{ flex: 1, overflow: "auto", display: "flex", justifyContent: "center", padding: "24px 16px", background: "#e5e7eb" }}>
+      <div style={{ flex: 1, overflow: "auto", background: "#e5e7eb", padding: "24px 16px" }}>
         <div
           id="print-preview-content"
-          style={{ background: "#fff", width: "100%", maxWidth: 794, padding: 28, boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 13, color: "#1f2937" }}
+          style={{ background: "#fff", width: "210mm", minHeight: "297mm", margin: "0 auto", padding: "10mm", boxShadow: "0 2px 12px rgba(0,0,0,0.12)", fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 11, color: "#1f2937", boxSizing: "border-box" }}
           dangerouslySetInnerHTML={{ __html: preview.html }}
         />
       </div>
@@ -144,11 +144,11 @@ function PrintPreviewOverlay({ preview, onClose }) {
           body * { visibility: hidden; }
           .print-preview-toolbar { display: none !important; }
           #print-preview-content, #print-preview-content * { visibility: visible; }
-          #print-preview-content { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; max-width: none; padding: 0; }
+          #print-preview-content { position: fixed; left: 0; top: 0; width: 100%; box-shadow: none; margin: 0; padding: 0; min-height: unset; }
           @page { size: A4; margin: 10mm; }
         }
         #print-preview-content table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
-        #print-preview-content td, #print-preview-content th { border: 1px solid #ddd; padding: 4px 8px; font-size: 11px; }
+        #print-preview-content td, #print-preview-content th { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; }
         #print-preview-content th { background: #f3f4f6; font-weight: 700; }
         #print-preview-content tr:nth-child(even) { background: #f9f9f9; }
         #print-preview-content tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
