@@ -3431,56 +3431,58 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
           </tbody>
         </table>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-          <div style={{ width: 280 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
-              <span>ยอดก่อน VAT</span><span>{fmt(subtotal)} บาท</span>
-            </div>
-            {(po.vatRate > 0) && (
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13, color: "#993c1d" }}>
-                <span>VAT {po.vatRate}%</span><span>+{fmt(vat)} บาท</span>
+        <div style={{ pageBreakInside: "avoid" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+            <div style={{ width: 280 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
+                <span>ยอดก่อน VAT</span><span>{fmt(subtotal)} บาท</span>
               </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: "2px solid #0f6e56", fontWeight: 700, fontSize: 15 }}>
-              <span>จำนวนเงินสุทธิ</span>
-              <span>{fmt(total)} บาท</span>
+              {(po.vatRate > 0) && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12, color: "#993c1d" }}>
+                  <span>VAT {po.vatRate}%</span><span>+{fmt(vat)} บาท</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderTop: "2px solid #0f6e56", fontWeight: 700, fontSize: 14 }}>
+                <span>จำนวนเงินสุทธิ</span>
+                <span>{fmt(total)} บาท</span>
+              </div>
             </div>
           </div>
+
+          {cs.footerNote && (
+            <div style={{ marginTop: 8, padding: "6px 10px", background: "#f9fafb", borderRadius: 6, fontSize: 11, color: "#6b7280" }}>
+              {cs.footerNote}
+            </div>
+          )}
+
+          {cs.showSignature !== false && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24, fontSize: 11 }}>
+              <div style={{ textAlign: "center", width: "45%" }}>
+                <div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้รับสินค้า</div>
+              </div>
+              <div style={{ textAlign: "center", width: "45%" }}>
+                <div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้ส่งสินค้า / ลูกค้า</div>
+              </div>
+            </div>
+          )}
+
+          {(po.payments || []).length > 0 && (
+            <div style={{ marginTop: 16, borderTop: "1px dashed #d1d5db", paddingTop: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: 11, marginBottom: 4 }}>รายละเอียดช่องทางการชำระเงิน</div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>
+                ช่องทางชำระเงิน: {po.paymentMethod || "-"}
+                {(() => {
+                  const b = (customer?.bankAccounts || []).find((x) => x.id === po.receivingCustomerBankId);
+                  return b ? ` — บัญชีรับเงิน: ${b.bankName} ${b.accountNo} (${b.accountName})` : "";
+                })()}
+              </div>
+              <div style={{ textAlign: "right", fontSize: 11, fontWeight: 600 }}>
+                ชำระแล้วทั้งหมด: {fmt((po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0))} บาท
+                {" / "}คงเหลือ: {fmt(total - (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0))} บาท
+              </div>
+            </div>
+          )}
         </div>
-
-        {cs.footerNote && (
-          <div style={{ marginTop: 12, padding: "8px 12px", background: "#f9fafb", borderRadius: 6, fontSize: 12, color: "#6b7280" }}>
-            {cs.footerNote}
-          </div>
-        )}
-
-        {cs.showSignature !== false && (
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 48, fontSize: 12 }}>
-            <div style={{ textAlign: "center", width: "45%" }}>
-              <div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้รับสินค้า</div>
-            </div>
-            <div style={{ textAlign: "center", width: "45%" }}>
-              <div style={{ borderTop: "1px solid #9ca3af", paddingTop: 6 }}>ผู้ส่งสินค้า / ลูกค้า</div>
-            </div>
-          </div>
-        )}
-
-        {(po.payments || []).length > 0 && (
-          <div style={{ marginTop: 24, borderTop: "1px dashed #d1d5db", paddingTop: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>รายละเอียดช่องทางการชำระเงิน</div>
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8 }}>
-              ช่องทางชำระเงิน: {po.paymentMethod || "-"}
-              {(() => {
-                const b = (customer?.bankAccounts || []).find((x) => x.id === po.receivingCustomerBankId);
-                return b ? ` — บัญชีรับเงิน: ${b.bankName} ${b.accountNo} (${b.accountName})` : "";
-              })()}
-            </div>
-            <div style={{ textAlign: "right", fontSize: 12, fontWeight: 600 }}>
-              ชำระแล้วทั้งหมด: {fmt((po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0))} บาท
-              {" / "}คงเหลือ: {fmt(total - (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0))} บาท
-            </div>
-          </div>
-        )}
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
