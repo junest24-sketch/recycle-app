@@ -1030,6 +1030,37 @@ export default function App() {
     })
   }, [])
 
+  // ปุ่ม "โหลดข้อมูลล่าสุด" — โหลดจาก Supabase ใหม่ทั้งหมดทันที
+  const [isReloading, setIsReloading] = useState(false)
+  const reloadFromSupabase = async () => {
+    if (!isSupabaseReady || isReloading) return
+    setIsReloading(true)
+    setSyncStatus('loading')
+    const data = await loadAllFromSupabase()
+    if (data) {
+      if (data.customers)       setCustomers(dedup(data.customers))
+      if (data.purchases)       setPurchases(dedup(data.purchases))
+      if (data.sales)           setSales(dedup(data.sales))
+      if (data.withdrawals)     setWithdrawals(dedup(data.withdrawals))
+      if (data.deposits)        setDeposits(dedup(data.deposits))
+      if (data.bankTransfers)   setBankTransfers(dedup(data.bankTransfers))
+      if (data.expenses)        setExpenses(dedup(data.expenses))
+      if (data.loans)           setLoans(dedup(data.loans))
+      if (data.storeBankAccounts) setStoreBankAccounts(dedup(data.storeBankAccounts))
+      if (data.shopProfile)     setShopProfile(data.shopProfile)
+      if (data.companySettings) setCompanySettings(data.companySettings)
+      if (data.users)           setUsers(data.users)
+      if (data.unitOptions)     setUnitOptions(data.unitOptions)
+      if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
+      if (data.productCategories) setProductCategories(data.productCategories)
+      if (data.assets)          setAssets(dedup(data.assets))
+      if (data.shareholders)    setShareholders(data.shareholders)
+      if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
+      setSyncStatus('synced')
+    }
+    setIsReloading(false)
+  }
+
   // Auto-sync แต่ละ state ไปยัง Supabase
   useSupabaseSync('customers',         customers,         setCustomers,         dbLoaded)
   useSupabaseSync('purchases',         purchases,         setPurchases,         dbLoaded)
@@ -1243,13 +1274,25 @@ useEffect(() => {
         </nav>
 
         {/* ผู้ใช้งาน + ออกจากระบบ */}
+        {/* ปุ่มโหลดข้อมูลล่าสุด */}
         {isSupabaseReady && (
-          <div style={{ padding: sidebarOpen ? "4px 16px 0" : "4px 8px 0", textAlign: sidebarOpen ? "left" : "center" }}>
-            <span style={{ fontSize: 10, color: syncStatus === 'synced' ? "#9fe1cb" : syncStatus === 'loading' ? "#fbbf24" : "#9ca3af" }}>
-              {syncStatus === 'synced' && "● ซิงค์แล้ว"}
-              {syncStatus === 'loading' && "● กำลังโหลด..."}
-              {syncStatus === 'offline' && "● Offline"}
-            </span>
+          <div style={{ padding: sidebarOpen ? "8px 12px" : "8px 6px" }}>
+            <button
+              onClick={reloadFromSupabase}
+              disabled={isReloading}
+              title="โหลดข้อมูลล่าสุดจาก Supabase"
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: sidebarOpen ? "flex-start" : "center",
+                gap: 8, padding: sidebarOpen ? "8px 12px" : "8px 6px", borderRadius: 8,
+                background: isReloading ? "rgba(255,255,255,0.05)" : "rgba(29,158,117,0.2)",
+                border: "1px solid rgba(29,158,117,0.4)", color: "#9fe1cb", cursor: isReloading ? "not-allowed" : "pointer",
+                fontSize: 12, fontWeight: 600, transition: "all 0.15s",
+              }}
+            >
+              <Download size={15} style={{ animation: isReloading ? "spin 1s linear infinite" : "none", flexShrink: 0 }} />
+              {sidebarOpen && (isReloading ? "กำลังโหลด..." : "โหลดข้อมูลล่าสุด")}
+            </button>
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
           </div>
         )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: sidebarOpen ? "12px 16px" : "12px 8px" }}>
@@ -3322,7 +3365,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
 
   return (
     <Modal title={`${cs.purchaseTitle || "ใบรับสินค้า"} ${po.id}`} onClose={onClose} wide>
-      <div id="purchase-pdf-content" style={{ background: "#fff", padding: "24px", border: "1px solid #e5e7eb", borderRadius: 8, fontFamily: "'Noto Sans Thai', sans-serif" }}>
+      <div id="purchase-pdf-content" style={{ background: "#fff", padding: "16px", border: "1px solid #e5e7eb", borderRadius: 8, fontFamily: "'Noto Sans Thai', sans-serif", fontSize: 12 }}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: `2px solid ${primaryColor}`, paddingBottom: 12, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -3359,15 +3402,15 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
           )}
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
           <thead>
             <tr style={{ background: primaryColor + "22" }}>
-              <th style={{ ...thStyle, color: primaryColor }}>สินค้า</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right" }}>จำนวน</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right" }}>หัก</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right" }}>สุทธิ</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right" }}>ราคา/หน่วย</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right" }}>จำนวนเงิน</th>
+              <th style={{ ...thStyle, color: primaryColor, width: "35%" }}>สินค้า</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวน</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "10%" }}>หัก</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "10%" }}>สุทธิ</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "14%" }}>ราคา/หน่วย</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "18%" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
@@ -3376,7 +3419,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               const net = it.net != null ? it.net : it.qty - it.deduct;
               return (
                 <tr key={idx}>
-                  <td style={tdStyle}>{p.name}</td>
+                  <td style={{ ...tdStyle, wordBreak: "break-word" }}>{p.name}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {p.unit}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.deduct)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)}</td>
