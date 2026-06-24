@@ -3842,6 +3842,9 @@ function syncWithdrawalsToSales(sales, withdrawalLots) {
 
 function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, setWithdrawals, inventory, customers, companySettings }) {
   const cs = companySettings || {};
+  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
+  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
+
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'}
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -6962,6 +6965,9 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 // ใบสำคัญจ่าย (Payment Voucher) PDF view
 function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onClose }) {
   const cs = companySettings || {};
+  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
+  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
+
   const items = (expense.items && expense.items.length > 0)
     ? expense.items
     : [{ description: expense.description, mainCategory: expense.mainCategory || expense.category, subCategory: expense.subCategory, amount: expense.amount, vatEnabled: expense.vatEnabled, whtRate: expense.whtRate }];
@@ -8372,6 +8378,8 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
+  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
+  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
 
   // ประเภทภาชนะที่เคยพิมพ์ไว้ — สะสมเป็นตัวเลือกให้พิมพ์ซ้ำง่ายขึ้น
   const containerTypeOptions = [...new Set(deliveries.flatMap((d) => (d.items || []).map((it) => it.containerType)).filter(Boolean))];
