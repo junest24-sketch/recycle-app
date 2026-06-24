@@ -1677,9 +1677,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       inn[bankId] = (inn[bankId] || 0) + amount;
     };
     sales.forEach((inv) => (inv.payments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0)));
+    (prepayments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0));
     (bankTransfers || []).forEach((t) => add(t.toBankId, Number(t.amount) || 0));
     return inn;
-  }, [sales, bankTransfers]);
+  }, [sales, bankTransfers, prepayments]);
 
 
   // ---------- ซื้อ/ขาย แบ่งตามประเภทสินค้า และแบ่งตามรายการสินค้า ----------
@@ -2315,10 +2316,15 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         // ===== ตัวกรองช่วงเวลาเฉพาะของ "เงินหมุนร้าน" =====
         const bankInflowsRange = {};
         sales.forEach((inv) => (inv.payments || []).forEach((p) => {
-          if (p.toStoreBankId && p.toStoreBankId !== "CASH" && inRange(p.date)) {
+          if (p.toStoreBankId && p.toStoreBankId !== "CASH" && p.toStoreBankId !== "PREPAYMENT" && inRange(p.date)) {
             bankInflowsRange[p.toStoreBankId] = (bankInflowsRange[p.toStoreBankId] || 0) + (Number(p.amount) || 0);
           }
         }));
+        (prepayments || []).forEach((p) => {
+          if (p.toStoreBankId && p.toStoreBankId !== "CASH" && inRange(p.date)) {
+            bankInflowsRange[p.toStoreBankId] = (bankInflowsRange[p.toStoreBankId] || 0) + (Number(p.amount) || 0);
+          }
+        });
         (bankTransfers || []).forEach((t) => {
           if (t.toBankId && inRange(t.date)) {
             bankInflowsRange[t.toBankId] = (bankInflowsRange[t.toBankId] || 0) + (Number(t.amount) || 0);
@@ -2327,7 +2333,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
         const bankOutflowsRange = {};
         const addOutflowRange = (bankId, amount, date) => {
-          if (!bankId || bankId === "CASH" || bankId === "DEPOSIT") return;
+          if (!bankId || bankId === "CASH" || bankId === "DEPOSIT" || bankId === "PREPAYMENT") return;
           if (!inRange(date)) return;
           bankOutflowsRange[bankId] = (bankOutflowsRange[bankId] || 0) + amount;
         };
