@@ -1123,6 +1123,7 @@ export default function App() {
         if (data.assets) setAssets(dedup(data.assets))
         if (data.shareholders) setShareholders(data.shareholders)
         if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
+        if (data.deliveries) setDeliveries(dedup(data.deliveries))
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -1155,6 +1156,7 @@ export default function App() {
       if (data.assets)          setAssets(dedup(data.assets))
       if (data.shareholders)    setShareholders(data.shareholders)
       if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
+      if (data.deliveries) setDeliveries(dedup(data.deliveries))
       setSyncStatus('synced')
     }
     setIsReloading(false)
@@ -1178,6 +1180,7 @@ export default function App() {
   useSupabaseSync('assets',            assets,            setAssets,            dbLoaded)
   useSupabaseSync('shareholders',      shareholders,      setShareholders,      dbLoaded)
   useSupabaseSync('dividendPayments',  dividendPayments,  setDividendPayments,  dbLoaded)
+  useSupabaseSync('deliveries',        deliveries,        setDeliveries,        dbLoaded)
 
 useEffect(() => {
   loadProducts().then(setProducts);
