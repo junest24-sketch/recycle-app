@@ -3703,6 +3703,27 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
             })}
           </tbody>
           <tfoot>
+            {(() => {
+              const totalQty    = po.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+              const totalNet    = po.items.reduce((s, it) => s + calcNet(it), 0);
+              const totalDeduct = totalQty - totalNet;
+              const totalAmt    = po.items.reduce((s, it) => {
+                const net = calcNet(it);
+                const discountPct = Number(it.discountPct) || 0;
+                return s + net * (Number(it.price) || 0) * (1 - discountPct / 100);
+              }, 0);
+              const firstUnit = prodInfo(po.items[0]?.productId)?.unit || "กก.";
+              return (
+                <tr style={{ background: primaryColor + "11", borderTop: `2px solid ${primaryColor}` }}>
+                  <td style={{ ...tdCompact, fontWeight: 700, color: primaryColor }}>รวมทั้งหมด</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalQty)} {firstUnit}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{totalDeduct > 0 ? fmt(totalDeduct) : "0"}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalNet)}</td>
+                  <td style={{ ...tdCompact }}></td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalAmt)} บาท</td>
+                </tr>
+              );
+            })()}
             {po.vatRate > 0 && (
               <tr>
                 <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
