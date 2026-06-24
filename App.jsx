@@ -4716,6 +4716,23 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               );
             })}
           </tbody>
+          <tfoot>
+            {(() => {
+              const totalNet = inv.items.reduce((s, it) => {
+                const net = it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0));
+                return s + net;
+              }, 0);
+              const firstUnit = prodInfo(inv.items[0]?.productId)?.unit || "กก.";
+              return (
+                <tr style={{ background: accentColor + "11", borderTop: `2px solid ${accentColor}` }}>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: accentColor }}>รวมทั้งหมด</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(totalNet)} {firstUnit}</td>
+                  <td style={{ ...tdStyle }}></td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(subtotal)} บาท</td>
+                </tr>
+              );
+            })()}
+          </tfoot>
         </table>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
