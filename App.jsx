@@ -617,6 +617,35 @@ function Header({ title, subtitle, children }) {
   );
 }
 
+// NumInput — input ตัวเลขที่แสดงลูกน้ำขณะพิมพ์
+// ตอน focus: แสดงตัวเลขล้วน (พิมพ์ได้ปกติ)
+// ตอน blur: แสดงพร้อมลูกน้ำ เช่น 10,000.50
+function NumInput({ value, onChange, onKeyDown, style, placeholder, min }) {
+  const [focused, setFocused] = React.useState(false);
+  const num = parseFloat(String(value).replace(/,/g, "")) || 0;
+  const formatted = focused
+    ? (value === 0 || value === "0" ? "" : String(value))
+    : (num === 0 ? "0" : num.toLocaleString("en-US", { maximumFractionDigits: 4 }));
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      style={style}
+      placeholder={placeholder}
+      value={formatted}
+      onFocus={(e) => { setFocused(true); e.target.select(); }}
+      onBlur={() => setFocused(false)}
+      onChange={(e) => {
+        // อนุญาตเฉพาะตัวเลข จุดทศนิยม และลบหน้า
+        const raw = e.target.value.replace(/[^0-9.]/g, "");
+        onChange({ target: { value: raw } });
+      }}
+      onKeyDown={onKeyDown}
+    />
+  );
+}
+
 function SearchBar({ value, onChange, placeholder, dateFrom, dateTo, onDateFromChange, onDateToChange }) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -3419,13 +3448,13 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                       <td style={tdStyle}>
                         <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
                       </td>
-                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                      <td style={tdStyle}><NumInput style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                       <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{prodUnit(it.productId)}</td>
                       <td style={tdStyle}><input type="number" min={0} max={100} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductPct || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductPct", e.target.value)} /></td>
                       <td style={tdStyle}><input type="number" min={0} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductKg || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductKg", e.target.value)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: totalDeductKg > 0 ? "#993c1d" : "#9ca3af", fontWeight: 500 }}>{fmt(totalDeductKg)}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(net)}</td>
-                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                      <td style={tdStyle}><NumInput style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(net * (Number(it.price) || 0))}</td>
                       <td style={tdStyle}><button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button></td>
                     </tr>
@@ -4748,7 +4777,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       .filter((r) => r.id.includes(search) || rowSearchLabel(r).includes(search))
       .filter((r) => (!dateFrom || (r.date || "") >= dateFrom) && (!dateTo || (r.date || "") <= dateTo))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, customers]);
+  }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, dateFrom, dateTo, customers]);
 
   const totalPayable = unpaidPurchases.reduce((s, r) => s + r.remaining, 0);
   const totalReceivable = unpaidSales.reduce((s, r) => s + r.remaining, 0);
