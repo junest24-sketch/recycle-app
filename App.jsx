@@ -3716,11 +3716,11 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               return (
                 <tr style={{ background: primaryColor + "11", borderTop: `2px solid ${primaryColor}` }}>
                   <td style={{ ...tdCompact, fontWeight: 700, color: primaryColor }}>รวมทั้งหมด</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalQty)} {firstUnit}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalQty)}</td>
                   <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{totalDeduct > 0 ? fmt(totalDeduct) : "0"}</td>
                   <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalNet)}</td>
                   <td style={{ ...tdCompact }}></td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalAmt)} บาท</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalAmt)}</td>
                 </tr>
               );
             })()}
@@ -3738,7 +3738,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
             )}
             <tr style={{ background: "#f0fdf4", borderTop: `1px solid ${primaryColor}` }}>
               <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700 }}>จำนวนเงินสุทธิ</td>
-              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(total)} บาท</td>
+              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(total)}</td>
             </tr>
           </tfoot>
         </table>
@@ -4749,9 +4749,9 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               return (
                 <tr style={{ background: accentColor + "11", borderTop: `2px solid ${accentColor}` }}>
                   <td style={{ ...tdCompact, fontWeight: 700, color: accentColor }}>รวมทั้งหมด</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(totalNet)} {firstUnit}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(totalNet)}</td>
                   <td style={{ ...tdStyle }}></td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(subtotal)} บาท</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(subtotal)}</td>
                 </tr>
               );
             })()}
