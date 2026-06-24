@@ -1969,7 +1969,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
   <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามประเภทสินค้า</h3>
-  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
+  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
                 <thead>
                   <tr>
                     <th style={thStyle}>ประเภท</th>
@@ -4133,7 +4133,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>รายการเบิกสินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>สินค้าที่เบิก (ต้นทาง)</th>
@@ -4157,7 +4157,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                       <td style={tdStyle}>
                         <ProductSelect products={products} value={it.sourceProductId} onChange={(pid) => updateLineItem(idx, "sourceProductId", pid)} />
                       </td>
-                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateLineItem(idx, "qty", e.target.value)} /></td>
+                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateLineItem(idx, "qty", e.target.value)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: remain < 0 ? "#a32d2d" : "#6b7280" }}>{fmt(remain)} {prodUnit(it.sourceProductId)}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#3c3489" }}>฿{fmt(p.value)}</td>
                       <td style={{ ...tdStyle, textAlign: "right" }}>
@@ -4374,7 +4374,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลข Invoice หรือชื่อลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
       </div>
       <div id="tab-export-sales" style={{ flex: 1, overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
           <thead>
             <tr>
               <th style={thStyle}>เลข Invoice</th>
@@ -4437,7 +4437,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>รายการสินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>สินค้า</th>
