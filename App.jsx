@@ -4417,7 +4417,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)", background: "#f3f4f1" }}>
       <div style={{ flexShrink: 0 }}>
       <Header title="ระบบขายสินค้า (Sales)" subtitle="ออกใบ Invoice และบันทึกการขายสินค้ารีไซเคิล">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
