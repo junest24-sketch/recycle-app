@@ -8092,11 +8092,10 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={modal.mode === "add" ? "สร้างใบส่งสินค้า" : "แก้ไขใบส่งสินค้า"} onClose={() => setModal(null)} wide>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <Field label="เลขที่ใบส่ง"><input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="เช่น DV260622001" /></Field>
             <Field label="วันที่"><input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
             <Field label="ลูกค้า">
-              <select style={inputStyle} value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value, relatedSaleId: "" })}>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid, relatedSaleId: "" })} labelWithId={false} />
             </Field>
           </div>
           {customerSales(form.customerId).length > 0 && (
