@@ -26,8 +26,9 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
   const lastSaveTime = useRef(0)
+  const isLoadingFromRemote = useRef(false)
 
-  // ---------- SAVE: debounce 1.5 วิ บังคับ save ภายใน 4 วิ ----------
+  // ---------- SAVE ----------
   useEffect(() => {
     if (!loaded || !isSupabaseReady) return
     if (isFirstRender.current) { isFirstRender.current = false; return }
@@ -53,7 +54,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     return () => { clearTimeout(saveTimer.current) }
   }, [key, value, loaded])
 
-  // ---------- REALTIME: รับการเปลี่ยนแปลงจากเครื่องอื่นทันที ----------
+  // ---------- REALTIME ----------
   useEffect(() => {
     if (!isSupabaseReady || !loaded) return
 
@@ -62,17 +63,20 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'app_data', filter: `key=eq.${key}` },
-        async (payload) => {
-          // ข้ามถ้าเครื่องนี้เพิ่ง save ไปเอง (ไม่ต้องโหลดกลับมาทับ)
-          if (isSaving.current || Date.now() - lastSaveTime.current < 5000) return
+        async () => {
+          // ข้ามถ้ากำลัง save หรือเพิ่ง save ไปไม่ถึง 10 วิ
+          if (isSaving.current || Date.now() - lastSaveTime.current < 10000) return
+          // ข้ามถ้ากำลังโหลดจาก remote อยู่แล้ว
+          if (isLoadingFromRemote.current) return
 
-          // โหลด key นี้ใหม่จาก Supabase — ได้ข้อมูลหลัง save เสร็จแน่นอน
+          isLoadingFromRemote.current = true
           const { data, error } = await supabase
             .from('app_data')
             .select('value')
             .eq('key', key)
             .single()
 
+          isLoadingFromRemote.current = false
           if (error || !data) return
 
           const remoteValue = data.value
@@ -80,37 +84,23 @@ export function useSupabaseSync(key, value, setValue, loaded) {
 
           if (Array.isArray(remoteValue) && Array.isArray(localValue)) {
             // เพิ่มเฉพาะ record ใหม่จาก remote ที่ local ไม่มี
-            // (ป้องกันกรณีที่ 2 เครื่องแก้ record เดิมพร้อมกัน — local ยังเป็น truth)
-            const localIds = new Set(localValue.map(x => x.id))
+            // ไม่ทับ record ที่ local มีอยู่แล้ว — local เป็น truth
+            const localIds = new Set(localValue.map(x => x.id).filter(Boolean))
             const newItems = remoteValue.filter(x => x.id && !localIds.has(x.id))
-            
-            // อัปเดต record ที่มีอยู่แล้วถ้า remote ใหม่กว่า (updated_at)
-            const updatedLocal = localValue.map(localItem => {
-              const remoteItem = remoteValue.find(r => r.id === localItem.id)
-              if (!remoteItem) return localItem
-              const localTime = localItem.updated_at || ''
-              const remoteTime = remoteItem.updated_at || ''
-              // ใช้ remote เฉพาะถ้า remote มี updated_at และใหม่กว่า local อย่างชัดเจน
-              if (remoteTime && remoteTime > localTime) return remoteItem
-              return localItem
-            })
-
-            const merged = [...updatedLocal, ...newItems]
-            const hasChanges = newItems.length > 0 || 
-              updatedLocal.some((item, i) => item !== localValue[i])
-            
-            if (hasChanges) setValue(merged)
+            if (newItems.length > 0) {
+              setValue([...localValue, ...newItems])
+            }
             return
           }
 
-          // non-array: ใช้ remote (settings, companyProfile ฯลฯ)
-          setValue(remoteValue)
+          // non-array: ใช้ remote เฉพาะถ้า local ว่างอยู่
+          if (!localValue || (typeof localValue === 'object' && Object.keys(localValue).length === 0)) {
+            setValue(remoteValue)
+          }
         }
       )
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [key, setValue, loaded])
 }
