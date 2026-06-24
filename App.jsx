@@ -2169,25 +2169,25 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                               <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(s.avgCost)}</td>
                             </tr>
                           ))}
-                          <tr style={{ background: "#f9fafb" }}>
-                            <td style={{ ...tdStyle, fontWeight: 600 }}>{g.type} (ยอดรวม)</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(g.qty)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(g.value)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(g.avgCost)}</td>
+                          <tr style={{ background: "#1f2937" }}>
+                            <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>{g.type} (ยอดรวม)</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.qty)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5" }}>{fmt(g.value)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.avgCost)}</td>
                           </tr>
                         </>
                       )}
                       {!isExpanded && (
                         <tr
                           onClick={() => setExpandedStockTypes((prev) => ({ ...prev, [g.type]: !prev[g.type] }))}
-                          style={{ cursor: "pointer", background: "#f9fafb" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "#f3f4f6"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "#f9fafb"; }}
+                          style={{ cursor: "pointer", background: "#1f2937" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "#374151"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "#1f2937"; }}
                         >
-                          <td style={{ ...tdStyle, fontWeight: 600 }}>{g.type} (ยอดรวม)</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(g.qty)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(g.value)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(g.avgCost)}</td>
+                          <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>{g.type} (ยอดรวม)</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.qty)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5" }}>{fmt(g.value)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.avgCost)}</td>
                         </tr>
                       )}
                     </React.Fragment>
@@ -2199,11 +2199,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </tbody>
               {stockByType.length > 0 && (
                 <tfoot>
-                  <tr style={{ borderTop: "2px solid #5a1414" }}>
-                    <td style={{ ...tdStyle, fontWeight: 700 }}>ผลรวม</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(stockByType.reduce((s, g) => s + g.qty, 0))}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(stockByType.reduce((s, g) => s + g.value, 0))}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>
+                  <tr style={{ background: "#0f6e56", borderTop: "2px solid #064e3b" }}>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>ผลรวม</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(stockByType.reduce((s, g) => s + g.qty, 0))}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#bbf7d0" }}>{fmt(stockByType.reduce((s, g) => s + g.value, 0))}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>
                       {(() => {
                         const totalQty = stockByType.reduce((s, g) => s + g.qty, 0);
                         const totalVal = stockByType.reduce((s, g) => s + g.value, 0);
@@ -8140,9 +8140,12 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
               ))}
             </tbody>
             <tfoot>
-              <tr>
-                <td style={{ ...tdStyle, fontWeight: 700 }} colSpan={4}>ยอดรวมสุทธิ</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(form.items.reduce((s, it) => s + netQtyOf(it), 0))}</td>
+              <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(form.items.reduce((s, it) => s + (Number(it.qty) || 0), 0))} กก.</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(form.items.reduce((s, it) => s + (Number(it.containerWeight) || 0), 0))} กก.</td>
+                <td style={tdStyle}></td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(form.items.reduce((s, it) => s + netQtyOf(it), 0))} กก.</td>
                 <td style={tdStyle}></td>
               </tr>
             </tfoot>
@@ -8205,9 +8208,12 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
                 ))}
               </tbody>
               <tfoot>
-                <tr>
-                  <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, textAlign: "right" }}>ยอดรวมสุทธิ</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(deliveryNetTotal(modal.item))}</td>
+                <tr style={{ background: "#f3f4f6", borderTop: "2px solid #e5e7eb" }}>
+                  <td colSpan={2} style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(modal.item.items.reduce((s, it) => s + (Number(it.qty) || 0), 0))} กก.</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(modal.item.items.reduce((s, it) => s + (Number(it.containerWeight) || 0), 0))} กก.</td>
+                  <td style={tdStyle}></td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(deliveryNetTotal(modal.item))} กก.</td>
                 </tr>
               </tfoot>
             </table>
