@@ -507,7 +507,7 @@ function computePrepaymentBalances(customers, prepayments, sales) {
   });
   sales.forEach((inv) => {
     (inv.payments || []).forEach((p) => {
-      if (p.fromStoreBankId === "PREPAYMENT") {
+      if (p.fromStoreBankId === "PREPAYMENT" || p.toStoreBankId === "PREPAYMENT") {
         used[inv.customerId] = (used[inv.customerId] || 0) + (Number(p.amount) || 0);
       }
     });
@@ -1659,7 +1659,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const bankOutflows = useMemo(() => {
     const out = {}; // bankId -> total
     const add = (bankId, amount) => {
-      if (!bankId || bankId === "CASH" || bankId === "DEPOSIT") return;
+      if (!bankId || bankId === "CASH" || bankId === "DEPOSIT" || bankId === "PREPAYMENT") return;
       out[bankId] = (out[bankId] || 0) + amount;
     };
     purchases.forEach((po) => (po.payments || []).forEach((p) => add(p.fromStoreBankId, Number(p.amount) || 0)));
@@ -1673,7 +1673,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const bankInflows = useMemo(() => {
     const inn = {}; // bankId -> total
     const add = (bankId, amount) => {
-      if (!bankId || bankId === "CASH" || bankId === "DEPOSIT") return;
+      if (!bankId || bankId === "CASH" || bankId === "DEPOSIT" || bankId === "PREPAYMENT") return;
       inn[bankId] = (inn[bankId] || 0) + amount;
     };
     sales.forEach((inv) => (inv.payments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0)));
@@ -2417,7 +2417,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           const openingTotal = customers.reduce((s, c) => s + (Number(c.prepaymentOpening) || 0), 0);
           const received = (prepayments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
           const used = sales.reduce((s, inv) => s + (inv.payments || [])
-            .filter((p) => p.fromStoreBankId === "PREPAYMENT")
+            .filter((p) => p.fromStoreBankId === "PREPAYMENT" || p.toStoreBankId === "PREPAYMENT")
             .reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
           return Math.max(0, openingTotal + received - used);
         })();
