@@ -3736,9 +3736,9 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
                 <td style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
               </tr>
             )}
-            <tr style={{ background: "#f0fdf4" }}>
-              <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
-              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)}</td>
+            <tr style={{ background: "#f0fdf4", borderTop: `1px solid ${primaryColor}` }}>
+              <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700 }}>จำนวนเงินสุทธิ</td>
+              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(total)} บาท</td>
             </tr>
           </tfoot>
         </table>
