@@ -3527,6 +3527,9 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
   const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
   const total = subtotal + vat;
   const primaryColor = cs.primaryColor || "#0f6e56";
+  // style แถวเตี้ยเฉพาะใบรับสินค้า (ลดระยะห่างบน-ล่าง ไม่กระทบตารางหน้าอื่น)
+  const thCompact = { ...thStyle, padding: "4px 12px" };
+  const tdCompact = { ...tdStyle, padding: "4px 12px" };
 
   return (
     <Modal title={`${cs.purchaseTitle || "ใบรับสินค้า"} ${po.id}`} onClose={onClose} wide>
@@ -3570,12 +3573,12 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
           <thead>
             <tr style={{ background: primaryColor + "22" }}>
-              <th style={{ ...thStyle, color: primaryColor, width: "35%" }}>สินค้า</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวน</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "13%" }}>รวมหัก</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "13%" }}>สุทธิ</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "13%" }}>ราคา/หน่วย</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวนเงิน</th>
+              <th style={{ ...thCompact, color: primaryColor, width: "35%" }}>สินค้า</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวน</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>รวมหัก</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>สุทธิ</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>ราคา/หน่วย</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
@@ -3588,12 +3591,12 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               const amount = net * (Number(it.price) || 0) * (1 - discountPct / 100);
               return (
                 <tr key={idx}>
-                  <td style={{ ...tdStyle, wordBreak: "break-word" }}>{p.name}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(qty)} {p.unit}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: deducted > 0 ? "#993c1d" : "#9ca3af" }}>{deducted > 0 ? fmt(deducted) : "—"}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.price)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(amount)}</td>
+                  <td style={{ ...tdCompact, wordBreak: "break-word" }}>{p.name}</td>
+                  <td style={{ ...tdCompact, textAlign: "right" }}>{fmt(qty)} {p.unit}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", color: deducted > 0 ? "#993c1d" : "#9ca3af" }}>{deducted > 0 ? fmt(deducted) : "0"}</td>
+                  <td style={{ ...tdCompact, textAlign: "right" }}>{fmt(net)}</td>
+                  <td style={{ ...tdCompact, textAlign: "right" }}>{fmt(it.price)}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 600 }}>{fmt(amount)}</td>
                 </tr>
               );
             })}
@@ -3601,19 +3604,19 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
           <tfoot>
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>{fmt(subtotal)} บาท</td>
+                <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
+                <td style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>{fmt(subtotal)} บาท</td>
               </tr>
             )}
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
+                <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
+                <td style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
               </tr>
             )}
             <tr style={{ background: "#f0fdf4" }}>
-              <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
-              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)} บาท</td>
+              <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
+              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)}</td>
             </tr>
           </tfoot>
         </table>
