@@ -6067,6 +6067,8 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
   const [openingModal, setOpeningModal] = useState(null);
   const [form, setForm] = useState({ id: "", date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
 
+  const openOpeningModal = () => setOpeningModal({ customerId: customers[0]?.id || "", amount: "" });
+
   const balances = useMemo(() => computePrepaymentBalances(customers, prepayments, sales), [customers, prepayments, sales]);
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
   const bankName = (id) => { const b = storeBankAccounts.find((b) => b.id === id); return b ? `${b.bankName} ${b.accountNo}` : "-"; };
@@ -6099,7 +6101,10 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
           <h2 style={{ fontWeight: 700, fontSize: 20, margin: 0 }}>รับล่วงหน้า</h2>
           <div style={{ color: "#6b7280", fontSize: 13 }}>บันทึกเงินที่ลูกค้าจ่ายล่วงหน้าก่อนรับสินค้า</div>
         </div>
-        <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> บันทึกรับล่วงหน้า</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={btnSecondary} onClick={openOpeningModal}><Plus size={16} /> เพิ่มยอดยกมา</button>
+          <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> บันทึกรับล่วงหน้า</button>
+        </div>
       </div>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
