@@ -498,6 +498,29 @@ function computeDepositBalances(customers, deposits, purchases) {
   });
 }
 
+// รับล่วงหน้า (ฝั่งขาย) — ลูกค้าจ่ายเงินให้ร้านก่อนรับสินค้า
+function computePrepaymentBalances(customers, prepayments, sales) {
+  const received = {}; // customerId -> รับมาแล้วทั้งหมด
+  const used = {};     // customerId -> ถูกหักในใบขายแล้ว
+  prepayments.forEach((p) => {
+    received[p.customerId] = (received[p.customerId] || 0) + (Number(p.amount) || 0);
+  });
+  sales.forEach((inv) => {
+    (inv.payments || []).forEach((p) => {
+      if (p.fromStoreBankId === "PREPAYMENT") {
+        used[inv.customerId] = (used[inv.customerId] || 0) + (Number(p.amount) || 0);
+      }
+    });
+  });
+  return customers.map((c) => {
+    const opening = Number(c.prepaymentOpening) || 0;
+    const newReceived = received[c.id] || 0;
+    const totalReceived = opening + newReceived;
+    const totalUsed = used[c.id] || 0;
+    return { customerId: c.id, name: c.name, opening, newReceived, totalReceived, totalUsed, remaining: totalReceived - totalUsed };
+  });
+}
+
 // ---------- Loan amortization schedule ----------
 // คำนวณตารางผ่อนชำระแบบผ่อนเท่ากันทุกเดือน (ลดดอกเบี้ยจากเงินต้นคงเหลือไปเรื่อยๆ)
 // คืนค่า: array ของงวด {no, dueDate, payment, interest, principalPortion, remainingBalance}
@@ -1105,6 +1128,7 @@ export default function App() {
 
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
   const [deposits, setDeposits] = useState(initialDeposits);
+  const [prepayments, setPrepayments] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [bankTransfers, setBankTransfers] = useState([]);
   const [expenses, setExpenses] = useState(initialExpenses);
@@ -1160,6 +1184,7 @@ export default function App() {
         if (data.shareholders) setShareholders(data.shareholders)
         if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
         if (data.deliveries) setDeliveries(dedup(data.deliveries))
+        if (data.prepayments) setPrepayments(dedup(data.prepayments))
         setSyncStatus('synced')
       }
       setDbLoaded(true)
@@ -1193,6 +1218,7 @@ export default function App() {
       if (data.shareholders)    setShareholders(data.shareholders)
       if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
       if (data.deliveries) setDeliveries(dedup(data.deliveries))
+      if (data.prepayments) setPrepayments(dedup(data.prepayments))
       setSyncStatus('synced')
     }
     setIsReloading(false)
@@ -1217,6 +1243,7 @@ export default function App() {
   useSupabaseSync('shareholders',      shareholders,      setShareholders,      dbLoaded)
   useSupabaseSync('dividendPayments',  dividendPayments,  setDividendPayments,  dbLoaded)
   useSupabaseSync('deliveries',        deliveries,        setDeliveries,        dbLoaded)
+  useSupabaseSync('prepayments',       prepayments,       setPrepayments,       dbLoaded)
 
 useEffect(() => {
   loadProducts().then(setProducts);
@@ -1230,6 +1257,7 @@ useEffect(() => {
     { key: "expenses",          label: "ค่าใช้จ่าย",             icon: Receipt },
     { key: "payments",          label: "รับชำระ/จ่ายชำระ",       icon: BadgeDollarSign },
     { key: "deposits",          label: "เงินมัดจำ",              icon: Wallet },
+    { key: "prepayments",       label: "รับล่วงหน้า",             icon: BadgeDollarSign },
     { key: "banktransfer",      label: "โยกเงินระหว่างธนาคาร",   icon: ArrowLeftRight },
     { key: "delivery",          label: "ใบส่งสินค้า",            icon: Truck },
     { key: "inventory",         label: "สต๊อกสินค้า",            icon: Boxes },
@@ -1465,7 +1493,7 @@ useEffect(() => {
       </div>
 
       {/* Main content — independently scrollable */}
-      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} />}
+      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} prepayments={prepayments} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
@@ -1475,6 +1503,7 @@ useEffect(() => {
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
+        {tab === "prepayments" && <PrepaymentsTab customers={customers} setCustomers={setCustomers} prepayments={prepayments} setPrepayments={setPrepayments} sales={sales} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
@@ -1493,7 +1522,7 @@ useEffect(() => {
 // ===================================================================
 // DASHBOARD
 // ===================================================================
-function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers, expenseCategories }) {
+function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers, expenseCategories, prepayments }) {
   // ---------- หมวดหมู่แดชบอร์ด ----------
   const [dashSubTab, setDashSubTab] = useState("purchases"); // "purchases" | "sales" | "expenses" | "stock" | "loans"
   const [expandedStockTypes, setExpandedStockTypes] = useState({}); // { [type]: bool } ติ๊กเลือกเพื่อดูรายการสินค้าในประเภทนั้น
@@ -2383,11 +2412,21 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           return Math.max(0, openingTotal + newGiven - used);
         })();
 
+        // รับล่วงหน้าคงเหลือ (ลูกค้าจ่ายให้ร้านล่วงหน้า)
+        const totalPrepayment = (() => {
+          const openingTotal = customers.reduce((s, c) => s + (Number(c.prepaymentOpening) || 0), 0);
+          const received = (prepayments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+          const used = sales.reduce((s, inv) => s + (inv.payments || [])
+            .filter((p) => p.fromStoreBankId === "PREPAYMENT")
+            .reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
+          return Math.max(0, openingTotal + received - used);
+        })();
+
         // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
         const stockVal = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
 
         // เงินหมุนยอดทั้งหมด = ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้
-        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalReceivable - totalPayable;
+        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalPrepayment + totalReceivable - totalPayable;
 
         const cfCard = (label, value, color, bg, sub) => (
           <div style={{ background: bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${color}33` }}>
@@ -2415,6 +2454,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                     ["ลูกหนี้ค้างรับ (บวก)", totalReceivable],
                     ["เจ้าหนี้ค้างจ่าย (ลบ)", -totalPayable],
                     ["เงินมัดจำคงเหลือ", totalDeposit],
+                    ["รับล่วงหน้าคงเหลือ", totalPrepayment],
                     ["มูลค่าสต๊อก (ทุน)", stockVal],
                     ["เงินหมุนยอดทั้งหมด (ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้)", grandTotal],
                   ];
@@ -2431,6 +2471,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 {cfCard("ลูกหนี้ค้างรับ", totalReceivable, "#0f6e56", "#e1f5ee", "รอรับชำระ (ปัจจุบัน)")}
                 {cfCard("เจ้าหนี้ค้างจ่าย", totalPayable, "#993c1d", "#faece7", "รอจ่ายชำระ (ปัจจุบัน)")}
                 {cfCard("เงินมัดจำคงเหลือ", totalDeposit, "#854f0b", "#faeeda", "มัดจำที่ยังไม่ใช้ (ปัจจุบัน)")}
+                {cfCard("รับล่วงหน้าคงเหลือ", totalPrepayment, "#1d4ed8", "#eff6ff", "ลูกค้าจ่ายล่วงหน้าที่ยังไม่ได้ตัด")}
                 {cfCard("มูลค่าสต๊อก (ทุน)", stockVal, "#1d9e75", "#e1f5ee", "สินค้าคงเหลือ (ปัจจุบัน)")}
                 {cfCard(dateRange ? "เงินสดรวม (ช่วงที่เลือก)" : "เงินสดรวม", cashGroupTotal, "#0f6e56", "#e1f5ee", `${cashGroupRows.length} บัญชี`)}
               </div>
@@ -5090,6 +5131,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   <Field label="รับเข้าบัญชี">
                     <select style={inputStyle} value={p.toStoreBankId || ""} onChange={(e) => updatePayRow(idx, "toStoreBankId", e.target.value)}>
                       <option value="">เงินสด / ไม่ระบุบัญชี</option>
+                      <option value="PREPAYMENT">หักจากรับล่วงหน้า</option>
                       {(storeBankAccounts || []).map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>)}
                     </select>
                   </Field>
@@ -5209,6 +5251,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <Field label="รับเข้าบัญชี">
                         <select style={inputStyle} value={editPaymentForm.toStoreBankId || ""} onChange={(e) => setEditPaymentForm({ ...editPaymentForm, toStoreBankId: e.target.value })}>
                           <option value="">เงินสด / ไม่ระบุบัญชี</option>
+                          <option value="PREPAYMENT">หักจากรับล่วงหน้า</option>
                           {(storeBankAccounts || []).map((b) => <option key={b.id} value={b.id}>{b.bankName} · {b.accountNo}</option>)}
                         </select>
                       </Field>
@@ -6007,6 +6050,185 @@ function LoanScheduleModal({ loan, expenses, onClose }) {
 // ===================================================================
 // EXPENSES TAB (บันทึกค่าใช้จ่าย / ใบสำคัญจ่าย)
 // ===================================================================
+// ===================================================================
+// PREPAYMENTS TAB (รับล่วงหน้า — ลูกค้าจ่ายให้ร้านก่อนรับสินค้า)
+// ===================================================================
+function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, sales, storeBankAccounts }) {
+  const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [modal, setModal] = useState(null);
+  const [openingModal, setOpeningModal] = useState(null);
+  const [form, setForm] = useState({ id: "", date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
+
+  const balances = useMemo(() => computePrepaymentBalances(customers, prepayments, sales), [customers, prepayments, sales]);
+  const custName = (id) => customers.find((c) => c.id === id)?.name || id;
+  const bankName = (id) => { const b = storeBankAccounts.find((b) => b.id === id); return b ? `${b.bankName} ${b.accountNo}` : "-"; };
+  const fmt = (n) => Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const filtered = prepayments
+    .filter((d) => custName(d.customerId).includes(search) || d.id.includes(search))
+    .filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo))
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  const openAdd = () => {
+    const id = "PP" + Date.now().toString().slice(-8);
+    setForm({ id, date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
+    setModal({ mode: "add" });
+  };
+
+  const save = () => {
+    const cleaned = { ...form, amount: Number(form.amount) || 0 };
+    if (modal.mode === "add") setPrepayments([...prepayments, cleaned]);
+    else setPrepayments(prepayments.map((d) => d.id === modal.item.id ? cleaned : d));
+    setModal(null);
+  };
+
+  const remove = (id) => setPrepayments(prepayments.filter((d) => d.id !== id));
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div>
+          <h2 style={{ fontWeight: 700, fontSize: 20, margin: 0 }}>รับล่วงหน้า</h2>
+          <div style={{ color: "#6b7280", fontSize: 13 }}>บันทึกเงินที่ลูกค้าจ่ายล่วงหน้าก่อนรับสินค้า</div>
+        </div>
+        <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> บันทึกรับล่วงหน้า</button>
+      </div>
+
+      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
+
+      {/* สรุปยอดคงเหลือต่อลูกค้า */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto", marginBottom: 20 }}>
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid #f3f4f6", fontWeight: 600, fontSize: 14 }}>สรุปยอดรับล่วงหน้าต่อลูกค้า</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>ลูกค้า</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>รับเพิ่ม</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>รับรวม</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>หักไปแล้ว (ในใบขาย)</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#0f6e56" }}>คงเหลือ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {balances.filter((b) => b.totalReceived > 0 || b.opening > 0).map((b) => (
+              <tr key={b.customerId}>
+                <td style={tdStyle}>
+                  <button style={{ background: "none", border: "none", color: "#185fa5", cursor: "pointer", fontWeight: 500, padding: 0, textDecoration: "underline", fontSize: 13 }}
+                    onClick={() => setOpeningModal({ customerId: b.customerId, amount: String(b.opening) })}>
+                    {b.name}
+                  </button>
+                </td>
+                <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>฿{fmt(b.opening)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>+฿{fmt(b.newReceived)}</td>
+                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(b.totalReceived)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d" }}>-฿{fmt(b.totalUsed)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: b.remaining > 0 ? "#0f6e56" : "#991b1b" }}>฿{fmt(b.remaining)}</td>
+              </tr>
+            ))}
+            {balances.filter((b) => b.totalReceived > 0 || b.opening > 0).length === 0 && (
+              <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีข้อมูลรับล่วงหน้า</td></tr>
+            )}
+          </tbody>
+          {balances.some((b) => b.totalReceived > 0 || b.opening > 0) && (
+            <tfoot>
+              <tr style={{ background: "#f0fdf4", borderTop: "2px solid #0f6e56" }}>
+                <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งหมด</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(balances.reduce((s, b) => s + b.opening, 0))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>+฿{fmt(balances.reduce((s, b) => s + b.newReceived, 0))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(balances.reduce((s, b) => s + b.totalReceived, 0))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(balances.reduce((s, b) => s + b.totalUsed, 0))}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>฿{fmt(balances.reduce((s, b) => s + b.remaining, 0))}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+
+      {/* รายการบันทึกรับล่วงหน้า */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>เลขที่</th>
+              <th style={thStyle}>วันที่</th>
+              <th style={thStyle}>ลูกค้า</th>
+              <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
+              <th style={thStyle}>บัญชีร้าน</th>
+              <th style={thStyle}>หมายเหตุ</th>
+              <th style={thStyle}>จัดการ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((d) => (
+              <tr key={d.id}>
+                <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{d.id}</td>
+                <td style={tdStyle}>{d.date}</td>
+                <td style={{ ...tdStyle, fontWeight: 500 }}>{custName(d.customerId)}</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#0f6e56" }}>+฿{fmt(d.amount)}</td>
+                <td style={tdStyle}>{bankName(d.toStoreBankId)}</td>
+                <td style={tdStyle}>{d.note || "-"}</td>
+                <td style={tdStyle}>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button style={iconBtn} onClick={() => { setForm({ ...d }); setModal({ mode: "edit", item: d }); }}><Edit2 size={14} /></button>
+                    <button style={btnDanger} onClick={() => confirmAction(`ลบรายการรับล่วงหน้า ฿${fmt(d.amount)} ของ ${custName(d.customerId)}?`, () => remove(d.id))}><Trash2 size={14} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีรายการ</td></tr>}
+            {filtered.length > 0 && (
+              <tr style={{ background: "#f9fafb", borderTop: "2px solid #e5e7eb" }}>
+                <td colSpan={3} style={{ ...tdStyle, fontWeight: 700 }}>รวม ({filtered.length} รายการ)</td>
+                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>+฿{fmt(filtered.reduce((s, d) => s + (Number(d.amount) || 0), 0))}</td>
+                <td colSpan={3} style={tdStyle}></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal บันทึกรับล่วงหน้า */}
+      {modal && (
+        <Modal title={modal.mode === "add" ? "บันทึกรับล่วงหน้า" : "แก้ไขรับล่วงหน้า"} onClose={() => setModal(null)}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <Field label="วันที่"><input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
+            <Field label="ลูกค้า"><CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid })} labelWithId={false} /></Field>
+            <Field label="จำนวนเงินที่รับ (บาท)"><NumInput style={{ ...inputStyle, textAlign: "right" }} value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+            <Field label="บัญชีร้านที่รับเงิน">
+              <select style={inputStyle} value={form.toStoreBankId} onChange={(e) => setForm({ ...form, toStoreBankId: e.target.value })}>
+                {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="หมายเหตุ"><input style={inputStyle} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal ตั้งยอดยกมา */}
+      {openingModal && (
+        <Modal title="ตั้งยอดยกมา (รับล่วงหน้า)" onClose={() => setOpeningModal(null)}>
+          <Field label="ลูกค้า"><CustomerSelect customers={customers} value={openingModal.customerId} onChange={(cid) => setOpeningModal({ ...openingModal, customerId: cid, amount: String(customers.find((c) => c.id === cid)?.prepaymentOpening || 0) })} labelWithId={false} /></Field>
+          <Field label="ยอดยกมา (บาท)"><NumInput style={{ ...inputStyle, textAlign: "right" }} value={openingModal.amount} onChange={(e) => setOpeningModal({ ...openingModal, amount: e.target.value })} /></Field>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setOpeningModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={() => {
+              setCustomers(customers.map((c) => c.id === openingModal.customerId ? { ...c, prepaymentOpening: Number(openingModal.amount) || 0 } : c));
+              setOpeningModal(null);
+            }}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories, companySettings }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
