@@ -285,7 +285,7 @@ function confirmAction(message, onConfirm, options = {}) {
 function ConfirmDialog({ pending, onClose }) {
   if (!pending) return null;
   return (
-    <Modal title={pending.title || "ยืนยันการลบ"} onClose={onClose}>
+    <Modal title={pending.title || "ยืนยันการลบ"} onClose={onClose} zIndex={200}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "4px 0 16px" }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#faece7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <Trash2 size={18} color="#993c1d" />
@@ -605,9 +605,9 @@ function computeAmortizationSchedule(loan) {
 }
 
 // ---------- Generic small UI bits ----------
-function Modal({ title, onClose, children, wide, fullscreen }) {
+function Modal({ title, onClose, children, wide, fullscreen, zIndex: zIndexProp }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: fullscreen ? 0 : "1rem" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: zIndexProp || 50, padding: fullscreen ? 0 : "1rem" }}>
       <div style={{ background: "var(--color-background-primary, #fff)", borderRadius: fullscreen ? 0 : 12, width: fullscreen ? "100vw" : wide ? "min(900px, 95vw)" : "min(520px, 95vw)", height: fullscreen ? "100vh" : undefined, maxHeight: fullscreen ? "100vh" : "90vh", overflowY: "auto", boxShadow: "0 8px 30px rgba(0,0,0,0.15)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: "1px solid #e5e7eb" }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{title}</h3>
