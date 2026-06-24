@@ -3102,12 +3102,11 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
       updated_at: new Date().toISOString(),
       items: form.items.map((it) => {
         const qty = Number(it.qty) || 0;
-        const deduct = Number(it.deduct) || 0;
-        const net = qty - deduct;
+        const net = lineNet(it);
         const price = Number(it.price) || 0;
         const discountPct = Number(it.discountPct) || 0;
         const discountedPrice = price * (1 - discountPct / 100);
-        return { ...it, qty, deduct, net, price, discountPct, discountedPrice };
+        return { ...it, qty, net, price, discountPct, discountedPrice };
       }),
       payments: (form.payments || []).map((p) => ({ ...p, amount: Number(p.amount) || 0 })),
     };
@@ -3133,8 +3132,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
     const deduct = Number(it.deduct) || 0;
     return it.deductType === "pct" ? qty * (1 - deduct / 100) : qty - deduct;
   };
-  const lineTotal = (it) => lineNet(it) * (Number(it.price) || 0);
-  const subtotalBeforeVat = (po) => po.items.reduce((s, it) => s + lineNet(it) * (Number(it.price) || 0), 0);
+  const lineTotal = (it) => lineNet(it) * (Number(it.price) || 0) * (1 - (Number(it.discountPct) || 0) / 100);
+  const subtotalBeforeVat = (po) => po.items.reduce((s, it) => s + lineNet(it) * (Number(it.price) || 0) * (1 - (Number(it.discountPct) || 0) / 100), 0);
   const vatAmount = (po) => subtotalBeforeVat(po) * ((Number(po.vatRate) || 0) / 100);
   const grandTotal = (po) => subtotalBeforeVat(po) + vatAmount(po);
   const paidTotal = (po) => (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
@@ -3263,14 +3262,15 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                     </thead>
                     <tbody>
                       {po.items.map((it, idx) => {
-                        const net = it.net != null ? it.net : it.qty - it.deduct;
+                        const net = calcNet(it);
+                        const deductDisplay = (Number(it.qty) || 0) - net;
                         const discountPct = Number(it.discountPct) || 0;
                         const discountedPrice = it.price * (1 - discountPct / 100);
                         return (
                           <tr key={idx}>
                             <td style={tdStyle}>{prodName(it.productId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.productId)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.deduct)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(deductDisplay)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.price)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", color: discountPct > 0 ? "#993c1d" : "#9ca3af" }}>{discountPct > 0 ? `${discountPct}%` : "—"}</td>
@@ -3507,6 +3507,12 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
 
   const calcNet = (it) => {
     const qty = Number(it.qty) || 0;
+    // รองรับ field ใหม่ (deductPct/deductKg) ก่อน
+    if (it.deductPct != null || it.deductKg != null) {
+      const deductPct = Number(it.deductPct) || 0;
+      const deductKg = Number(it.deductKg) || 0;
+      return qty - (qty * deductPct / 100) - deductKg;
+    }
     const deduct = Number(it.deduct) || 0;
     if (it.deductType === "pct") return qty * (1 - deduct / 100);
     if (it.net != null) return Number(it.net);
