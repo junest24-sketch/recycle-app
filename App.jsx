@@ -3549,14 +3549,39 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
             const subtotalBeforeVat = form.items.reduce((s, it) => s + lineTotal(it), 0);
             const vat = subtotalBeforeVat * ((Number(form.vatRate) || 0) / 100);
             const total = subtotalBeforeVat + vat;
+            const totalQty = form.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+            const totalDeduct = form.items.reduce((s, it) => {
+              const qty = Number(it.qty) || 0;
+              const deductPct = Number(it.deductPct) || 0;
+              const deductKg = Number(it.deductKg) || 0;
+              return s + (qty * deductPct / 100) + deductKg;
+            }, 0);
+            const totalNet = totalQty - totalDeduct;
             return (
-              <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 24, fontSize: 14 }}>
-                <Row label="ยอดก่อน VAT" value={`฿${fmt(subtotalBeforeVat)}`} />
-                {vat > 0 && <Row label={`VAT ${form.vatRate}%`} value={`+฿${fmt(vat)}`} color="#993c1d" />}
-                <Row label="ยอดรวมที่ต้องชำระ" value={`฿${fmt(total)}`} bold />
-                <p style={{ fontSize: 12, color: "#9ca3af", margin: "8px 0 0" }}>
-                  * บันทึกใบนี้ก่อนได้เลย — ไปบันทึกการจ่ายเงินจริงที่เมนู "รับชำระ/จ่ายชำระ" ทีหลังได้
-                </p>
+              <div style={{ marginTop: 16 }}>
+                {/* สรุปน้ำหนัก */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  {[
+                    { label: "น้ำหนักรวม", value: fmt(totalQty), unit: "กก.", color: "#1f2937", bg: "#f9fafb" },
+                    { label: "รวมน้ำหนักหัก", value: fmt(totalDeduct), unit: "กก.", color: "#993c1d", bg: "#fef2f2" },
+                    { label: "น้ำหนักสุทธิ", value: fmt(totalNet), unit: "กก.", color: "#0f6e56", bg: "#f0fdf4" },
+                  ].map((item) => (
+                    <div key={item.label} style={{ background: item.bg, borderRadius: 10, padding: "10px 14px", textAlign: "center", border: `1px solid ${item.color}22` }}>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 800, color: item.color }}>{item.value}</div>
+                      <div style={{ fontSize: 12, color: item.color, fontWeight: 600 }}>{item.unit}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* สรุปยอดเงิน */}
+                <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", fontSize: 14 }}>
+                  <Row label="ยอดก่อน VAT" value={`฿${fmt(subtotalBeforeVat)}`} />
+                  {vat > 0 && <Row label={`VAT ${form.vatRate}%`} value={`+฿${fmt(vat)}`} color="#993c1d" />}
+                  <Row label="ยอดรวมที่ต้องชำระ" value={`฿${fmt(total)}`} bold />
+                  <p style={{ fontSize: 12, color: "#9ca3af", margin: "8px 0 0" }}>
+                    * บันทึกใบนี้ก่อนได้เลย — ไปบันทึกการจ่ายเงินจริงที่เมนู "รับชำระ/จ่ายชำระ" ทีหลังได้
+                  </p>
+                </div>
               </div>
             );
           })()}
@@ -4183,6 +4208,27 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
             </div>
           </div>
 
+          {/* สรุปน้ำหนัก */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
+            {(() => {
+              const totalQty = form.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+              const totalNet = form.items.reduce((s, it) => s + (Number(it.qty) || 0) - (Number(it.value) / (Number(it.price) || 1) || 0), 0);
+              const totalDeduct = form.items.reduce((s, it) => s + (Number(it.containerWeight) || 0), 0);
+              const netWeight = totalQty - totalDeduct;
+              return [
+                { label: "น้ำหนักรวม", value: fmt(totalQty), color: "#1f2937", bg: "#f9fafb" },
+                { label: "รวมน้ำหนักหัก", value: fmt(totalDeduct), color: "#993c1d", bg: "#fef2f2" },
+                { label: "น้ำหนักสุทธิ", value: fmt(netWeight), color: "#3c3489", bg: "#f5f3ff" },
+              ].map((item) => (
+                <div key={item.label} style={{ background: item.bg, borderRadius: 10, padding: "10px 14px", textAlign: "center", border: `1px solid ${item.color}22` }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: item.color }}>{item.value}</div>
+                  <div style={{ fontSize: 12, color: item.color, fontWeight: 600 }}>กก.</div>
+                </div>
+              ));
+            })()}
+          </div>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setModal(null)}>ยกเลิก</button>
             <button style={btnPrimary} onClick={save}><Save size={16} /> บันทึก</button>
@@ -4533,6 +4579,25 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                 {PAYMENT_STATUSES.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
+            {(() => {
+              const totalQty = form.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+              const totalNet = form.items.reduce((s, it) => s + lineNet(it), 0);
+              const totalDeduct = totalQty - totalNet;
+              return [
+                { label: "น้ำหนักรวม", value: fmt(totalQty), color: "#1f2937", bg: "#f9fafb" },
+                { label: "รวมน้ำหนักหัก", value: fmt(totalDeduct), color: "#993c1d", bg: "#fef2f2" },
+                { label: "น้ำหนักสุทธิ", value: fmt(totalNet), color: "#0f6e56", bg: "#f0fdf4" },
+              ].map((item) => (
+                <div key={item.label} style={{ background: item.bg, borderRadius: 10, padding: "10px 14px", textAlign: "center", border: `1px solid ${item.color}22` }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: item.color }}>{item.value}</div>
+                  <div style={{ fontSize: 12, color: item.color, fontWeight: 600 }}>กก.</div>
+                </div>
+              ));
+            })()}
           </div>
 
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 8, fontSize: 14 }}>
