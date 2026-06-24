@@ -4241,7 +4241,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const remaining = grandTotal - totalPaid;
 
   const calcInvoiceTotals = (inv) => {
-    const sub = inv.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
+    const sub = inv.items.reduce((s, it) => s + (it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0))) * (Number(it.price)||0) * (1-(Number(it.discountPct)||0)/100), 0);
     const ad = sub - (inv.discount || 0);
     const vat = ad * ((inv.vatRate || 0) / 100);
     const total = ad + vat;
@@ -4509,7 +4509,7 @@ function Row({ label, value, bold, color }) {
 function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, companySettings, onClose }) {
   const cs = companySettings || {};
   const prodInfo = (id) => products.find((p) => p.id === id) || { name: id, unit: "" };
-  const subtotal = inv.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
+  const subtotal = inv.items.reduce((s, it) => s + (it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0))) * (Number(it.price)||0) * (1-(Number(it.discountPct)||0)/100), 0);
   const afterDiscount = subtotal - (inv.discount || 0);
   const vat = afterDiscount * ((inv.vatRate || 0) / 100);
   const total = afterDiscount + vat;
@@ -4564,7 +4564,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
           <tbody>
             {inv.items.map((it, idx) => {
               const p = prodInfo(it.productId);
-              const net = it.net != null ? it.net : it.qty - it.deduct;
+              const net = it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0));
               return (
                 <tr key={idx}>
                   <td style={tdStyle}>{p.name}</td>
@@ -4679,7 +4679,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     return purchases
       .filter((po) => (po.status || "") !== "ยกเลิก")
       .map((po) => {
-        const subtotal = po.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
+        const subtotal = po.items.reduce((s, it) => {
+          const qty = Number(it.qty) || 0;
+          const deduct = Number(it.deduct) || 0;
+          const net = it.deductType === "pct" ? qty * (1 - deduct / 100) : (it.net != null ? Number(it.net) : qty - deduct);
+          const discountPct = Number(it.discountPct) || 0;
+          return s + net * (Number(it.price) || 0) * (1 - discountPct / 100);
+        }, 0);
         const vat = subtotal * ((Number(po.vatRate) || 0) / 100);
         const total = subtotal + vat;
         const paid = (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
@@ -4878,7 +4884,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         return s + itAmount + vat - wht;
       }, 0);
     } else if (historyModal.kind === "purchase") {
-      const subtotal = doc.items.reduce((s, it) => s + (it.net != null ? it.net : it.qty - it.deduct) * it.price, 0);
+      const subtotal = doc.items.reduce((s, it) => s + (it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0))) * (Number(it.price)||0) * (1-(Number(it.discountPct)||0)/100), 0);
       total = subtotal + subtotal * ((Number(doc.vatRate) || 0) / 100);
     } else {
       const subtotal = doc.items.reduce((s, it) => s + (it.net || 0) * (it.price || 0), 0);
