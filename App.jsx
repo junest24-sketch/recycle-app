@@ -156,6 +156,7 @@ function printAsPDF(elementId, title = "") {
     thead { display: table-header-group; }
     tfoot { display: table-footer-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
+    tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     @page { size: A4 portrait; margin: 10mm; }
     @media print {
       .toolbar { display: none !important; }
@@ -219,6 +220,7 @@ button { display: none !important; }
 thead { display: table-header-group; }
 tfoot { display: table-footer-group; }
 tr { page-break-inside: avoid; page-break-after: auto; }
+tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 @page { size: A4 portrait; margin: 10mm; }
 @media print { body { padding: 0; } }
 </style></head><body>${preview.html}</body></html>`);
@@ -256,6 +258,11 @@ tr { page-break-inside: avoid; page-break-after: auto; }
         #print-preview-content tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
         #print-preview-content img { max-width: 100%; }
         #print-preview-content button { display: none !important; }
+        #print-preview-content tr, #print-preview-content td, #print-preview-content th {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
       `}</style>
     </div>
   );
