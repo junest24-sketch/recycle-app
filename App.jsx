@@ -1511,7 +1511,7 @@ useEffect(() => {
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
-        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} />}
+        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} companySettings={companySettings} />}
         {tab === "tax" && <TaxSummaryTab purchases={purchases} sales={sales} expenses={expenses} />}
       </div>
 
@@ -8064,6 +8064,32 @@ function CompanySettingsTab({ settings, setSettings, shopProfile, setShopProfile
         </Field>
       </div>
 
+      {/* ===== ยอดยกมา ===== */}
+      <div style={{ ...sCard, border: "2px solid #854f0b" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#854f0b" }}>📊 ยอดยกมา (Opening Balance) — สำหรับงบกำไรขาดทุน</h3>
+        </div>
+        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
+          ใส่ยอดสะสม <strong>ก่อนเริ่มใช้แอพ</strong> เพื่อให้งบกำไรขาดทุนถูกต้องตลอดปี — ระบุเดือนเริ่มต้นที่ยกมาด้วย (เช่น เริ่มใช้แอพเดือนมิถุนายน ให้ใส่ยอดม.ค.–พ.ค.)
+        </p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
+          <Field label="เดือนที่เริ่มใช้แอพ (ยกมาก่อนเดือนนี้)">
+            <input type="month" style={inputStyle} value={cs.openingMonth || ""} onChange={(e) => set("openingMonth", e.target.value)} placeholder="ปปปป-ดด" />
+          </Field>
+          <Field label="รายได้ยกมา (ยอดขายสะสมก่อนเริ่มใช้แอพ)">
+            <input type="number" style={inputStyle} value={cs.openingRevenue || ""} onChange={(e) => set("openingRevenue", e.target.value)} placeholder="0.00" />
+          </Field>
+          <Field label="ต้นทุนขายยกมา (COGS สะสมก่อนเริ่มใช้แอพ)">
+            <input type="number" style={inputStyle} value={cs.openingCOGS || ""} onChange={(e) => set("openingCOGS", e.target.value)} placeholder="0.00" />
+          </Field>
+        </div>
+        {(cs.openingMonth && (Number(cs.openingRevenue) > 0 || Number(cs.openingCOGS) > 0)) && (
+          <div style={{ marginTop: 12, padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12 }}>
+            ✅ รายได้ยกมา <strong>฿{Number(cs.openingRevenue || 0).toLocaleString("th-TH", { minimumFractionDigits: 2 })}</strong> และต้นทุนขายยกมา <strong>฿{Number(cs.openingCOGS || 0).toLocaleString("th-TH", { minimumFractionDigits: 2 })}</strong> จะถูกรวมในรายงานงบกำไรขาดทุนของปีนั้น (ก่อนเดือน {cs.openingMonth})
+          </div>
+        )}
+      </div>
+
       {/* ===== Preview บิล ===== */}
       <div style={{ ...sCard, background: "#f9fafb" }}>
         <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>👁 ตัวอย่างหัวบิล</h3>
@@ -8639,7 +8665,7 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments, companySettings }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -8662,6 +8688,12 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     return value;
   };
 
+  const cs = companySettings || {};
+  // ยอดยกมาจากตั้งค่า — บวกเข้าในงบเฉพาะปีที่มีการยกมา และเฉพาะเดือนแรกของปีนั้น (หรือเดือนที่ระบุ)
+  const openingMonth = cs.openingMonth || ""; // "ปปปป-ดด"
+  const openingRevenue = Number(cs.openingRevenue) || 0;
+  const openingCOGS = Number(cs.openingCOGS) || 0;
+
   // ฟังก์ชันคำนวณกำไรขาดทุนของเดือน/ปีใดๆ — ใช้ร่วมกันทั้งมุมมองรายเดือนและสรุปรายปี
   const computeMonthlyPL = (y, m) => {
     const sd = `${y}-${String(m).padStart(2,"0")}-01`;
@@ -8676,7 +8708,9 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       return sum + ad;
     }, 0);
     const otherIncome = 0;
-    const income = totalRev + otherIncome;
+    // บวกยอดยกมาในเดือนที่ระบุ (เดือนแรกที่เริ่มใช้แอพ = เดือนก่อนหน้าทั้งหมด)
+    const isOpeningMonth = openingMonth && ym === openingMonth;
+    const income = totalRev + otherIncome + (isOpeningMonth ? openingRevenue : 0);
 
     const beginInv = stockValueBefore(sd);
     const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
@@ -8684,7 +8718,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       .filter((mv) => mv.type === "in" && !mv.isOpening && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.qty) || 0) * (Number(mv.price) || 0), 0);
     const available = beginInv + purchInR;
-    const cost = available - endInv;
+    const cost = (available - endInv) + (isOpeningMonth ? openingCOGS : 0);
     const gross = income - cost;
 
     const expensesInR = expenses.filter((e) => inR(e.billDate || e.date));
@@ -8723,6 +8757,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     grossProfit, expenseByCategory, totalExpenses, netProfit,
   } = currentMonthPL;
   const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
+  const isOpeningMonth = openingMonth && `${year}-${String(month).padStart(2,"0")}` === openingMonth;
 
   // ===== สรุปรายปี: กำไรสุทธิทั้ง 12 เดือน =====
   const yearlyMonths = useMemo(() => {
@@ -8842,12 +8877,18 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
 
           <Row label="รายได้จากการขาย" value={`฿${fmt(totalRevenue)}`} />
           <Row label="รายได้อื่น" value={`฿${fmt(totalOtherIncome)}`} />
+          {isOpeningMonth && openingRevenue > 0 && (
+            <Row label="　+ รายได้ยกมา (ก่อนเริ่มใช้แอพ)" value={`+฿${fmt(openingRevenue)}`} color="#854f0b" />
+          )}
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
           <Row label="รวมรายได้" value={`฿${fmt(totalIncome)}`} bold />
 
           <div style={{ marginTop: 16, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>ต้นทุนขาย:</div>
           <Row label="　สินค้าคงเหลือยกมาต้นงวด" value={`฿${fmt(beginningInventory)}`} />
           <Row label="　บวก ซื้อสินค้า" value={`+฿${fmt(purchasesInRange)}`} />
+          {isOpeningMonth && openingCOGS > 0 && (
+            <Row label="　+ ต้นทุนขายยกมา (ก่อนเริ่มใช้แอพ)" value={`+฿${fmt(openingCOGS)}`} color="#854f0b" />
+          )}
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
           <Row label="　สินค้าที่มีไว้เพื่อขาย" value={`฿${fmt(goodsAvailableForSale)}`} />
           <Row label="　หัก สินค้าคงเหลือปลายงวด" value={`-฿${fmt(endingInventory)}`} />
