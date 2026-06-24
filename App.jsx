@@ -3020,7 +3020,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const [dateTo, setDateTo] = useState("");
   const [expanded, setExpanded] = useState(null);
 
-  const blankItem = () => ({ productId: "", qty: 0, deduct: 0, deductType: "kg", price: 0, discountPct: 0 });
+  const blankItem = () => ({ productId: "", qty: 0, deductPct: 0, deductKg: 0, price: 0 });
   const blankPayment = () => ({
     id: "PM" + Date.now().toString().slice(-6),
     date: new Date().toISOString().slice(0, 10),
@@ -3112,26 +3112,19 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const cancelPO = (id) => setPurchases(purchases.map((p) => (p.id === id ? { ...p, status: "ยกเลิก" } : p)));
   const revertToPending = (id) => setPurchases(purchases.map((p) => (p.id === id ? { ...p, status: "รออนุมัติ" } : p)));
 
-  const lineTotal = (it) => {
-    const qty = Number(it.qty) || 0;
-    const deduct = Number(it.deduct) || 0;
-    const net = it.deductType === "pct" ? qty * (1 - deduct / 100) : qty - deduct;
-    const price = Number(it.price) || 0;
-    const discountPct = Number(it.discountPct) || 0;
-    return net * price * (1 - discountPct / 100);
-  };
   const lineNet = (it) => {
     const qty = Number(it.qty) || 0;
+    const deductPct = Number(it.deductPct) || 0;
+    const deductKg = Number(it.deductKg) || 0;
+    // รองรับทั้ง field ใหม่ (deductPct/deductKg) และ field เก่า (deduct/deductType)
+    if (it.deductPct != null || it.deductKg != null) {
+      return qty - (qty * deductPct / 100) - deductKg;
+    }
     const deduct = Number(it.deduct) || 0;
     return it.deductType === "pct" ? qty * (1 - deduct / 100) : qty - deduct;
   };
-  const subtotalBeforeVat = (po) => po.items.reduce((s, it) => {
-    const qty = Number(it.qty) || 0;
-    const deduct = Number(it.deduct) || 0;
-    const net = it.deductType === "pct" ? qty * (1 - deduct / 100) : (it.net != null ? it.net : qty - deduct);
-    const discountPct = Number(it.discountPct) || 0;
-    return s + (net * (Number(it.price) || 0) * (1 - discountPct / 100));
-  }, 0);
+  const lineTotal = (it) => lineNet(it) * (Number(it.price) || 0);
+  const subtotalBeforeVat = (po) => po.items.reduce((s, it) => s + lineNet(it) * (Number(it.price) || 0), 0);
   const vatAmount = (po) => subtotalBeforeVat(po) * ((Number(po.vatRate) || 0) / 100);
   const grandTotal = (po) => subtotalBeforeVat(po) + vatAmount(po);
   const paidTotal = (po) => (po.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
@@ -3389,45 +3382,45 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>สินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 650, tableLayout: "fixed" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
               <thead>
                 <tr>
                   <th style={thStyle}>สินค้า</th>
-                  <th style={{ ...thStyle, textAlign: "right", width: 100 }}>จำนวน</th>
-                  <th style={{ ...thStyle, width: 60 }}>หน่วย</th>
-                  <th style={{ ...thStyle, textAlign: "right", width: 90 }}>หัก</th>
-                  <th style={{ ...thStyle, textAlign: "right", width: 70 }}>สุทธิ</th>
-                  <th style={{ ...thStyle, textAlign: "right", width: 110 }}>ราคา/หน่วย</th>
-                  <th style={{ ...thStyle, textAlign: "right", width: 80 }}>หัก %</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 90 }}>จำนวน</th>
+                  <th style={{ ...thStyle, width: 52 }}>หน่วย</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 75 }}>หัก%</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 80 }}>หัก(กก.)</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 80 }}>รวมหัก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 75 }}>สุทธิ</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: 100 }}>ราคา/หน่วย</th>
                   <th style={{ ...thStyle, textAlign: "right", width: 100 }}>จำนวนเงิน</th>
-                  <th style={{ ...thStyle, width: 44 }}></th>
+                  <th style={{ ...thStyle, width: 40 }}></th>
                 </tr>
               </thead>
               <tbody>
-                {form.items.map((it, idx) => (
-                  <tr key={idx}>
-                    <td style={tdStyle}>
-                      <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
-                    </td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
-                    <td style={{ ...tdStyle, color: "#9ca3af" }}>{prodUnit(it.productId)}</td>
-                    <td style={tdStyle}>
-                      <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-                        <input type="number" min={0} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deduct} onChange={(e) => updateItem(idx, "deduct", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
-                        <button type="button"
-                          onClick={() => updateItem(idx, "deductType", it.deductType === "pct" ? "kg" : "pct")}
-                          style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d1d5db", background: it.deductType === "pct" ? "#fef3c7" : "#f3f4f6", color: it.deductType === "pct" ? "#854f0b" : "#6b7280", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
-                          {it.deductType === "pct" ? "%" : "กก."}
-                        </button>
-                      </div>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 500, color: "#9ca3af" }}>{fmt(lineNet(it))}</td>
-                    <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
-                    <td style={tdStyle}><input type="number" min={0} max={100} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.discountPct || 0} onChange={(e) => updateItem(idx, "discountPct", e.target.value)} placeholder="0" /></td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(lineTotal(it))}</td>
-                    <td style={tdStyle}><button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button></td>
-                  </tr>
-                ))}
+                {form.items.map((it, idx) => {
+                  const qty = Number(it.qty) || 0;
+                  const deductPct = Number(it.deductPct) || 0;
+                  const deductKg = Number(it.deductKg) || 0;
+                  const totalDeductKg = (qty * deductPct / 100) + deductKg;
+                  const net = qty - totalDeductKg;
+                  return (
+                    <tr key={idx}>
+                      <td style={tdStyle}>
+                        <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
+                      </td>
+                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                      <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{prodUnit(it.productId)}</td>
+                      <td style={tdStyle}><input type="number" min={0} max={100} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductPct || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductPct", e.target.value)} /></td>
+                      <td style={tdStyle}><input type="number" min={0} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductKg || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductKg", e.target.value)} /></td>
+                      <td style={{ ...tdStyle, textAlign: "right", color: totalDeductKg > 0 ? "#993c1d" : "#9ca3af", fontWeight: 500 }}>{fmt(totalDeductKg)}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(net)}</td>
+                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>{fmt(net * (Number(it.price) || 0))}</td>
+                      <td style={tdStyle}><button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button></td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -3548,32 +3541,43 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
           <thead>
             <tr style={{ background: primaryColor + "22" }}>
-              <th style={{ ...thStyle, color: primaryColor, width: "32%" }}>สินค้า</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "12%" }}>จำนวน</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "9%" }}>หัก</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "9%" }}>สุทธิ</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "12%" }}>ราคา/หน่วย</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "8%" }}>หัก %</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "18%" }}>จำนวนเงิน</th>
+              <th style={{ ...thStyle, color: primaryColor, width: "28%" }}>สินค้า</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "11%" }}>จำนวน</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "7%" }}>หัก%</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "9%" }}>หัก(กก.)</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "9%" }}>รวมหัก</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "8%" }}>สุทธิ</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "11%" }}>ราคา/หน่วย</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "17%" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
             {po.items.map((it, idx) => {
               const p = prodInfo(it.productId);
               const qty = Number(it.qty) || 0;
-              const deduct = Number(it.deduct) || 0;
-              const net = it.deductType === "pct" ? qty * (1 - deduct / 100) : (it.net != null ? it.net : qty - deduct);
-              const discountPct = Number(it.discountPct) || 0;
-              const amount = net * it.price * (1 - discountPct / 100);
-              const deductLabel = it.deductType === "pct" ? `${deduct}%` : fmt(deduct);
+              // รองรับ field ใหม่ (deductPct/deductKg) และ field เก่า (deduct/deductType)
+              let deductPct = 0, deductKg = 0, net = 0;
+              if (it.deductPct != null || it.deductKg != null) {
+                deductPct = Number(it.deductPct) || 0;
+                deductKg = Number(it.deductKg) || 0;
+                net = qty - (qty * deductPct / 100) - deductKg;
+              } else {
+                const deduct = Number(it.deduct) || 0;
+                net = it.deductType === "pct" ? qty * (1 - deduct / 100) : (it.net != null ? it.net : qty - deduct);
+                if (it.deductType === "pct") deductPct = deduct;
+                else deductKg = deduct;
+              }
+              const totalDeduct = (qty * deductPct / 100) + deductKg;
+              const amount = net * (Number(it.price) || 0);
               return (
                 <tr key={idx}>
                   <td style={{ ...tdStyle, wordBreak: "break-word" }}>{p.name}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {p.unit}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{deduct > 0 ? deductLabel : "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(qty)} {p.unit}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: deductPct > 0 ? "#993c1d" : "#9ca3af" }}>{deductPct > 0 ? `${deductPct}%` : "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: deductKg > 0 ? "#993c1d" : "#9ca3af" }}>{deductKg > 0 ? fmt(deductKg) : "—"}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: totalDeduct > 0 ? "#993c1d" : "#9ca3af" }}>{totalDeduct > 0 ? fmt(totalDeduct) : "—"}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.price)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: discountPct > 0 ? "#993c1d" : "#9ca3af" }}>{discountPct > 0 ? `${discountPct}%` : "—"}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(amount)}</td>
                 </tr>
               );
@@ -3582,18 +3586,18 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
           <tfoot>
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
+                <td colSpan={7} style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>{fmt(subtotal)} บาท</td>
               </tr>
             )}
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
+                <td colSpan={7} style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
               </tr>
             )}
             <tr style={{ background: "#f0fdf4" }}>
-              <td colSpan={5} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
+              <td colSpan={7} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)} บาท</td>
             </tr>
           </tfoot>
