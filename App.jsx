@@ -156,7 +156,6 @@ function printAsPDF(elementId, title = "") {
     thead { display: table-header-group; }
     tfoot { display: table-footer-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     @page { size: A4 portrait; margin: 10mm; }
     @media print {
@@ -2210,11 +2209,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </tbody>
               {stockByType.length > 0 && (
                 <tfoot>
-                  <tr style={{ background: "#0f6e56", borderTop: "2px solid #064e3b" }}>
-                    <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>ผลรวม</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(stockByType.reduce((s, g) => s + g.qty, 0))}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#bbf7d0" }}>{fmt(stockByType.reduce((s, g) => s + g.value, 0))}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>
+                  <tr style={{ borderTop: "3px solid #0f6e56" }}>
+                    <td style={{ ...tdStyle, fontWeight: 700, color: "#0f6e56", fontSize: 14 }}>ผลรวม</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56", fontSize: 14 }}>{fmt(stockByType.reduce((s, g) => s + g.qty, 0))}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56", fontSize: 14 }}>{fmt(stockByType.reduce((s, g) => s + g.value, 0))}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56", fontSize: 14 }}>
                       {(() => {
                         const totalQty = stockByType.reduce((s, g) => s + g.qty, 0);
                         const totalVal = stockByType.reduce((s, g) => s + g.value, 0);
@@ -3495,7 +3494,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
       )}
 
       {modal && modal.mode === "view" && (
-        <PurchasePdfModal po={modal.item} customer={customers.find((c) => c.id === modal.item.customerId)} products={products} storeBankAccounts={storeBankAccounts} companySettings={companySettings} onClose={() => setModal(null)} />
+        <PurchasePdfModal po={purchases.find((p) => p.id === modal.item.id) || modal.item} customer={customers.find((c) => c.id === modal.item.customerId)} products={products} storeBankAccounts={storeBankAccounts} companySettings={companySettings} onClose={() => setModal(null)} />
       )}
       </div>{/* end tab-export-purchases */}
     </div>
@@ -3552,41 +3551,29 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
           <thead>
             <tr style={{ background: primaryColor + "22" }}>
-              <th style={{ ...thStyle, color: primaryColor, width: "28%" }}>สินค้า</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "11%" }}>จำนวน</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "7%" }}>หัก%</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "9%" }}>หัก(กก.)</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "9%" }}>รวมหัก</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "8%" }}>สุทธิ</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "11%" }}>ราคา/หน่วย</th>
-              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "17%" }}>จำนวนเงิน</th>
+              <th style={{ ...thStyle, color: primaryColor, width: "40%" }}>สินค้า</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "15%" }}>จำนวน</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "15%" }}>สุทธิ</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "15%" }}>ราคา/หน่วย</th>
+              <th style={{ ...thStyle, color: primaryColor, textAlign: "right", width: "15%" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
             {po.items.map((it, idx) => {
               const p = prodInfo(it.productId);
               const qty = Number(it.qty) || 0;
-              // รองรับ field ใหม่ (deductPct/deductKg) และ field เก่า (deduct/deductType)
-              let deductPct = 0, deductKg = 0, net = 0;
+              let net = 0;
               if (it.deductPct != null || it.deductKg != null) {
-                deductPct = Number(it.deductPct) || 0;
-                deductKg = Number(it.deductKg) || 0;
-                net = qty - (qty * deductPct / 100) - deductKg;
+                net = qty - (qty * (Number(it.deductPct) || 0) / 100) - (Number(it.deductKg) || 0);
               } else {
                 const deduct = Number(it.deduct) || 0;
                 net = it.deductType === "pct" ? qty * (1 - deduct / 100) : (it.net != null ? it.net : qty - deduct);
-                if (it.deductType === "pct") deductPct = deduct;
-                else deductKg = deduct;
               }
-              const totalDeduct = (qty * deductPct / 100) + deductKg;
               const amount = net * (Number(it.price) || 0);
               return (
                 <tr key={idx}>
                   <td style={{ ...tdStyle, wordBreak: "break-word" }}>{p.name}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(qty)} {p.unit}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: deductPct > 0 ? "#993c1d" : "#9ca3af" }}>{deductPct > 0 ? `${deductPct}%` : "—"}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: deductKg > 0 ? "#993c1d" : "#9ca3af" }}>{deductKg > 0 ? fmt(deductKg) : "—"}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: totalDeduct > 0 ? "#993c1d" : "#9ca3af" }}>{totalDeduct > 0 ? fmt(totalDeduct) : "—"}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)}</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.price)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(amount)}</td>
@@ -3597,18 +3584,18 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
           <tfoot>
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={7} style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
+                <td colSpan={4} style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontSize: 11 }}>{fmt(subtotal)} บาท</td>
               </tr>
             )}
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={7} style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
+                <td colSpan={4} style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
               </tr>
             )}
             <tr style={{ background: "#f0fdf4" }}>
-              <td colSpan={7} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
+              <td colSpan={4} style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)} บาท</td>
             </tr>
           </tfoot>
