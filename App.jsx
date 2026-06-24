@@ -4867,7 +4867,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       const remaining = total - paid;
       const payStatus = e.writeOff ? "paid" : (remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid");
       const vendorLabel = e.vendorName || items.map((it) => it.description).filter(Boolean).join(", ") || e.refNo || e.id;
-      return { kind: "expense", id: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
+      return { kind: "expense", id: e.id, displayId: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
     });
   }, [expenses]);
 
@@ -4886,7 +4886,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
     return list
-      .filter((r) => r.id.includes(search) || rowSearchLabel(r).includes(search))
+      .filter((r) => (r.displayId || r.id).includes(search) || r.id.includes(search) || rowSearchLabel(r).includes(search))
       .filter((r) => (!dateFrom || (r.date || "") >= dateFrom) && (!dateTo || (r.date || "") <= dateTo))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, dateFrom, dateTo, customers]);
@@ -5106,7 +5106,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                     <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
                   )}
                 </td>
-                <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.displayId || r.id}</td>
                 <td style={tdStyle}>{r.date}</td>
                 <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
@@ -5142,7 +5142,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
       {payModal && payRows && (
         <Modal
-          title={payModal.kind === "sale" ? `บันทึกรับเงิน · ${payModal.id}` : `บันทึกจ่ายเงิน · ${payModal.id}`}
+          title={payModal.kind === "sale" ? `บันทึกรับเงิน · ${payModal.displayId || payModal.id}` : `บันทึกจ่ายเงิน · ${payModal.displayId || payModal.id}`}
           onClose={() => { setPayModal(null); setPayRows(null); }}
           wide
         >
@@ -5248,7 +5248,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
       {historyModal && historyTotals && (
         <Modal
-          title={`ประวัติการชำระเงิน · ${historyModal.id}`}
+          title={`ประวัติการชำระเงิน · ${historyModal.displayId || historyModal.id}`}
           onClose={() => { setHistoryModal(null); setEditingPaymentIdx(null); setEditPaymentForm(null); }}
           wide
         >
@@ -6328,7 +6328,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 
   const blankForm = () => ({
     id: "EX" + Date.now().toString().slice(-6),
-    refNo: genId("EX", expenses),
+    refNo: genId("EX", expenses.map((e) => ({ id: e.refNo || e.id }))),
     recordDate: new Date().toISOString().slice(0, 10),
     taxInvoiceNo: "",
     billDate: new Date().toISOString().slice(0, 10),
