@@ -1,11 +1,17 @@
 import { useEffect, useRef } from 'react'
 import { supabase, isSupabaseReady } from './supabase'
 
+// ID ของเครื่องนี้ — ใช้แยกแยะว่า event มาจากเครื่องเราเองหรือเครื่องอื่น
+const DEVICE_ID = Math.random().toString(36).slice(2)
+
 export async function saveToSupabase(key, value) {
   if (!isSupabaseReady) return
   await supabase
     .from('app_data')
-    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+    .upsert(
+      { key, value, updated_at: new Date().toISOString(), updated_by: DEVICE_ID },
+      { onConflict: 'key' }
+    )
 }
 
 export async function loadAllFromSupabase() {
@@ -28,7 +34,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const lastSaveTime = useRef(0)
   const isLoadingFromRemote = useRef(false)
 
-  // ---------- SAVE ----------
+  // ---------- SAVE (debounce 2s, max wait 6s) ----------
   useEffect(() => {
     if (!loaded || !isSupabaseReady) return
     if (isFirstRender.current) { isFirstRender.current = false; return }
@@ -46,12 +52,15 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     }
 
     clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(doSave, 1500)
+    saveTimer.current = setTimeout(doSave, 2000)
     if (!maxWaitTimer.current) {
-      maxWaitTimer.current = setTimeout(doSave, 4000)
+      maxWaitTimer.current = setTimeout(doSave, 6000)
     }
 
-    return () => { clearTimeout(saveTimer.current) }
+    return () => {
+      clearTimeout(saveTimer.current)
+      clearTimeout(maxWaitTimer.current)
+    }
   }, [key, value, loaded])
 
   // ---------- REALTIME ----------
@@ -59,15 +68,20 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     if (!isSupabaseReady || !loaded) return
 
     const channel = supabase
-      .channel(`sync-${key}`)
+      .channel(`sync-${key}-${DEVICE_ID}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'app_data', filter: `key=eq.${key}` },
-        async () => {
-          // ข้ามถ้ากำลัง save หรือเพิ่ง save ไปไม่ถึง 10 วิ
-          if (isSaving.current || Date.now() - lastSaveTime.current < 10000) return
-          // ข้ามถ้ากำลังโหลดจาก remote อยู่แล้ว
-          if (isLoadingFromRemote.current) return
+        async (payload) => {
+          // ข้ามถ้า event มาจากเครื่องเราเอง
+          const updatedBy = payload.new?.updated_by
+          if (updatedBy === DEVICE_ID) return
+
+          // ข้ามถ้ากำลัง save หรือกำลังโหลด
+          if (isSaving.current || isLoadingFromRemote.current) return
+
+          // ข้ามถ้าเพิ่ง save ไปไม่ถึง 3 วิ (ป้องกัน echo จากเครื่องอื่นที่ไม่มี updated_by)
+          if (Date.now() - lastSaveTime.current < 3000) return
 
           isLoadingFromRemote.current = true
           const { data, error } = await supabase
@@ -83,18 +97,22 @@ export function useSupabaseSync(key, value, setValue, loaded) {
           const localValue = valueRef.current
 
           if (Array.isArray(remoteValue) && Array.isArray(localValue)) {
-            // เพิ่มเฉพาะ record ใหม่จาก remote ที่ local ไม่มี
-            // ไม่ทับ record ที่ local มีอยู่แล้ว — local เป็น truth
+            // merge: รับทุก record จาก remote แทนที่ local ด้วย version ล่าสุด
+            // local record ที่ไม่มีใน remote ให้คงไว้ (อาจกำลัง save อยู่)
+            const remoteMap = new Map(remoteValue.filter(x => x.id).map(x => [x.id, x]))
+            const merged = localValue.map(x => remoteMap.has(x.id) ? remoteMap.get(x.id) : x)
+            // เพิ่ม record ใหม่จาก remote ที่ local ไม่มี
             const localIds = new Set(localValue.map(x => x.id).filter(Boolean))
             const newItems = remoteValue.filter(x => x.id && !localIds.has(x.id))
-            if (newItems.length > 0) {
-              setValue([...localValue, ...newItems])
+            if (newItems.length > 0 || merged.some((m, i) => m !== localValue[i])) {
+              setValue([...merged, ...newItems])
             }
             return
           }
 
-          // non-array: ใช้ remote เฉพาะถ้า local ว่างอยู่
-          if (!localValue || (typeof localValue === 'object' && Object.keys(localValue).length === 0)) {
+          // non-array (object เช่น companySettings, shopProfile)
+          // รับค่า remote เสมอ เพราะ updated_by ยืนยันแล้วว่าไม่ใช่เครื่องเรา
+          if (JSON.stringify(remoteValue) !== JSON.stringify(localValue)) {
             setValue(remoteValue)
           }
         }
