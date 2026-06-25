@@ -2531,8 +2531,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                       </tr>
                     ))}
                     {bankGroupRows.length > 0 && (
-                      <tr style={{ background: "#f9fafb" }}>
-                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 600, color: "#185fa5", paddingLeft: 24 }}>รวมกลุ่มธนาคาร</td>
+                      <tr style={{ background: "#e6f1fb" }}>
+                        <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5", paddingLeft: 24 }}>รวมกลุ่มธนาคาร</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>฿{fmt(bankGroupRows.reduce((s,b)=>s+b.ob,0))}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>฿{fmt(bankGroupRows.reduce((s,b)=>s+b.inflow,0))}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>฿{fmt(bankGroupRows.reduce((s,b)=>s+b.outflow,0))}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(bankGroupTotal)}</td>
                       </tr>
                     )}
@@ -2555,8 +2558,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                       </tr>
                     ))}
                     {cashGroupRows.length > 0 && (
-                      <tr style={{ background: "#f9fafb" }}>
-                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 600, color: "#0f6e56", paddingLeft: 24 }}>รวมกลุ่มเงินสด</td>
+                      <tr style={{ background: "#e1f5ee" }}>
+                        <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#0f6e56", paddingLeft: 24 }}>รวมกลุ่มเงินสด</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>฿{fmt(cashGroupRows.reduce((s,b)=>s+b.ob,0))}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>฿{fmt(cashGroupRows.reduce((s,b)=>s+b.inflow,0))}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>฿{fmt(cashGroupRows.reduce((s,b)=>s+b.outflow,0))}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>฿{fmt(cashGroupTotal)}</td>
                       </tr>
                     )}
