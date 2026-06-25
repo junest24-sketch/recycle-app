@@ -1531,7 +1531,7 @@ useEffect(() => {
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
-        {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
+        {tab === "inventory" && <InventoryTab products={products} inventory={inventory} storeBankAccounts={storeBankAccounts} />}
         {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
         {tab === "prepayments" && <PrepaymentsTab customers={customers} setCustomers={setCustomers} prepayments={prepayments} setPrepayments={setPrepayments} sales={sales} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} customers={customers} />}
@@ -1900,22 +1900,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 700 }}>แดชบอร์ดภาพรวม</h2>
       <p style={{ margin: "0 0 12px", color: "#6b7280", fontSize: 14 }}>สรุปข้อมูลการซื้อขายของเก่ารีไซเคิล</p>
 
-      {hasOpeningData && (
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-          {totalOpeningStockValue > 0 && (
-            <div style={{ background: "#e1f5ee", border: "1px solid #a3d9c3", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#0c443c", display: "flex", gap: 6, alignItems: "center" }}>
-              <Boxes size={14} />
-              <span>สต็อกยกมา <strong>{fmt(totalOpeningStockQty)} หน่วย</strong> มูลค่า <strong>฿{fmt(totalOpeningStockValue)}</strong> — รวมในสต็อกแล้ว</span>
-            </div>
-          )}
-          {totalOpeningBankBalance > 0 && (
-            <div style={{ background: "#e6f1fb", border: "1px solid #b3d0f0", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#0c447c", display: "flex", gap: 6, alignItems: "center" }}>
-              <Landmark size={14} />
-              <span>ยอดธนาคารยกมารวม <strong>฿{fmt(totalOpeningBankBalance)}</strong> ({storeBankAccounts.filter(a => Number(a.openingBalance) > 0).length} บัญชี)</span>
-            </div>
-          )}
-        </div>
-      )}
+
 
 
 
@@ -5441,11 +5426,15 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 // ===================================================================
 // INVENTORY TAB
 // ===================================================================
-function InventoryTab({ products, inventory }) {
+function InventoryTab({ products, inventory, storeBankAccounts }) {
   const [expanded, setExpanded] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [showBasket, setShowBasket] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
+
+  const totalOpeningStockQty   = products.reduce((s, p) => s + (Number(p.openingQty) || 0), 0);
+  const totalOpeningStockValue = products.reduce((s, p) => s + (Number(p.openingQty) || 0) * (Number(p.openingCost) || 0), 0);
+  const totalOpeningBankBalance = (storeBankAccounts || []).reduce((s, a) => s + (Number(a.openingBalance) || 0), 0);
 
   const toggleSelect = (productId) => {
     setSelectedIds((prev) => {
@@ -5467,6 +5456,22 @@ function InventoryTab({ products, inventory }) {
 
   return (
     <div>
+      {(totalOpeningStockValue > 0 || totalOpeningBankBalance > 0) && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+          {totalOpeningStockValue > 0 && (
+            <div style={{ background: "#e1f5ee", border: "1px solid #a3d9c3", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#0c443c", display: "flex", gap: 6, alignItems: "center" }}>
+              <Boxes size={14} />
+              <span>สต็อกยกมา <strong>{fmt(totalOpeningStockQty)} หน่วย</strong> มูลค่า <strong>฿{fmt(totalOpeningStockValue)}</strong> — รวมในสต็อกแล้ว</span>
+            </div>
+          )}
+          {totalOpeningBankBalance > 0 && (
+            <div style={{ background: "#e6f1fb", border: "1px solid #b3d0f0", borderRadius: 8, padding: "7px 14px", fontSize: 13, color: "#0c447c", display: "flex", gap: 6, alignItems: "center" }}>
+              <Landmark size={14} />
+              <span>ยอดธนาคารยกมารวม <strong>฿{fmt(totalOpeningBankBalance)}</strong> ({(storeBankAccounts || []).filter(a => Number(a.openingBalance) > 0).length} บัญชี)</span>
+            </div>
+          )}
+        </div>
+      )}
       <Header title="ระบบสต๊อกสินค้า (Inventory)" subtitle="ติดตามยอดรับเข้า-เบิกออก คำนวณต้นทุนแบบ FIFO">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {selectedIds.size > 0 && (
