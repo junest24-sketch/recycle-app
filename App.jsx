@@ -6379,6 +6379,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [installmentPicker, setInstallmentPicker] = useState(false); // เปิด picker ดึงงวดผ่อน
+  const [expandedExpenses, setExpandedExpenses] = useState({}); // { [expenseId]: bool }
+  const toggleExpense = (id) => setExpandedExpenses((prev) => ({ ...prev, [id]: !prev[id] }));
   const [pendingInstallment, setPendingInstallment] = useState(null); // {loanId, no} ของงวดที่เลือกไว้ รอบันทึก
   const [pickerLoanId, setPickerLoanId] = useState(""); // สัญญาที่เลือกใน dropdown ของ picker
 
@@ -6702,43 +6704,52 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   const t = calcTotals(e);
                   const items = (e.items && e.items.length > 0) ? e.items : [{ description: e.description, mainCategory: e.mainCategory || e.category, subCategory: e.subCategory, amount: e.amount }];
                   // จัดกลุ่มตามหมวดหมู่ย่อย
-                  const grouped = {};
-                  items.forEach((it) => {
-                    const key = `${it.mainCategory || "-"}__${it.subCategory || ""}`;
-                    if (!grouped[key]) grouped[key] = { mainCategory: it.mainCategory || "-", subCategory: it.subCategory || "", items: [] };
-                    grouped[key].items.push(it);
-                  });
-                  const groupedArr = Object.values(grouped);
+                  const isExpanded = !!expandedExpenses[e.id];
                   return (
-                    <tr key={e.id}>
-                      <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7", verticalAlign: "top" }}>{e.refNo || e.id}</td>
-                      <td style={{ ...tdStyle, verticalAlign: "top" }}>{e.billDate || e.date}</td>
-                      <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", verticalAlign: "top" }}>{e.taxInvoiceNo || "-"}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600, color: "#374151", verticalAlign: "top" }}>{e.vendorName || "-"}</td>
-                      <td style={{ ...tdStyle, color: "#6b7280", padding: 0 }}>
-                        {groupedArr.map((g, gi) => (
-                          <div key={gi} style={{ padding: "8px 12px", borderBottom: gi < groupedArr.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: g.items.some(it => it.description) ? 4 : 0 }}>
-                              <Badge text={g.mainCategory} />
-                              {g.subCategory && <span style={{ fontSize: 12, color: "#9ca3af" }}>{g.subCategory}</span>}
-                            </div>
-                            {g.items.map((it, ii) => it.description ? (
-                              <div key={ii} style={{ fontSize: 13, color: "#6b7280", paddingLeft: 4 }}>
-                                {it.description}{g.items.length > 1 && <span style={{ color: "#9ca3af" }}> (฿{fmt(it.amount)})</span>}
-                              </div>
-                            ) : null)}
+                    <React.Fragment key={e.id}>
+                      <tr
+                        onClick={() => toggleExpense(e.id)}
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={(e2) => e2.currentTarget.style.background = "#f9fafb"}
+                        onMouseLeave={(e2) => e2.currentTarget.style.background = ""}
+                      >
+                        <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            {isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                            {e.refNo || e.id}
                           </div>
-                        ))}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d", verticalAlign: "top" }}>-฿{fmt(t.net)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right", verticalAlign: "top" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button style={iconBtn} onClick={() => openView(e)}><Printer size={14} /> ใบสำคัญจ่าย</button>
-                          <button style={iconBtn} onClick={() => openEdit(e)}><Edit2 size={14} /> แก้ไข</button>
-                          <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการค่าใช้จ่าย "${e.refNo || e.id}" ใช่หรือไม่?`, () => remove(e.id))}><Trash2 size={14} /> ลบ</button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td style={tdStyle}>{e.billDate || e.date}</td>
+                        <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace" }}>{e.taxInvoiceNo || "-"}</td>
+                        <td style={{ ...tdStyle, fontWeight: 600, color: "#374151" }}>{e.vendorName || "-"}</td>
+                        <td style={tdStyle}></td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>-฿{fmt(t.net)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right" }} onClick={(e2) => e2.stopPropagation()}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                            <button style={iconBtn} onClick={() => openView(e)}><Printer size={14} /> ใบสำคัญจ่าย</button>
+                            <button style={iconBtn} onClick={() => openEdit(e)}><Edit2 size={14} /> แก้ไข</button>
+                            <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการค่าใช้จ่าย "${e.refNo || e.id}" ใช่หรือไม่?`, () => remove(e.id))}><Trash2 size={14} /> ลบ</button>
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && items.map((it, ii) => (
+                        <tr key={ii} style={{ background: "#f9fafb" }}>
+                          <td style={{ ...tdStyle, paddingLeft: 28, color: "#9ca3af" }}>↳</td>
+                          <td style={tdStyle}></td>
+                          <td style={tdStyle}></td>
+                          <td style={tdStyle}></td>
+                          <td style={{ ...tdStyle, color: "#6b7280" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: it.description ? 2 : 0 }}>
+                              <Badge text={it.mainCategory || "-"} />
+                              {it.subCategory && <span style={{ fontSize: 12, color: "#9ca3af" }}>{it.subCategory}</span>}
+                            </div>
+                            {it.description && <div style={{ fontSize: 13, paddingLeft: 2 }}>{it.description}</div>}
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d" }}>-฿{fmt(it.amount)}</td>
+                          <td style={tdStyle}></td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
                   );
                 })}
                 {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีรายการค่าใช้จ่าย</td></tr>}
