@@ -210,8 +210,8 @@ function PrintPreviewOverlay({ preview, onClose }) {
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans Thai', sans-serif; font-size: 11px; color: #1f2937; background: #fff; padding: 10mm; }
-table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
-td, th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; }
+table { border-collapse: collapse; width: 100%; page-break-inside: auto; table-layout: fixed; }
+td, th { border: 1px solid #ddd; padding: 4px 6px; font-size: 10px; word-break: break-word; overflow-wrap: break-word; }
 th { background: #f3f4f6; font-weight: 700; }
 tr:nth-child(even) { background: #f9f9f9; }
 tfoot td { font-weight: 700; background: #f3f4f6; border-top: 2px solid #5a1414; }
@@ -221,7 +221,7 @@ thead { display: table-header-group; }
 tfoot { display: table-footer-group; }
 tr { page-break-inside: avoid; page-break-after: auto; }
 tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-@page { size: A4 portrait; margin: 10mm; }
+@page { size: A4 landscape; margin: 8mm; }
 @media print { body { padding: 0; } }
 </style></head><body>${preview.html}</body></html>`);
     win.document.close();
@@ -2503,14 +2503,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 <div style={{ background: "#185fa5", color: "#fff", padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>
                   ยอดเงินในธนาคารแต่ละบัญชี{dateRange ? ` — ${periodLabel}` : ""}
                 </div>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <thead><tr>
-                    <th style={thStyle}>ธนาคาร</th>
-                    <th style={thStyle}>เลขบัญชี</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>{dateRange ? "ยอดยกมา (ก่อนช่วง)" : "ยอดยกมา"}</th>
-                    <th style={{ ...thStyle, textAlign: "right", color: "#0f6e56" }}>รับเข้า</th>
-                    <th style={{ ...thStyle, textAlign: "right", color: "#993c1d" }}>จ่ายออก</th>
-                    <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
+                    <th style={{ ...thStyle, width: "28%" }}>ธนาคาร</th>
+                    <th style={{ ...thStyle, width: "18%" }}>เลขบัญชี</th>
+                    <th style={{ ...thStyle, textAlign: "right", width: "14%" }}>{dateRange ? "ยอดยกมา (ก่อนช่วง)" : "ยอดยกมา"}</th>
+                    <th style={{ ...thStyle, textAlign: "right", color: "#0f6e56", width: "13%" }}>รับเข้า</th>
+                    <th style={{ ...thStyle, textAlign: "right", color: "#993c1d", width: "13%" }}>จ่ายออก</th>
+                    <th style={{ ...thStyle, textAlign: "right", width: "14%" }}>คงเหลือ</th>
                   </tr></thead>
                   <tbody>
                     {bankGroupRows.length > 0 && (
