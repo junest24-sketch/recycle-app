@@ -1535,7 +1535,7 @@ useEffect(() => {
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} />}
         {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
         {tab === "prepayments" && <PrepaymentsTab customers={customers} setCustomers={setCustomers} prepayments={prepayments} setPrepayments={setPrepayments} sales={sales} storeBankAccounts={storeBankAccounts} />}
-        {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} />}
+        {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} customers={customers} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
@@ -4139,18 +4139,40 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                 </tr>
               </thead>
               <tbody>
-                {filteredAggregates.map((g) => (
-                  <tr key={`${g.saleId}__${g.productId}`}>
-                    <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace" }}>{g.saleId}</td>
-                    <td style={tdStyle}>{prodName(g.productId)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(g.qty)} {prodUnit(g.productId)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(g.value)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#534ab7" }}>฿{fmt(g.avgCost)}</td>
-                  </tr>
-                ))}
-                {filteredAggregates.length === 0 && (
-                  <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบรายการที่ค้นหา</td></tr>
-                )}
+                {(() => {
+                  // จัดกลุ่มตาม saleId
+                  const grouped = {};
+                  filteredAggregates.forEach((g) => {
+                    if (!grouped[g.saleId]) grouped[g.saleId] = [];
+                    grouped[g.saleId].push(g);
+                  });
+                  if (Object.keys(grouped).length === 0) return (
+                    <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบรายการที่ค้นหา</td></tr>
+                  );
+                  return Object.entries(grouped).map(([saleId, items]) => {
+                    const totalValue = items.reduce((s, g) => s + g.value, 0);
+                    return (
+                      <React.Fragment key={saleId}>
+                        {/* หัวกลุ่ม — เลข Invoice */}
+                        <tr style={{ background: "#f3f4f6" }}>
+                          <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, color: "#534ab7", fontFamily: "'JetBrains Mono', monospace" }}>
+                            {saleId} — {items.length} รายการ · รวม ฿{fmt(totalValue)}
+                          </td>
+                        </tr>
+                        {/* รายการสินค้าในกลุ่ม */}
+                        {items.map((g) => (
+                          <tr key={`${g.saleId}__${g.productId}`}>
+                            <td style={{ ...tdStyle, color: "#9ca3af", paddingLeft: 24 }}>↳</td>
+                            <td style={tdStyle}>{prodName(g.productId)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(g.qty)} {prodUnit(g.productId)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(g.value)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#534ab7" }}>฿{fmt(g.avgCost)}</td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </Card>
@@ -6338,7 +6360,7 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
   );
 }
 
-function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories, companySettings }) {
+function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans, expenseCategories, setExpenseCategories, companySettings, customers }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -6357,6 +6379,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     amount: 0,
     vatEnabled: false,
     whtRate: 0,
+    vendorId: "",
+    vendorName: "",
   });
 
   const blankForm = () => ({
@@ -6679,6 +6703,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                       <td style={{ ...tdStyle, color: "#6b7280" }}>
                         {items.map((it, i) => (
                           <div key={i} style={{ marginBottom: i < items.length - 1 ? 6 : 0 }}>
+                            {it.vendorName && <span style={{ fontWeight: 600, color: "#374151" }}>{it.vendorName} · </span>}
                             {it.description || "-"}{items.length > 1 && <span style={{ color: "#9ca3af" }}> (฿{fmt(it.amount)})</span>}
                           </div>
                         ))}
@@ -6770,6 +6795,19 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   <button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /> ลบรายการ</button>
                 )}
               </div>
+              <Field label="ผู้รับเงิน / ร้านค้า">
+                <CustomerSelect
+                  customers={customers || []}
+                  value={it.vendorId || ""}
+                  onChange={(cid) => {
+                    const c = (customers || []).find((x) => x.id === cid);
+                    const items = [...(form.items || [])];
+                    items[idx] = { ...items[idx], vendorId: cid, vendorName: c ? c.name : "" };
+                    setForm({ ...form, items });
+                  }}
+                  labelWithId={false}
+                />
+              </Field>
               <Field label="รายละเอียด">
                 <input style={inputStyle} value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} placeholder="เช่น ค่าน้ำมันรถบรรทุกขนของ" />
               </Field>
@@ -8699,8 +8737,15 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const byCategory = Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
     const totalExp = byCategory.reduce((s, c) => s + c.amount, 0);
 
-    const net = gross - totalExp;
-    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: income, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: cost, grossProfit: gross, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net };
+    // รวมยอดยกมาเข้าใน function โดยตรง
+    const ymMatches = !openingMonth || openingMonth === ym;
+    const addRev = ymMatches ? (Number(openingRevenue) || 0) : 0;
+    const addCost = ymMatches ? (Number(openingCost) || 0) : 0;
+    const totalIncomeWithOpening = income + addRev;
+    const totalCostWithOpening = cost + addCost;
+    const grossWithOpening = totalIncomeWithOpening - totalCostWithOpening;
+    const net = grossWithOpening - totalExp;
+    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: totalIncomeWithOpening, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: totalCostWithOpening, grossProfit: grossWithOpening, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net, openingRevenueApplied: addRev, openingCostApplied: addCost };
   };
 
   const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
@@ -8708,16 +8753,12 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
 
   const currentMonthPL = computeMonthlyPL(year, month);
   const {
-    totalRevenue, totalOtherIncome, totalIncome: totalIncomeRaw,
-    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost: totalCostRaw,
-    grossProfit: grossProfitRaw, expenseByCategory, totalExpenses, netProfit: netProfitRaw,
+    totalRevenue, totalOtherIncome, totalIncome,
+    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost,
+    grossProfit, expenseByCategory, totalExpenses, netProfit,
+    openingRevenueApplied, openingCostApplied,
   } = currentMonthPL;
-  // รวมยอดยกมา — นับเฉพาะถ้าเดือนที่เลือกตรงกับ openingMonth (หรือถ้าไม่ได้กำหนดเดือน ให้นับทุกเดือน)
-  const openingApplies = !openingMonth || openingMonth === `${year}-${String(month).padStart(2,"0")}`;
-  const totalIncome = totalIncomeRaw + (openingApplies ? (Number(openingRevenue) || 0) : 0);
-  const totalCost = totalCostRaw + (openingApplies ? (Number(openingCost) || 0) : 0);
-  const grossProfit = totalIncome - totalCost;
-  const netProfit = grossProfit - totalExpenses;
+  const openingApplies = openingRevenueApplied > 0 || openingCostApplied > 0;
   const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
   // ===== สรุปรายปี: กำไรสุทธิทั้ง 12 เดือน =====
