@@ -2579,10 +2579,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tbody>
                   {bankRows.length > 0 && (
                     <tfoot>
-                      <tr style={{ background: "#e6f1fb" }}>
-                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 700 }}>รวมเงินในธนาคารทั้งหมด</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#185fa5" }}>฿{fmt(totalBankBalance)}</td>
-                      </tr>
+
                       {(() => {
                         const depOpening = customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
                         const depIn = (deposits||[]).reduce((s,d) => s + (Number(d.amount)||0), 0);
