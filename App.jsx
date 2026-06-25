@@ -8683,11 +8683,10 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     expensesInR.forEach((e) => {
       const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category || "ไม่ระบุ", amount: e.amount }];
       items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").forEach((it) => {
-        const cat = it.subCategory || "อื่นๆ";
-        groups[cat] = (groups[cat] || 0) + (Number(it.amount) || 0);
+        groups["ค่าใช้จ่าย"] = (groups["ค่าใช้จ่าย"] || 0) + (Number(it.amount) || 0);
       });
     });
-    openingRows.filter((r) => r.mainCategory === "ค่าใช้จ่าย").forEach((r) => { groups[r.subCategory || r.mainCategory] = (groups[r.subCategory || r.mainCategory] || 0) + r.amount; });
+    openingRows.filter((r) => r.mainCategory === "ค่าใช้จ่าย").forEach((r) => { groups["ค่าใช้จ่าย"] = (groups["ค่าใช้จ่าย"] || 0) + r.amount; });
     const byCategory = Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
     const totalExp = byCategory.reduce((s, c) => s + c.amount, 0);
 
