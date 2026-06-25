@@ -6842,10 +6842,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   <button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /> ลบรายการ</button>
                 )}
               </div>
-              <Field label="รายละเอียด">
-                <input style={inputStyle} value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} placeholder="เช่น ค่าน้ำมันรถบรรทุกขนของ" />
-              </Field>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
+              {/* แถว 1: หมวดใหญ่ หมวดย่อย รายละเอียด */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: "0 12px", marginBottom: 8 }}>
                 <Field label="หมวดหมู่ใหญ่">
                   {addingMainCatFor[idx] ? (
                     <div style={{ display: "flex", gap: 6 }}>
@@ -6880,21 +6878,48 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                     </select>
                   )}
                 </Field>
-                <Field label="จำนวนเงิน (ก่อนภาษี)">
-                  <input type="number" style={inputStyle} value={it.amount} onChange={(e) => updateItem(idx, "amount", e.target.value)} />
+                <Field label="รายละเอียด">
+                  <input style={inputStyle} value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} placeholder="เช่น ค่าน้ำมันรถบรรทุกขนของ" />
                 </Field>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px", marginTop: 4 }}>
-                <Field label="ภาษีมูลค่าเพิ่ม">
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, height: 38, fontSize: 14, cursor: "pointer" }}>
-                    <input type="checkbox" checked={!!it.vatEnabled} onChange={(e) => updateItem(idx, "vatEnabled", e.target.checked)} style={{ width: 16, height: 16 }} />
-                    มี VAT 7%
-                  </label>
-                </Field>
-                <Field label="หัก ณ ที่จ่าย (%)">
-                  <input type="number" style={inputStyle} value={it.whtRate} onChange={(e) => updateItem(idx, "whtRate", e.target.value)} placeholder="0" />
-                </Field>
-              </div>
+              {/* แถว 2: จำนวนเงิน VAT ✓ จำนวนVAT หัก ณ ที่จ่าย จำนวนหัก ณ ที่จ่าย สุทธิ */}
+              {(() => {
+                const amt = Number(it.amount) || 0;
+                const vatAmt = it.vatEnabled ? amt * 0.07 : 0;
+                const whtAmt = amt * ((Number(it.whtRate) || 0) / 100);
+                const net = amt + vatAmt - whtAmt;
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.7fr 0.8fr 0.8fr 0.8fr 0.8fr", gap: "0 12px", alignItems: "end" }}>
+                    <Field label="จำนวนเงิน (บาท)">
+                      <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={it.amount} onChange={(e) => updateItem(idx, "amount", e.target.value)} placeholder="0" />
+                    </Field>
+                    <Field label="VAT 7%">
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, height: 38, fontSize: 14, cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!it.vatEnabled} onChange={(e) => updateItem(idx, "vatEnabled", e.target.checked)} style={{ width: 16, height: 16 }} />
+                        ติ๊ก
+                      </label>
+                    </Field>
+                    <Field label="จำนวน VAT">
+                      <div style={{ ...inputStyle, background: "#f3f4f6", textAlign: "right", color: vatAmt > 0 ? "#185fa5" : "#9ca3af" }}>
+                        {vatAmt > 0 ? `+${fmt(vatAmt)}` : "0.00"}
+                      </div>
+                    </Field>
+                    <Field label="หัก ณ ที่จ่าย (%)">
+                      <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={it.whtRate} onChange={(e) => updateItem(idx, "whtRate", e.target.value)} placeholder="0" />
+                    </Field>
+                    <Field label="จำนวนหัก ณ ที่จ่าย">
+                      <div style={{ ...inputStyle, background: "#f3f4f6", textAlign: "right", color: whtAmt > 0 ? "#993c1d" : "#9ca3af" }}>
+                        {whtAmt > 0 ? `-${fmt(whtAmt)}` : "0.00"}
+                      </div>
+                    </Field>
+                    <Field label="จำนวนเงินสุทธิ">
+                      <div style={{ ...inputStyle, background: "#e1f5ee", textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>
+                        {fmt(net)}
+                      </div>
+                    </Field>
+                  </div>
+                );
+              })()}
             </div>
           ))}
           <div style={{ marginBottom: 10 }}>
