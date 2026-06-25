@@ -2583,10 +2583,20 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                         <td colSpan={5} style={{ ...tdStyle, fontWeight: 700 }}>รวมเงินในธนาคารทั้งหมด</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#185fa5" }}>฿{fmt(totalBankBalance)}</td>
                       </tr>
-                      <tr style={{ background: "#faeeda" }}>
-                        <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>เงินมัดจำคงเหลือรวม</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(totalDeposit)}</td>
-                      </tr>
+                      {(() => {
+                        const depOpening = customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
+                        const depIn = (deposits||[]).reduce((s,d) => s + (Number(d.amount)||0), 0);
+                        const depOut = purchases.reduce((s,po) => s + (po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0);
+                        return (
+                          <tr style={{ background: "#faeeda" }}>
+                            <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>เงินมัดจำคงเหลือรวม</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>฿{fmt(depOpening)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>+฿{fmt(depIn)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(depOut)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(totalDeposit)}</td>
+                          </tr>
+                        );
+                      })()}
                     </tfoot>
                   )}
                 </table>
