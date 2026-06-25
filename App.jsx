@@ -6691,8 +6691,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   <th style={thStyle}>เลขที่อ้างอิง</th>
                   <th style={thStyle}>วันที่ตามบิล</th>
                   <th style={thStyle}>เลขที่ใบกำกับภาษี</th>
-                  <th style={thStyle}>หมวดหมู่</th>
-                  <th style={thStyle}>รายละเอียด</th>
+                  <th style={thStyle}>ผู้รับเงิน</th>
+                  <th style={thStyle}>หมวดหมู่ / รายละเอียด</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงินสุทธิ</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
                 </tr>
@@ -6701,29 +6701,37 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                 {filtered.map((e) => {
                   const t = calcTotals(e);
                   const items = (e.items && e.items.length > 0) ? e.items : [{ description: e.description, mainCategory: e.mainCategory || e.category, subCategory: e.subCategory, amount: e.amount }];
+                  // จัดกลุ่มตามหมวดหมู่ย่อย
+                  const grouped = {};
+                  items.forEach((it) => {
+                    const key = `${it.mainCategory || "-"}__${it.subCategory || ""}`;
+                    if (!grouped[key]) grouped[key] = { mainCategory: it.mainCategory || "-", subCategory: it.subCategory || "", items: [] };
+                    grouped[key].items.push(it);
+                  });
+                  const groupedArr = Object.values(grouped);
                   return (
                     <tr key={e.id}>
-                      <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{e.refNo || e.id}</td>
-                      <td style={tdStyle}>{e.billDate || e.date}</td>
-                      <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace" }}>{e.taxInvoiceNo || "-"}</td>
-                      <td style={tdStyle}>
-                        {items.map((it, i) => (
-                          <div key={i} style={{ marginBottom: i < items.length - 1 ? 6 : 0 }}>
-                            <Badge text={it.mainCategory || "-"} />
-                            {it.subCategory && <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>{it.subCategory}</div>}
+                      <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7", verticalAlign: "top" }}>{e.refNo || e.id}</td>
+                      <td style={{ ...tdStyle, verticalAlign: "top" }}>{e.billDate || e.date}</td>
+                      <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", verticalAlign: "top" }}>{e.taxInvoiceNo || "-"}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600, color: "#374151", verticalAlign: "top" }}>{e.vendorName || "-"}</td>
+                      <td style={{ ...tdStyle, color: "#6b7280", padding: 0 }}>
+                        {groupedArr.map((g, gi) => (
+                          <div key={gi} style={{ padding: "8px 12px", borderBottom: gi < groupedArr.length - 1 ? "1px solid #f3f4f6" : "none" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: g.items.some(it => it.description) ? 4 : 0 }}>
+                              <Badge text={g.mainCategory} />
+                              {g.subCategory && <span style={{ fontSize: 12, color: "#9ca3af" }}>{g.subCategory}</span>}
+                            </div>
+                            {g.items.map((it, ii) => it.description ? (
+                              <div key={ii} style={{ fontSize: 13, color: "#6b7280", paddingLeft: 4 }}>
+                                {it.description}{g.items.length > 1 && <span style={{ color: "#9ca3af" }}> (฿{fmt(it.amount)})</span>}
+                              </div>
+                            ) : null)}
                           </div>
                         ))}
                       </td>
-                      <td style={{ ...tdStyle, color: "#6b7280" }}>
-                        {e.vendorName && <div style={{ fontWeight: 600, color: "#374151", marginBottom: 2 }}>{e.vendorName}</div>}
-                        {items.map((it, i) => (
-                          <div key={i} style={{ marginBottom: i < items.length - 1 ? 6 : 0 }}>
-                            {it.description || "-"}{items.length > 1 && <span style={{ color: "#9ca3af" }}> (฿{fmt(it.amount)})</span>}
-                          </div>
-                        ))}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>-฿{fmt(t.net)}</td>
-                      <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d", verticalAlign: "top" }}>-฿{fmt(t.net)}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", verticalAlign: "top" }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                           <button style={iconBtn} onClick={() => openView(e)}><Printer size={14} /> ใบสำคัญจ่าย</button>
                           <button style={iconBtn} onClick={() => openEdit(e)}><Edit2 size={14} /> แก้ไข</button>
