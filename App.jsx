@@ -1437,9 +1437,37 @@ useEffect(() => {
         </nav>
 
         {/* ผู้ใช้งาน + ออกจากระบบ */}
-        {/* ปุ่มโหลดข้อมูลล่าสุด */}
+        {/* ปุ่มโหลดข้อมูลล่าสุด + sync status */}
         {isSupabaseReady && (
           <div style={{ padding: sidebarOpen ? "8px 12px" : "8px 6px" }}>
+            {sidebarOpen && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 10px", borderRadius: 6, marginBottom: 6,
+                background: syncStatus === 'saving' ? "rgba(251,191,36,0.15)"
+                  : syncStatus === 'error' ? "rgba(239,68,68,0.15)"
+                  : "rgba(29,158,117,0.1)",
+                border: syncStatus === 'saving' ? "1px solid rgba(251,191,36,0.4)"
+                  : syncStatus === 'error' ? "1px solid rgba(239,68,68,0.4)"
+                  : "1px solid rgba(29,158,117,0.2)",
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: syncStatus === 'saving' ? "#fbbf24"
+                    : syncStatus === 'error' ? "#ef4444"
+                    : "#1d9e75",
+                  animation: syncStatus === 'saving' ? "pulse 1s ease-in-out infinite" : "none",
+                }} />
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: syncStatus === 'saving' ? "#fbbf24"
+                    : syncStatus === 'error' ? "#fca5a5"
+                    : "#9fe1cb",
+                }}>
+                  {syncStatus === 'saving' ? "กำลังบันทึก..." : syncStatus === 'error' ? "บันทึกไม่สำเร็จ!" : "บันทึกแล้ว ✓"}
+                </span>
+              </div>
+            )}
             <button
               onClick={reloadFromSupabase}
               disabled={isReloading}
@@ -1455,7 +1483,10 @@ useEffect(() => {
               <Download size={15} style={{ animation: isReloading ? "spin 1s linear infinite" : "none", flexShrink: 0 }} />
               {sidebarOpen && (isReloading ? "กำลังโหลด..." : "โหลดข้อมูลล่าสุด")}
             </button>
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            <style>{`
+              @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+            `}</style>
           </div>
         )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: sidebarOpen ? "12px 16px" : "12px 8px" }}>
