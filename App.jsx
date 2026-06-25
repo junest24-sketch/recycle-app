@@ -730,19 +730,18 @@ const roundBtn = {
 const thStyle = { textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" };
 const tdStyle = { padding: "10px 12px", fontSize: 14, borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap" };
 
-function genId(prefix, list) {
-  const now = new Date();
+function genId(prefix, list, dateStr) {
+  const now = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
   const yy = now.getFullYear().toString().slice(2);
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
   const datePart = `${yy}${mm}${dd}`;
-  // นับเฉพาะ doc ในวันนี้
-  const todayPrefix = `${prefix}${datePart}`;
-  const todayCount = list.filter((item) => {
-    const id = typeof item === "string" ? item : (item.id || "");
-    return id.startsWith(todayPrefix);
+  const dayPrefix = `${prefix}${datePart}`;
+  const dayCount = list.filter((item) => {
+    const id = typeof item === "string" ? item : (item.refNo || item.id || "");
+    return id.startsWith(dayPrefix);
   }).length;
-  return `${todayPrefix}${String(todayCount + 1).padStart(3, "0")}`;
+  return `${dayPrefix}${String(dayCount + 1).padStart(3, "0")}`;
 }
 function genSeqId(prefix, list) {
   const nums = list
@@ -3166,7 +3165,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   };
 
   const openAdd = () => {
-    setForm({ ...blankForm(), id: genId("PO", purchases) });
+    const _d1 = new Date().toISOString().slice(0, 10);
+    setForm({ ...blankForm(), id: genId("PO", purchases, _d1) });
     setModal({ mode: "add" });
   };
   const openEdit = (item) => { setForm(JSON.parse(JSON.stringify({ payments: [], status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", vatRate: 0, ...item }))); setModal({ mode: "edit", item }); };
@@ -3427,7 +3427,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
               <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="วันที่ซื้อ">
-              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value, id: genId("PO", purchases, e.target.value) })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="ลูกค้า (ผู้ขาย)">
               <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid })} />
@@ -3869,7 +3869,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const blankLineItem = () => ({ sourceProductId: "", qty: 0, targetProductId: "" });
 
   const blankForm = () => ({
-    id: genId("WD", withdrawals),
+    id: genId("WD", withdrawals, new Date().toISOString().slice(0, 10)),
     date: new Date().toISOString().slice(0, 10),
     targetSaleMode: "existing", // existing | new
     targetSaleId: sales[0]?.id || "",
@@ -4199,7 +4199,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
               <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} />
             </Field>
             <Field label="วันที่เบิก">
-              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value, id: genId("WD", withdrawals, e.target.value) })} />
             </Field>
             <Field label="นำไปเปิดบิลขาย (Invoice)">
               <div style={{ display: "flex", gap: 8 }}>
@@ -4393,7 +4393,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
   const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).filter((inv) => (!dateFrom || (inv.date || "") >= dateFrom) && (!dateTo || (inv.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
 
-  const openAdd = () => { setForm({ ...blankForm(), id: genId("INV", sales) }); setModal({ mode: "add" }); };
+  const openAdd = () => { const _d2 = new Date().toISOString().slice(0, 10); setForm({ ...blankForm(), id: genId("INV", sales, _d2) }); setModal({ mode: "add" }); };
   const openEdit = (item) => {
     let payments = item.payments && item.payments.length > 0 ? [...item.payments] : [];
     setForm(JSON.parse(JSON.stringify({ ...item, payments })));
@@ -4542,7 +4542,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
               <input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} placeholder="เช่น INV-2606-002" />
             </Field>
             <Field label="วันที่">
-              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+              <input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value, id: genId("INV", sales, e.target.value) })} onKeyDown={(e) => handleEnterNavigate(e, save)} />
             </Field>
             <Field label="ลูกค้า">
               <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid })} labelWithId={false} />
@@ -6394,12 +6394,13 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     whtRate: 0,
   });
 
+  const todayStr = new Date().toISOString().slice(0, 10);
   const blankForm = () => ({
     id: "EX" + Date.now().toString().slice(-6),
-    refNo: genId("EX", expenses),
-    recordDate: new Date().toISOString().slice(0, 10),
+    refNo: genId("EX", expenses, todayStr),
+    recordDate: todayStr,
     taxInvoiceNo: "",
-    billDate: new Date().toISOString().slice(0, 10),
+    billDate: todayStr,
     vendorId: "",
     vendorName: "",
     items: [blankItem()], // รายการค่าใช้จ่าย (เพิ่มได้หลายรายการในใบเดียว) — แต่ละรายการมี VAT/หัก ณ ที่จ่ายของตัวเอง
@@ -6791,7 +6792,11 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
               <input type="date" style={inputStyle} value={form.recordDate} onChange={(e) => setForm({ ...form, recordDate: e.target.value })} />
             </Field>
             <Field label="วันที่ตามบิล">
-              <input type="date" style={inputStyle} value={form.billDate} onChange={(e) => setForm({ ...form, billDate: e.target.value })} />
+              <input type="date" style={inputStyle} value={form.billDate} onChange={(e) => {
+                const newDate = e.target.value;
+                const newRefNo = genId("EX", expenses, newDate);
+                setForm({ ...form, billDate: newDate, refNo: newRefNo });
+              }} />
             </Field>
             <Field label="ผู้รับเงิน / ร้านค้า">
               <CustomerSelect
@@ -8420,7 +8425,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
 
   const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), productId: "", qty: 0, containerWeight: 0, containerType: "" });
   const blankForm = () => ({
-    id: genId("DV", deliveries),
+    id: genId("DV", deliveries, new Date().toISOString().slice(0, 10)),
     date: new Date().toISOString().slice(0, 10),
     customerId: "",
     relatedSaleId: "",
@@ -8526,7 +8531,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
         <Modal title={modal.mode === "add" ? "สร้างใบส่งสินค้า" : "แก้ไขใบส่งสินค้า"} onClose={() => setModal(null)} wide>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
             <Field label="เลขที่ใบส่ง"><input style={inputStyle} value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="เช่น DV260622001" /></Field>
-            <Field label="วันที่"><input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
+            <Field label="วันที่"><input type="date" style={inputStyle} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value, id: genId("DV", deliveries, e.target.value) })} /></Field>
             <Field label="ลูกค้า">
               <CustomerSelect customers={customers} value={form.customerId} onChange={(cid) => setForm({ ...form, customerId: cid, relatedSaleId: "" })} labelWithId={false} />
             </Field>
