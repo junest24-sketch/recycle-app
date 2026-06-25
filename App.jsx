@@ -2594,18 +2594,18 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                           </tr>
                         );
                       })()}
-                      <tr style={{ background: "#185fa5" }}>
-                        <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#fff", fontSize: 14 }}>ยอดรวมทั้งหมด (ธนาคาร + เงินสด + มัดจำ)</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#bfdbfe", fontSize: 14 }}>
+                      <tr style={{ background: "#185fa5", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
+                        <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#fff", fontSize: 14, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>ยอดรวมทั้งหมด (ธนาคาร + เงินสด + มัดจำ)</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff", fontSize: 14, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                           ฿{fmt(bankRows.reduce((s,b)=>s+b.ob,0) + customers.reduce((s,c)=>s+(Number(c.depositOpening)||0),0))}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#bfdbfe", fontSize: 14 }}>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff", fontSize: 14, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                           +฿{fmt(bankRows.reduce((s,b)=>s+b.inflow,0) + (deposits||[]).reduce((s,d)=>s+(Number(d.amount)||0),0))}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5", fontSize: 14 }}>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff", fontSize: 14, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                           -฿{fmt(bankRows.reduce((s,b)=>s+b.outflow,0) + purchases.reduce((s,po)=>s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0),0))}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff", fontSize: 15 }}>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff", fontSize: 15, WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}>
                           ฿{fmt(totalBankBalance + totalDeposit)}
                         </td>
                       </tr>
