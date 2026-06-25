@@ -1145,13 +1145,12 @@ export default function App() {
   // ===== Supabase Sync =====
   const [dbLoaded, setDbLoaded] = useState(false)
   const syncStatus = useSyncStatus()
-  const [syncStatus, setSyncStatus] = useState('') // 'loading' | 'synced' | 'offline'
   useProductsRealtime(setProducts, dbLoaded)
 
   // โหลดข้อมูลจาก Supabase ครั้งแรก
   useEffect(() => {
-    if (!isSupabaseReady) { setDbLoaded(true); setSyncStatus('offline'); return }
-    setSyncStatus('loading')
+    if (!isSupabaseReady) { setDbLoaded(true);
+; return }
     // ลบรายการที่ id ซ้ำออกก่อน set state (ป้องกันบิลซ้ำจากปัญหา sync เก่า)
     const dedup = (arr) => {
       if (!Array.isArray(arr)) return arr
@@ -1186,7 +1185,6 @@ export default function App() {
         if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
         if (data.deliveries) setDeliveries(dedup(data.deliveries))
         if (data.prepayments) setPrepayments(dedup(data.prepayments))
-        setSyncStatus('synced')
       }
       setDbLoaded(true)
     })
@@ -1197,7 +1195,6 @@ export default function App() {
   const reloadFromSupabase = async () => {
     if (!isSupabaseReady || isReloading) return
     setIsReloading(true)
-    setSyncStatus('loading')
     const data = await loadAllFromSupabase()
     if (data) {
       if (data.customers)       setCustomers(dedup(data.customers))
@@ -1220,7 +1217,6 @@ export default function App() {
       if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
       if (data.deliveries) setDeliveries(dedup(data.deliveries))
       if (data.prepayments) setPrepayments(dedup(data.prepayments))
-      setSyncStatus('synced')
     }
     setIsReloading(false)
   }
@@ -1441,38 +1437,9 @@ useEffect(() => {
         </nav>
 
         {/* ผู้ใช้งาน + ออกจากระบบ */}
-        {/* ปุ่มโหลดข้อมูลล่าสุด + sync status */}
+        {/* ปุ่มโหลดข้อมูลล่าสุด */}
         {isSupabaseReady && (
           <div style={{ padding: sidebarOpen ? "8px 12px" : "8px 6px" }}>
-            {/* Sync status indicator */}
-            {sidebarOpen && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "5px 10px", borderRadius: 6, marginBottom: 6,
-                background: syncStatus === 'saving' ? "rgba(251,191,36,0.15)"
-                  : syncStatus === 'error' ? "rgba(239,68,68,0.15)"
-                  : "rgba(29,158,117,0.1)",
-                border: syncStatus === 'saving' ? "1px solid rgba(251,191,36,0.4)"
-                  : syncStatus === 'error' ? "1px solid rgba(239,68,68,0.4)"
-                  : "1px solid rgba(29,158,117,0.2)",
-              }}>
-                <div style={{
-                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                  background: syncStatus === 'saving' ? "#fbbf24"
-                    : syncStatus === 'error' ? "#ef4444"
-                    : "#1d9e75",
-                  animation: syncStatus === 'saving' ? "pulse 1s ease-in-out infinite" : "none",
-                }} />
-                <span style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: syncStatus === 'saving' ? "#fbbf24"
-                    : syncStatus === 'error' ? "#fca5a5"
-                    : "#9fe1cb",
-                }}>
-                  {syncStatus === 'saving' ? "กำลังบันทึก..." : syncStatus === 'error' ? "บันทึกไม่สำเร็จ!" : "บันทึกแล้ว ✓"}
-                </span>
-              </div>
-            )}
             <button
               onClick={reloadFromSupabase}
               disabled={isReloading}
@@ -1488,10 +1455,7 @@ useEffect(() => {
               <Download size={15} style={{ animation: isReloading ? "spin 1s linear infinite" : "none", flexShrink: 0 }} />
               {sidebarOpen && (isReloading ? "กำลังโหลด..." : "โหลดข้อมูลล่าสุด")}
             </button>
-            <style>{`
-              @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-              @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-            `}</style>
+            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
           </div>
         )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: sidebarOpen ? "12px 16px" : "12px 8px" }}>
