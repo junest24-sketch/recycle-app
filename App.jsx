@@ -1783,7 +1783,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const salesCard = { label: "มูลค่าขายสะสม", value: fmt(totalSalesValue), suffix: "บาท", icon: ArrowUpFromLine, color: "#185fa5", bg: "#e6f1fb" };
   const expensesCard = { label: "ค่าใช้จ่ายรวม", value: fmt(totalExpenses), suffix: "บาท", icon: Receipt, color: "#993c1d", bg: "#faece7" };
   const stockCard = {
-    label: totalOpeningStockValue > 0 ? `สต็อกรวม (รวมยกมา ฿${fmt(totalOpeningStockValue)})` : "ยอดคงเหลือสต็อก (ต้นทุนก่อน VAT)",
+    label: "ยอดคงเหลือสต็อก (ต้นทุนก่อน VAT)",
     value: fmt(totalStockValue), suffix: "บาท", icon: Boxes, color: "#1d9e75", bg: "#e1f5ee"
   };
   const loanCard = { label: "คงเหลือสินเชื่อ/เงินกู้", value: fmt(totalLoanRemaining), suffix: "บาท", icon: CreditCard, color: "#993c1d", bg: "#faece7" };
@@ -2203,13 +2203,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           <div id="dash-export-stock">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
             {renderCard(stockCard, true)}
-            {totalOpeningStockValue > 0 && (
-              <div style={{ background: "#f0f9f5", borderRadius: 12, border: "1px solid #a3d9c3", padding: "14px 18px" }}>
-                <div style={{ fontSize: 12, color: "#0c443c", marginBottom: 4, fontWeight: 600 }}>สต็อกยกมา (รวมในยอดแล้ว)</div>
-                <div style={{ fontWeight: 700, fontSize: 18, color: "#0f6e56" }}>฿{fmt(totalOpeningStockValue)}</div>
-                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{fmt(totalOpeningStockQty)} หน่วย / {products.filter(p => Number(p.openingQty) > 0).length} รายการ</div>
-              </div>
-            )}
+
           </div>
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflowX: "auto" }}>
             <div style={{ background: "#5a1414", color: "#fff", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
