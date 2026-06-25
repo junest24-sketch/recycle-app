@@ -7665,6 +7665,53 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
                   </tr>
                 </tfoot>
               </table>
+              {/* ตารางสรุปเงินมัดจำ */}
+              {(() => {
+                const depositRows = customers.map((c) => {
+                  const opening = Number(c.depositOpening) || 0;
+                  const given = (deposits || []).filter((d) => d.customerId === c.id).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+                  const used = purchases.reduce((s, po) => s + (po.payments || []).filter((p) => p.fromStoreBankId === "DEPOSIT" && po.customerId === c.id).reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
+                  const remaining = opening + given - used;
+                  return { name: c.name, opening, given, used, remaining };
+                }).filter((r) => r.opening > 0 || r.given > 0);
+                if (depositRows.length === 0) return null;
+                const totalRemaining = depositRows.reduce((s, r) => s + r.remaining, 0);
+                return (
+                  <div style={{ marginTop: 20 }}>
+                    <div style={{ background: "#854f0b", color: "#fff", padding: "10px 16px", fontWeight: 700, fontSize: 14, borderRadius: "8px 8px 0 0" }}>
+                      สรุปเงินมัดจำคงเหลือต่อลูกค้า
+                    </div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr>
+                          <th style={thStyle}>ลูกค้า</th>
+                          <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
+                          <th style={{ ...thStyle, textAlign: "right", color: "#0f6e56" }}>จ่ายมัดจำเพิ่ม</th>
+                          <th style={{ ...thStyle, textAlign: "right", color: "#993c1d" }}>หักไปแล้ว</th>
+                          <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {depositRows.map((r, i) => (
+                          <tr key={i}>
+                            <td style={tdStyle}>{r.name}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>฿{fmt(r.opening)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>+฿{fmt(r.given)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d" }}>-฿{fmt(r.used)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.remaining > 0 ? "#854f0b" : "#6b7280" }}>฿{fmt(r.remaining)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ background: "#faeeda" }}>
+                          <td colSpan={4} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>รวมเงินมัดจำคงเหลือทั้งหมด</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(totalRemaining)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           </Modal>
         );
