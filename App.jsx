@@ -5508,7 +5508,7 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
       <div id="tab-export-inventory">
       <Card>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
+          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
             <tr>
               <th style={thStyle}></th>
               <th style={thStyle}>สินค้า</th>
