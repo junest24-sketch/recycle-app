@@ -7358,6 +7358,9 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
   const [statementModal, setStatementModal] = useState(null); // {account}
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
   const [stmtMonth, setStmtMonth] = useState(new Date().getMonth() + 1);
+  const [stmtMode, setStmtMode] = useState("month"); // "month" | "range"
+  const [stmtDateFrom, setStmtDateFrom] = useState(new Date().toISOString().slice(0, 10));
+  const [stmtDateTo, setStmtDateTo] = useState(new Date().toISOString().slice(0, 10));
   const blank = { id: "", bankName: BANK_NAMES[0], accountNo: "", accountName: "", branch: "", openingBalance: 0, accountType: "" };
   const [form, setForm] = useState(blank);
 
@@ -7375,8 +7378,10 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
 
   // สร้าง Statement รายการเดินบัญชี
   const buildStatement = (acc) => {
-    const startDate = `${stmtYear}-${String(stmtMonth).padStart(2,"0")}-01`;
-    const endDate   = `${stmtYear}-${String(stmtMonth).padStart(2,"0")}-${String(new Date(stmtYear, stmtMonth, 0).getDate()).padStart(2,"0")}`;
+    const startDate = stmtMode === "range" ? stmtDateFrom
+      : `${stmtYear}-${String(stmtMonth).padStart(2,"0")}-01`;
+    const endDate = stmtMode === "range" ? stmtDateTo
+      : `${stmtYear}-${String(stmtMonth).padStart(2,"0")}-${String(new Date(stmtYear, stmtMonth, 0).getDate()).padStart(2,"0")}`;
     const inRange   = (d) => d >= startDate && d <= endDate;
     const rows = [];
 
@@ -7512,21 +7517,39 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
         const totalCredit = stmt.rows.reduce((s, r) => s + r.credit, 0);
         const totalDebit  = stmt.rows.reduce((s, r) => s + r.debit, 0);
         return (
-          <Modal title={`Statement — ${statementModal.bankName} ${statementModal.accountNo}`} onClose={() => setStatementModal(null)} wide>
+          <Modal title={`Statement — ${statementModal.bankName} ${statementModal.accountNo}`} onClose={() => setStatementModal(null)} wide fullscreen>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-              <select style={{ ...inputStyle, width: 140 }} value={stmtMonth} onChange={(e) => setStmtMonth(Number(e.target.value))}>
-                {MONTH_NAMES.slice(1).map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
-              </select>
-              <select style={{ ...inputStyle, width: 100 }} value={stmtYear} onChange={(e) => setStmtYear(Number(e.target.value))}>
-                {yearOptions.map((y) => <option key={y} value={y}>ปี {y}</option>)}
-              </select>
+              {/* mode toggle */}
+              <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1px solid #d1d5db" }}>
+                {[{key:"month",label:"รายเดือน"},{key:"range",label:"เลือกช่วงวันที่"}].map((opt) => (
+                  <button key={opt.key} onClick={() => setStmtMode(opt.key)}
+                    style={{ padding:"7px 14px", border:"none", cursor:"pointer", fontSize:13, fontWeight:600,
+                      background: stmtMode===opt.key ? "#0c443c" : "#fff",
+                      color: stmtMode===opt.key ? "#fff" : "#6b7280" }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {stmtMode === "month" && <>
+                <select style={{ ...inputStyle, width: 140 }} value={stmtMonth} onChange={(e) => setStmtMonth(Number(e.target.value))}>
+                  {MONTH_NAMES.slice(1).map((n, i) => <option key={i+1} value={i+1}>{n}</option>)}
+                </select>
+                <select style={{ ...inputStyle, width: 100 }} value={stmtYear} onChange={(e) => setStmtYear(Number(e.target.value))}>
+                  {yearOptions.map((y) => <option key={y} value={y}>ปี {y}</option>)}
+                </select>
+              </>}
+              {stmtMode === "range" && <>
+                <input type="date" style={{ ...inputStyle, width: 160 }} value={stmtDateFrom} onChange={(e) => setStmtDateFrom(e.target.value)} />
+                <span style={{ fontSize: 13, color: "#6b7280" }}>ถึง</span>
+                <input type="date" style={{ ...inputStyle, width: 160 }} value={stmtDateTo} onChange={(e) => setStmtDateTo(e.target.value)} />
+              </>}
               <button style={btnSecondary} onClick={() => printAsPDF("stmt-print", `Statement ${statementModal.accountNo}`)}>
                 <Download size={14} /> พิมพ์
               </button>
               <button style={btnSecondary} onClick={() => {
                 const rows = [
                   [`Statement — ${statementModal.bankName} ${statementModal.accountNo}`, "", "", "", "", ""],
-                  [`${MONTH_NAMES[stmtMonth]} ${stmtYear}`, "", "", "", "", ""],
+                  [stmtMode === "range" ? `${stmtDateFrom} ถึง ${stmtDateTo}` : `${MONTH_NAMES[stmtMonth]} ${stmtYear}`, "", "", "", "", ""],
                   ["วันที่", "ประเภท", "อ้างอิง", "รายการ", "ฝาก (เข้า)", "ถอน (ออก)", "คงเหลือ"],
                   ["ยอดยกมา", "", "", "", "", "", stmt.startBalance],
                   ...stmt.rows.map(r => [r.date, r.type, r.ref, r.description, r.credit || "", r.debit || "", r.balance]),
