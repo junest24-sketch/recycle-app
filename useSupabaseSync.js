@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase, isSupabaseReady } from './supabase'
 
 const DEVICE_ID = Math.random().toString(36).slice(2)
 
-// ตาราง state ที่เป็น array of objects (มี id) -> เก็บแยก row
 const ARRAY_TABLES = {
   purchases: 'purchases',
   sales: 'sales',
@@ -21,29 +20,60 @@ const ARRAY_TABLES = {
   shareholders: 'shareholders',
 }
 
-// state ที่เป็น object/array ธรรมดา -> เก็บใน app_settings
 const SETTINGS_KEYS = [
   'shopProfile', 'companySettings', 'unitOptions',
   'expenseCategories', 'productCategories',
 ]
 
-// ---------- ARRAY TABLE: upsert เฉพาะ record ที่เปลี่ยน ----------
-async function saveArrayTable(tableName, items) {
-  if (!isSupabaseReady || !Array.isArray(items)) return
-  if (items.length === 0) return
+// ---------- Global sync status ----------
+// ใช้ subscriber pattern เพื่อให้ App.jsx รับสถานะได้โดยไม่ต้อง prop drilling
+let globalStatus = 'synced' // 'synced' | 'saving' | 'error'
+let pendingCount = 0
+const statusListeners = new Set()
 
+function setGlobalStatus(status) {
+  globalStatus = status
+  statusListeners.forEach(fn => fn(status))
+}
+
+function incrementPending() {
+  pendingCount++
+  setGlobalStatus('saving')
+}
+
+function decrementPending(success) {
+  pendingCount = Math.max(0, pendingCount - 1)
+  if (pendingCount === 0) {
+    setGlobalStatus(success ? 'synced' : 'error')
+  }
+}
+
+// Hook สำหรับดึงสถานะ sync ใช้ใน App.jsx
+export function useSyncStatus() {
+  const [status, setStatus] = useState(globalStatus)
+  useEffect(() => {
+    statusListeners.add(setStatus)
+    return () => statusListeners.delete(setStatus)
+  }, [])
+  return status
+}
+
+// ---------- Array table helpers ----------
+async function saveArrayTable(tableName, items) {
+  if (!isSupabaseReady || !Array.isArray(items) || items.length === 0) return true
   const rows = items.map(item => ({
     id: item.id,
     data: { ...item, _updated_by: DEVICE_ID },
     updated_at: new Date().toISOString(),
   }))
-
-  await supabase.from(tableName).upsert(rows, { onConflict: 'id' })
+  const { error } = await supabase.from(tableName).upsert(rows, { onConflict: 'id' })
+  return !error
 }
 
 async function deleteArrayRow(tableName, id) {
-  if (!isSupabaseReady) return
-  await supabase.from(tableName).delete().eq('id', id)
+  if (!isSupabaseReady) return true
+  const { error } = await supabase.from(tableName).delete().eq('id', id)
+  return !error
 }
 
 async function loadArrayTable(tableName) {
@@ -56,13 +86,14 @@ async function loadArrayTable(tableName) {
   return data.map(row => row.data)
 }
 
-// ---------- SETTINGS: upsert ทั้งก้อน (ข้อมูลเล็ก) ----------
+// ---------- Settings helpers ----------
 async function saveSettings(key, value) {
-  if (!isSupabaseReady) return
-  await supabase.from('app_settings').upsert(
+  if (!isSupabaseReady) return true
+  const { error } = await supabase.from('app_settings').upsert(
     { key, data: { value, _updated_by: DEVICE_ID }, updated_at: new Date().toISOString() },
     { onConflict: 'key' }
   )
+  return !error
 }
 
 async function loadSettings(key) {
@@ -76,40 +107,31 @@ async function loadSettings(key) {
   return data.data?.value ?? null
 }
 
-// ---------- loadAllFromSupabase (โหลดครั้งแรก) ----------
+// ---------- loadAllFromSupabase ----------
 export async function loadAllFromSupabase() {
   if (!isSupabaseReady) return null
   const result = {}
-
-  // โหลด array tables
   await Promise.all(
     Object.entries(ARRAY_TABLES).map(async ([stateKey, tableName]) => {
       result[stateKey] = await loadArrayTable(tableName)
     })
   )
-
-  // โหลด settings
   await Promise.all(
     SETTINGS_KEYS.map(async (key) => {
       const val = await loadSettings(key)
       if (val !== null) result[key] = val
     })
   )
-
   return result
 }
 
-// ---------- saveToSupabase (ใช้กับปุ่มโหลดข้อมูลล่าสุด) ----------
 export async function saveToSupabase(key, value) {
   const tableName = ARRAY_TABLES[key]
-  if (tableName) {
-    await saveArrayTable(tableName, value)
-  } else if (SETTINGS_KEYS.includes(key)) {
-    await saveSettings(key, value)
-  }
+  if (tableName) await saveArrayTable(tableName, value)
+  else if (SETTINGS_KEYS.includes(key)) await saveSettings(key, value)
 }
 
-// ---------- useSupabaseSync hook ----------
+// ---------- useSupabaseSync ----------
 export function useSupabaseSync(key, value, setValue, loaded) {
   const valueRef = useRef(value)
   useEffect(() => { valueRef.current = value }, [value])
@@ -120,7 +142,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
   const lastSaveTime = useRef(0)
-  const isLoadingFromRemote = useRef(false)
 
   const tableName = ARRAY_TABLES[key]
   const isArrayTable = !!tableName
@@ -143,36 +164,37 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       isSaving.current = true
       lastSaveTime.current = Date.now()
 
+      incrementPending()
+      let success = false
       try {
         if (isArrayTable) {
           const current = valueRef.current
           const prev = prevValueRef.current || []
-
-          // หา record ที่เพิ่มหรือเปลี่ยน
-          const prevMap = new Map((prev).filter(x => x.id).map(x => [x.id, JSON.stringify(x)]))
+          const prevMap = new Map(prev.filter(x => x.id).map(x => [x.id, JSON.stringify(x)]))
           const changed = current.filter(item => {
             if (!item.id) return true
             return prevMap.get(item.id) !== JSON.stringify(item)
           })
-
-          // หา record ที่ถูกลบ
           const currentIds = new Set(current.filter(x => x.id).map(x => x.id))
-          const deleted = (prev).filter(x => x.id && !currentIds.has(x.id))
+          const deleted = prev.filter(x => x.id && !currentIds.has(x.id))
 
-          if (changed.length > 0) {
-            await saveArrayTable(tableName, changed)
-          }
+          let ok = true
+          if (changed.length > 0) ok = await saveArrayTable(tableName, changed)
           for (const item of deleted) {
-            await deleteArrayRow(tableName, item.id)
+            const r = await deleteArrayRow(tableName, item.id)
+            if (!r) ok = false
           }
-
+          success = ok
           prevValueRef.current = [...current]
         } else if (isSettingsKey) {
-          await saveSettings(key, valueRef.current)
+          success = await saveSettings(key, valueRef.current)
           prevValueRef.current = valueRef.current
         }
+      } catch (e) {
+        success = false
       } finally {
         isSaving.current = false
+        decrementPending(success)
       }
     }
 
@@ -214,7 +236,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
           setValue(prev => prev.filter(x => x.id !== id))
         })
         .subscribe()
-
       return () => { supabase.removeChannel(channel) }
     }
 
@@ -228,7 +249,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
           if (newValue !== undefined) setValue(newValue)
         })
         .subscribe()
-
       return () => { supabase.removeChannel(channel) }
     }
   }, [key, setValue, loaded, tableName, isArrayTable, isSettingsKey])
