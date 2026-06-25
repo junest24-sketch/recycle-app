@@ -4224,17 +4224,17 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>รายการเบิกสินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>สินค้าที่เบิก (ต้นทาง)</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวนที่เบิก</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือสต๊อก</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>มูลค่าที่เบิก</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>ราคาเฉลี่ย/หน่วย</th>
-                  <th style={thStyle}></th>
-                  <th style={thStyle}>นำไปขายเป็นสินค้า (เป้าหมาย)</th>
-                  <th style={thStyle}></th>
+                  <th style={{ ...thStyle, width: "22%" }}>สินค้าที่เบิก (ต้นทาง)</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "10%" }}>จำนวนที่เบิก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "11%" }}>คงเหลือสต๊อก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "11%" }}>มูลค่าที่เบิก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "11%" }}>ราคาเฉลี่ย/หน่วย</th>
+                  <th style={{ ...thStyle, width: "3%" }}></th>
+                  <th style={{ ...thStyle, width: "22%" }}>นำไปขายเป็นสินค้า (เป้าหมาย)</th>
+                  <th style={{ ...thStyle, width: "4%" }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -4551,18 +4551,18 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>รายการสินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead>
                 <tr>
-                  <th style={thStyle}>สินค้า</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวนสุทธิ</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวนหัก</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>ราคาขาย/หน่วย</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุนเฉลี่ย</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือสต๊อก</th>
-                  <th style={{ ...thStyle, textAlign: "right" }}>รวม</th>
-                  <th style={thStyle}></th>
+                  <th style={{ ...thStyle, width: "28%" }}>สินค้า</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จำนวน</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จำนวนสุทธิ</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จำนวนหัก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "10%" }}>ราคา/หน่วย</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "10%" }}>ต้นทุนเฉลี่ย</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "12%" }}>คงเหลือสต๊อก</th>
+                  <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>รวม</th>
+                  <th style={{ ...thStyle, width: "4%" }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -4585,13 +4585,13 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                         {fromW ? (
                           <div style={{ textAlign: "right", color: "#534ab7", fontWeight: 500 }}>{fmt(it.qty)}</div>
                         ) : (
-                          <input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
+                          <input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} />
                         )}
                       </td>
                       <td style={tdStyle}>
                         <input
                           type="number"
-                          style={{ ...inputStyle, width: 90, textAlign: "right" }}
+                          style={{ ...inputStyle, width: "100%", textAlign: "right" }}
                           value={it.net != null ? it.net : net}
                           onChange={(e) => {
                             const newNet = e.target.value;
@@ -4606,7 +4606,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                       <td style={tdStyle}>
                         <input
                           type="number"
-                          style={{ ...inputStyle, width: 90, textAlign: "right" }}
+                          style={{ ...inputStyle, width: "100%", textAlign: "right" }}
                           value={it.deduct}
                           onChange={(e) => {
                             const newDeduct = e.target.value;
@@ -4618,7 +4618,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                           onKeyDown={(e) => handleEnterNavigate(e, save)}
                         />
                       </td>
-                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                      <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: fromW ? "#534ab7" : "#9ca3af", fontWeight: fromW ? 600 : 400 }}>
                         {fromW ? fmt(it.withdrawalCost || 0) : "—"}
                       </td>
