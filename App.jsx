@@ -3857,6 +3857,8 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [aggregateSearch, setAggregateSearch] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState({});
+  const toggleGroup = (saleId) => setExpandedGroups((prev) => ({ ...prev, [saleId]: !prev[saleId] }));
   const [expanded, setExpanded] = useState(null);
   const [printLot, setPrintLot] = useState(null); // ใบเบิกสินค้าที่กำลังจะพิมพ์
 
@@ -4140,7 +4142,6 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
               </thead>
               <tbody>
                 {(() => {
-                  // จัดกลุ่มตาม saleId
                   const grouped = {};
                   filteredAggregates.forEach((g) => {
                     if (!grouped[g.saleId]) grouped[g.saleId] = [];
@@ -4151,18 +4152,30 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                   );
                   return Object.entries(grouped).map(([saleId, items]) => {
                     const totalValue = items.reduce((s, g) => s + g.value, 0);
+                    const totalQty = items.reduce((s, g) => s + g.qty, 0);
+                    const isExpanded = !!expandedGroups[saleId];
                     return (
                       <React.Fragment key={saleId}>
-                        {/* หัวกลุ่ม — เลข Invoice */}
-                        <tr style={{ background: "#f3f4f6" }}>
-                          <td colSpan={5} style={{ ...tdStyle, fontWeight: 700, color: "#534ab7", fontFamily: "'JetBrains Mono', monospace" }}>
-                            {saleId} — {items.length} รายการ · รวม ฿{fmt(totalValue)}
+                        {/* แถวกลุ่ม — คลิกเพื่อ expand/collapse */}
+                        <tr
+                          onClick={() => toggleGroup(saleId)}
+                          style={{ background: "#f3f4f6", cursor: "pointer" }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = "#e5e7eb"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "#f3f4f6"}
+                        >
+                          <td style={{ ...tdStyle, fontWeight: 700, color: "#534ab7", fontFamily: "'JetBrains Mono', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            {saleId}
                           </td>
+                          <td style={{ ...tdStyle, color: "#6b7280", fontSize: 12 }}>{items.length} รายการ</td>
+                          <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>{fmt(totalQty)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#534ab7" }}>฿{fmt(totalValue)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", color: "#9ca3af" }}>—</td>
                         </tr>
-                        {/* รายการสินค้าในกลุ่ม */}
-                        {items.map((g) => (
-                          <tr key={`${g.saleId}__${g.productId}`}>
-                            <td style={{ ...tdStyle, color: "#9ca3af", paddingLeft: 24 }}>↳</td>
+                        {/* รายการสินค้า — แสดงเมื่อ expand */}
+                        {isExpanded && items.map((g) => (
+                          <tr key={`${g.saleId}__${g.productId}`} style={{ background: "#fafafa" }}>
+                            <td style={{ ...tdStyle, color: "#9ca3af", paddingLeft: 32 }}>↳</td>
                             <td style={tdStyle}>{prodName(g.productId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(g.qty)} {prodUnit(g.productId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(g.value)}</td>
@@ -6379,8 +6392,6 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     amount: 0,
     vatEnabled: false,
     whtRate: 0,
-    vendorId: "",
-    vendorName: "",
   });
 
   const blankForm = () => ({
@@ -6389,6 +6400,8 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     recordDate: new Date().toISOString().slice(0, 10),
     taxInvoiceNo: "",
     billDate: new Date().toISOString().slice(0, 10),
+    vendorId: "",
+    vendorName: "",
     items: [blankItem()], // รายการค่าใช้จ่าย (เพิ่มได้หลายรายการในใบเดียว) — แต่ละรายการมี VAT/หัก ณ ที่จ่ายของตัวเอง
     payments: [],
   });
@@ -6701,9 +6714,9 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                         ))}
                       </td>
                       <td style={{ ...tdStyle, color: "#6b7280" }}>
+                        {e.vendorName && <div style={{ fontWeight: 600, color: "#374151", marginBottom: 2 }}>{e.vendorName}</div>}
                         {items.map((it, i) => (
                           <div key={i} style={{ marginBottom: i < items.length - 1 ? 6 : 0 }}>
-                            {it.vendorName && <span style={{ fontWeight: 600, color: "#374151" }}>{it.vendorName} · </span>}
                             {it.description || "-"}{items.length > 1 && <span style={{ color: "#9ca3af" }}> (฿{fmt(it.amount)})</span>}
                           </div>
                         ))}
@@ -6770,7 +6783,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
               <button style={{ ...btnSecondary, padding: "4px 8px" }} onClick={() => setPendingInstallment(null)}>ยกเลิกการเชื่อม</button>
             </div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1.5fr", gap: "0 16px" }}>
             <Field label="เลขที่อ้างอิง">
               <input style={inputStyle} value={form.refNo} onChange={(e) => setForm({ ...form, refNo: e.target.value })} placeholder="รันอัตโนมัติ — แก้ไขได้" />
             </Field>
@@ -6779,6 +6792,17 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
             </Field>
             <Field label="วันที่ตามบิล">
               <input type="date" style={inputStyle} value={form.billDate} onChange={(e) => setForm({ ...form, billDate: e.target.value })} />
+            </Field>
+            <Field label="ผู้รับเงิน / ร้านค้า">
+              <CustomerSelect
+                customers={customers || []}
+                value={form.vendorId || ""}
+                onChange={(cid) => {
+                  const c = (customers || []).find((x) => x.id === cid);
+                  setForm({ ...form, vendorId: cid, vendorName: c ? c.name : "" });
+                }}
+                labelWithId={false}
+              />
             </Field>
           </div>
 
@@ -6795,19 +6819,6 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   <button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /> ลบรายการ</button>
                 )}
               </div>
-              <Field label="ผู้รับเงิน / ร้านค้า">
-                <CustomerSelect
-                  customers={customers || []}
-                  value={it.vendorId || ""}
-                  onChange={(cid) => {
-                    const c = (customers || []).find((x) => x.id === cid);
-                    const items = [...(form.items || [])];
-                    items[idx] = { ...items[idx], vendorId: cid, vendorName: c ? c.name : "" };
-                    setForm({ ...form, items });
-                  }}
-                  labelWithId={false}
-                />
-              </Field>
               <Field label="รายละเอียด">
                 <input style={inputStyle} value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} placeholder="เช่น ค่าน้ำมันรถบรรทุกขนของ" />
               </Field>
