@@ -1557,7 +1557,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
   // ---------- ตัวเลือกช่วงเวลา: รายวัน / ช่วงวันที่ (เลือกเอง) / ทั้งหมด ----------
   const today = new Date().toISOString().slice(0, 10);
-  const [periodMode, setPeriodMode] = useState("all"); // "all" | "day" | "range"
+  const [periodMode, setPeriodMode] = useState("day"); // "all" | "day" | "range"
   const [periodDate, setPeriodDate] = useState(today);
   const [rangeStart, setRangeStart] = useState(today);
   const [rangeEnd, setRangeEnd] = useState(today);
@@ -4448,6 +4448,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลข Invoice หรือชื่อลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
       </div>
       <div id="tab-export-sales" style={{ flex: 1, overflow: "auto" }}>
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
           <thead>
             <tr>
@@ -4493,6 +4494,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             {filtered.length === 0 && <tr><td colSpan={7} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบใบขายสินค้า</td></tr>}
           </tbody>
         </table>
+        </div>
       </div>
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={modal.mode === "add" ? "สร้าง Invoice" : "แก้ไข Invoice"} onClose={() => setModal(null)} wide fullscreen>
@@ -8680,12 +8682,12 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const groups = {};
     expensesInR.forEach((e) => {
       const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category || "ไม่ระบุ", amount: e.amount }];
-      items.forEach((it) => {
-        const cat = it.mainCategory || "ไม่ระบุ";
+      items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").forEach((it) => {
+        const cat = it.subCategory || "อื่นๆ";
         groups[cat] = (groups[cat] || 0) + (Number(it.amount) || 0);
       });
     });
-    openingRows.forEach((r) => { groups[r.mainCategory] = (groups[r.mainCategory] || 0) + r.amount; });
+    openingRows.filter((r) => r.mainCategory === "ค่าใช้จ่าย").forEach((r) => { groups[r.subCategory || r.mainCategory] = (groups[r.subCategory || r.mainCategory] || 0) + r.amount; });
     const byCategory = Object.entries(groups).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
     const totalExp = byCategory.reduce((s, c) => s + c.amount, 0);
 
