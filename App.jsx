@@ -10,7 +10,7 @@ import {
   Building2, ScrollText, PieChart, Settings, Tag, ClipboardList, Banknote
 } from "lucide-react";
 import { isSupabaseReady } from './supabase'
-import { useSupabaseSync, loadAllFromSupabase } from './useSupabaseSync'
+import { useSupabaseSync, loadAllFromSupabase, useSyncStatus } from './useSupabaseSync'
 import { loadProducts, insertProduct, updateProduct, deleteProduct, useProductsRealtime } from './useProductsSync'
 // ---------- Seed data ----------
 const initialProducts = [];
@@ -1144,25 +1144,25 @@ export default function App() {
 
   // ===== Supabase Sync =====
   const [dbLoaded, setDbLoaded] = useState(false)
+  const syncStatus = useSyncStatus()
   const [syncStatus, setSyncStatus] = useState('') // 'loading' | 'synced' | 'offline'
   useProductsRealtime(setProducts, dbLoaded)
-
-  // ลบรายการที่ id ซ้ำออกก่อน set state (ป้องกันบิลซ้ำจากปัญหา sync เก่า)
-  const dedup = (arr) => {
-    if (!Array.isArray(arr)) return arr
-    const seen = new Set()
-    return arr.filter(item => {
-      if (!item || !item.id) return true
-      if (seen.has(item.id)) return false
-      seen.add(item.id)
-      return true
-    })
-  }
 
   // โหลดข้อมูลจาก Supabase ครั้งแรก
   useEffect(() => {
     if (!isSupabaseReady) { setDbLoaded(true); setSyncStatus('offline'); return }
     setSyncStatus('loading')
+    // ลบรายการที่ id ซ้ำออกก่อน set state (ป้องกันบิลซ้ำจากปัญหา sync เก่า)
+    const dedup = (arr) => {
+      if (!Array.isArray(arr)) return arr
+      const seen = new Set()
+      return arr.filter(item => {
+        if (!item || !item.id) return true
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+      })
+    }
 
     loadAllFromSupabase().then(data => {
       if (data) {
@@ -1441,9 +1441,38 @@ useEffect(() => {
         </nav>
 
         {/* ผู้ใช้งาน + ออกจากระบบ */}
-        {/* ปุ่มโหลดข้อมูลล่าสุด */}
+        {/* ปุ่มโหลดข้อมูลล่าสุด + sync status */}
         {isSupabaseReady && (
           <div style={{ padding: sidebarOpen ? "8px 12px" : "8px 6px" }}>
+            {/* Sync status indicator */}
+            {sidebarOpen && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 10px", borderRadius: 6, marginBottom: 6,
+                background: syncStatus === 'saving' ? "rgba(251,191,36,0.15)"
+                  : syncStatus === 'error' ? "rgba(239,68,68,0.15)"
+                  : "rgba(29,158,117,0.1)",
+                border: syncStatus === 'saving' ? "1px solid rgba(251,191,36,0.4)"
+                  : syncStatus === 'error' ? "1px solid rgba(239,68,68,0.4)"
+                  : "1px solid rgba(29,158,117,0.2)",
+              }}>
+                <div style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: syncStatus === 'saving' ? "#fbbf24"
+                    : syncStatus === 'error' ? "#ef4444"
+                    : "#1d9e75",
+                  animation: syncStatus === 'saving' ? "pulse 1s ease-in-out infinite" : "none",
+                }} />
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: syncStatus === 'saving' ? "#fbbf24"
+                    : syncStatus === 'error' ? "#fca5a5"
+                    : "#9fe1cb",
+                }}>
+                  {syncStatus === 'saving' ? "กำลังบันทึก..." : syncStatus === 'error' ? "บันทึกไม่สำเร็จ!" : "บันทึกแล้ว ✓"}
+                </span>
+              </div>
+            )}
             <button
               onClick={reloadFromSupabase}
               disabled={isReloading}
@@ -1459,7 +1488,10 @@ useEffect(() => {
               <Download size={15} style={{ animation: isReloading ? "spin 1s linear infinite" : "none", flexShrink: 0 }} />
               {sidebarOpen && (isReloading ? "กำลังโหลด..." : "โหลดข้อมูลล่าสุด")}
             </button>
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            <style>{`
+              @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+            `}</style>
           </div>
         )}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: sidebarOpen ? "12px 16px" : "12px 8px" }}>
@@ -1512,7 +1544,7 @@ useEffect(() => {
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
-        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} companySettings={companySettings} />}
+        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} />}
         {tab === "tax" && <TaxSummaryTab purchases={purchases} sales={sales} expenses={expenses} />}
       </div>
 
@@ -3704,27 +3736,6 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
             })}
           </tbody>
           <tfoot>
-            {(() => {
-              const totalQty    = po.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-              const totalNet    = po.items.reduce((s, it) => s + calcNet(it), 0);
-              const totalDeduct = totalQty - totalNet;
-              const totalAmt    = po.items.reduce((s, it) => {
-                const net = calcNet(it);
-                const discountPct = Number(it.discountPct) || 0;
-                return s + net * (Number(it.price) || 0) * (1 - discountPct / 100);
-              }, 0);
-              const firstUnit = prodInfo(po.items[0]?.productId)?.unit || "กก.";
-              return (
-                <tr style={{ background: primaryColor + "11", borderTop: `2px solid ${primaryColor}` }}>
-                  <td style={{ ...tdCompact, fontWeight: 700, color: primaryColor }}>รวมทั้งหมด</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalQty)}</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{totalDeduct > 0 ? fmt(totalDeduct) : "0"}</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalNet)}</td>
-                  <td style={{ ...tdCompact }}></td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: primaryColor }}>{fmt(totalAmt)}</td>
-                </tr>
-              );
-            })()}
             {po.vatRate > 0 && (
               <tr>
                 <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
@@ -3737,9 +3748,9 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
                 <td style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
               </tr>
             )}
-            <tr style={{ background: "#f0fdf4", borderTop: `1px solid ${primaryColor}` }}>
-              <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700 }}>จำนวนเงินสุทธิ</td>
-              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#0f6e56" }}>{fmt(total)}</td>
+            <tr style={{ background: "#f0fdf4" }}>
+              <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
+              <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#0f6e56" }}>{fmt(total)}</td>
             </tr>
           </tfoot>
         </table>
@@ -3843,9 +3854,6 @@ function syncWithdrawalsToSales(sales, withdrawalLots) {
 
 function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, setWithdrawals, inventory, customers, companySettings }) {
   const cs = companySettings || {};
-  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
-  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
-
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'}
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -4418,7 +4426,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)", background: "#f3f4f1" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
       <div style={{ flexShrink: 0 }}>
       <Header title="ระบบขายสินค้า (Sales)" subtitle="ออกใบ Invoice และบันทึกการขายสินค้ารีไซเคิล">
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -4682,8 +4690,6 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
   const paid = (inv.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const remaining = total - paid;
   const accentColor = cs.accentColor || "#185fa5";
-  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
-  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
 
   return (
     <Modal title={`${cs.salesTitle || "Invoice"} ${inv.id}`} onClose={onClose} wide>
@@ -4723,10 +4729,10 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ background: accentColor + "22" }}>
-              <th style={{ ...thCompact, color: accentColor }}>สินค้า</th>
-              <th style={{ ...thCompact, color: accentColor, textAlign: "right" }}>น้ำหนักสุทธิ</th>
-              <th style={{ ...thCompact, color: accentColor, textAlign: "right" }}>ราคา/หน่วย</th>
-              <th style={{ ...thCompact, color: accentColor, textAlign: "right" }}>จำนวนเงิน</th>
+              <th style={{ ...thStyle, color: accentColor }}>สินค้า</th>
+              <th style={{ ...thStyle, color: accentColor, textAlign: "right" }}>น้ำหนักสุทธิ</th>
+              <th style={{ ...thStyle, color: accentColor, textAlign: "right" }}>ราคา/หน่วย</th>
+              <th style={{ ...thStyle, color: accentColor, textAlign: "right" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
@@ -4735,30 +4741,14 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               const net = it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0));
               return (
                 <tr key={idx}>
-                  <td style={tdCompact}>{p.name}</td>
-                  <td style={{ ...tdCompact, textAlign: "right" }}>{fmt(net)} {p.unit}</td>
-                  <td style={{ ...tdCompact, textAlign: "right" }}>{fmt(it.price)}</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 600 }}>{fmt(net * it.price)}</td>
+                  <td style={tdStyle}>{p.name}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)} {p.unit}</td>
+                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.price)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(net * it.price)}</td>
                 </tr>
               );
             })}
           </tbody>
-          <tfoot>
-            {(() => {
-              const totalNet = inv.items.reduce((s, it) => {
-                const net = it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0));
-                return s + net;
-              }, 0);
-              return (
-                <tr style={{ background: accentColor + "11", borderTop: `2px solid ${accentColor}` }}>
-                  <td style={{ ...tdCompact, fontWeight: 700, color: accentColor }}>รวมทั้งหมด</td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(totalNet)}</td>
-                  <td style={{ ...tdCompact }}></td>
-                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: accentColor }}>{fmt(subtotal)}</td>
-                </tr>
-              );
-            })()}
-          </tfoot>
         </table>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
@@ -4798,10 +4788,10 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr>
-                  <th style={thCompact}>วันที่รับ</th>
-                  <th style={thCompact}>ช่องทาง</th>
-                  <th style={thCompact}>บัญชีรับเงิน</th>
-                  <th style={{ ...thCompact, textAlign: "right" }}>จำนวนเงิน</th>
+                  <th style={thStyle}>วันที่รับ</th>
+                  <th style={thStyle}>ช่องทาง</th>
+                  <th style={thStyle}>บัญชีรับเงิน</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
                 </tr>
               </thead>
               <tbody>
@@ -4910,7 +4900,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       const remaining = total - paid;
       const payStatus = e.writeOff ? "paid" : (remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid");
       const vendorLabel = e.vendorName || items.map((it) => it.description).filter(Boolean).join(", ") || e.refNo || e.id;
-      return { kind: "expense", id: e.id, displayId: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
+      return { kind: "expense", id: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
     });
   }, [expenses]);
 
@@ -4929,7 +4919,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
     return list
-      .filter((r) => (r.displayId || r.id).includes(search) || r.id.includes(search) || rowSearchLabel(r).includes(search))
+      .filter((r) => r.id.includes(search) || rowSearchLabel(r).includes(search))
       .filter((r) => (!dateFrom || (r.date || "") >= dateFrom) && (!dateTo || (r.date || "") <= dateTo))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
   }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, dateFrom, dateTo, customers]);
@@ -5149,7 +5139,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                     <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
                   )}
                 </td>
-                <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.displayId || r.id}</td>
+                <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
                 <td style={tdStyle}>{r.date}</td>
                 <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
@@ -5185,7 +5175,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
       {payModal && payRows && (
         <Modal
-          title={payModal.kind === "sale" ? `บันทึกรับเงิน · ${payModal.displayId || payModal.id}` : `บันทึกจ่ายเงิน · ${payModal.displayId || payModal.id}`}
+          title={payModal.kind === "sale" ? `บันทึกรับเงิน · ${payModal.id}` : `บันทึกจ่ายเงิน · ${payModal.id}`}
           onClose={() => { setPayModal(null); setPayRows(null); }}
           wide
         >
@@ -5291,7 +5281,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
       {historyModal && historyTotals && (
         <Modal
-          title={`ประวัติการชำระเงิน · ${historyModal.displayId || historyModal.id}`}
+          title={`ประวัติการชำระเงิน · ${historyModal.id}`}
           onClose={() => { setHistoryModal(null); setEditingPaymentIdx(null); setEditPaymentForm(null); }}
           wide
         >
@@ -6371,7 +6361,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 
   const blankForm = () => ({
     id: "EX" + Date.now().toString().slice(-6),
-    refNo: genId("EX", expenses.map((e) => ({ id: e.refNo || e.id }))),
+    refNo: genId("EX", expenses),
     recordDate: new Date().toISOString().slice(0, 10),
     taxInvoiceNo: "",
     billDate: new Date().toISOString().slice(0, 10),
@@ -6965,9 +6955,6 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 // ใบสำคัญจ่าย (Payment Voucher) PDF view
 function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onClose }) {
   const cs = companySettings || {};
-  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
-  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
-
   const items = (expense.items && expense.items.length > 0)
     ? expense.items
     : [{ description: expense.description, mainCategory: expense.mainCategory || expense.category, subCategory: expense.subCategory, amount: expense.amount, vatEnabled: expense.vatEnabled, whtRate: expense.whtRate }];
@@ -8064,32 +8051,6 @@ function CompanySettingsTab({ settings, setSettings, shopProfile, setShopProfile
         </Field>
       </div>
 
-      {/* ===== ยอดยกมา ===== */}
-      <div style={{ ...sCard, border: "2px solid #854f0b" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#854f0b" }}>📊 ยอดยกมา (Opening Balance) — สำหรับงบกำไรขาดทุน</h3>
-        </div>
-        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 16 }}>
-          ใส่ยอดสะสม <strong>ก่อนเริ่มใช้แอพ</strong> เพื่อให้งบกำไรขาดทุนถูกต้องตลอดปี — ระบุเดือนเริ่มต้นที่ยกมาด้วย
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 16px" }}>
-          <Field label="เดือนที่เริ่มใช้แอพ (ยกมาก่อนเดือนนี้)">
-            <input type="month" style={inputStyle} value={cs.openingMonth || ""} onChange={(e) => set("openingMonth", e.target.value)} />
-          </Field>
-          <Field label="รายได้ยกมา (ยอดขายสะสมก่อนเริ่มใช้แอพ)">
-            <input type="number" style={inputStyle} value={cs.openingRevenue || ""} onChange={(e) => set("openingRevenue", e.target.value)} placeholder="0.00" />
-          </Field>
-          <Field label="ต้นทุนขายยกมา (COGS สะสมก่อนเริ่มใช้แอพ)">
-            <input type="number" style={inputStyle} value={cs.openingCOGS || ""} onChange={(e) => set("openingCOGS", e.target.value)} placeholder="0.00" />
-          </Field>
-        </div>
-        {(cs.openingMonth && (Number(cs.openingRevenue) > 0 || Number(cs.openingCOGS) > 0)) && (
-          <div style={{ marginTop: 12, padding: "10px 14px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12 }}>
-            ✅ รายได้ยกมา <strong>฿{Number(cs.openingRevenue || 0).toLocaleString("th-TH", { minimumFractionDigits: 2 })}</strong> และต้นทุนขายยกมา <strong>฿{Number(cs.openingCOGS || 0).toLocaleString("th-TH", { minimumFractionDigits: 2 })}</strong> จะถูกรวมในรายงานงบกำไรขาดทุนของปีนั้น
-          </div>
-        )}
-      </div>
-
       {/* ===== Preview บิล ===== */}
       <div style={{ ...sCard, background: "#f9fafb" }}>
         <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700 }}>👁 ตัวอย่างหัวบิล</h3>
@@ -8397,9 +8358,6 @@ function TaxSummaryTab({ purchases, sales, expenses }) {
 // ===================================================================
 function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, companySettings }) {
   const cs = companySettings || {};
-  const thCompact = { ...thStyle, padding: "4px 12px", fontSize: 11 };
-  const tdCompact = { ...tdStyle, padding: "4px 12px", fontSize: 11 };
-
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -8666,7 +8624,7 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments, companySettings }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -8689,11 +8647,6 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     return value;
   };
 
-  const cs = companySettings || {};
-  const openingMonth = cs.openingMonth || "";
-  const openingRevenue = Number(cs.openingRevenue) || 0;
-  const openingCOGS = Number(cs.openingCOGS) || 0;
-
   // ฟังก์ชันคำนวณกำไรขาดทุนของเดือน/ปีใดๆ — ใช้ร่วมกันทั้งมุมมองรายเดือนและสรุปรายปี
   const computeMonthlyPL = (y, m) => {
     const sd = `${y}-${String(m).padStart(2,"0")}-01`;
@@ -8708,8 +8661,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       return sum + ad;
     }, 0);
     const otherIncome = 0;
-    const isOpeningMonth = openingMonth && ym === openingMonth;
-    const income = totalRev + otherIncome + (isOpeningMonth ? openingRevenue : 0);
+    const income = totalRev + otherIncome;
 
     const beginInv = stockValueBefore(sd);
     const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
@@ -8717,7 +8669,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       .filter((mv) => mv.type === "in" && !mv.isOpening && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.qty) || 0) * (Number(mv.price) || 0), 0);
     const available = beginInv + purchInR;
-    const cost = (available - endInv) + (isOpeningMonth ? openingCOGS : 0);
+    const cost = available - endInv;
     const gross = income - cost;
 
     const expensesInR = expenses.filter((e) => inR(e.billDate || e.date));
@@ -8756,7 +8708,6 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     grossProfit, expenseByCategory, totalExpenses, netProfit,
   } = currentMonthPL;
   const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
-  const isOpeningMonth = openingMonth && `${year}-${String(month).padStart(2,"0")}` === openingMonth;
 
   // ===== สรุปรายปี: กำไรสุทธิทั้ง 12 เดือน =====
   const yearlyMonths = useMemo(() => {
