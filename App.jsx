@@ -1124,6 +1124,8 @@ export default function App() {
     footerNote: "",
     showQrCode: false,
     showSignature: true,
+    openingRevenue: 0,  // รายได้ยกมาก่อนเริ่มใช้แอพ
+    openingCost: 0,     // ต้นทุนยกมาก่อนเริ่มใช้แอพ
   });
 
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
@@ -1539,7 +1541,7 @@ useEffect(() => {
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
-        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} />}
+        {tab === "report" && <MonthlyReportTab purchases={purchases} sales={sales} expenses={expenses} inventory={inventory} withdrawals={withdrawals} expenseCategories={expenseCategories} shareholders={shareholders} setShareholders={setShareholders} dividendPayments={dividendPayments} setDividendPayments={setDividendPayments} companySettings={companySettings} setCompanySettings={setCompanySettings} />}
         {tab === "tax" && <TaxSummaryTab purchases={purchases} sales={sales} expenses={expenses} />}
       </div>
 
@@ -8621,12 +8623,16 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments, companySettings, setCompanySettings }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [reportView, setReportView] = useState("monthly"); // "monthly" | "yearly"
   const [editingShareholders, setEditingShareholders] = useState(false);
+  const openingRevenue = Number(companySettings?.openingRevenue) || 0;
+  const openingCost = Number(companySettings?.openingCost) || 0;
+  const setOpeningRevenue = (v) => setCompanySettings((prev) => ({ ...prev, openingRevenue: Number(v) || 0 }));
+  const setOpeningCost = (v) => setCompanySettings((prev) => ({ ...prev, openingCost: Number(v) || 0 }));
 
   const MONTH_NAMES = ["","มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
   const yearOptions = [];
@@ -8699,10 +8705,15 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
 
   const currentMonthPL = computeMonthlyPL(year, month);
   const {
-    totalRevenue, totalOtherIncome, totalIncome,
-    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost,
-    grossProfit, expenseByCategory, totalExpenses, netProfit,
+    totalRevenue, totalOtherIncome, totalIncome: totalIncomeRaw,
+    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost: totalCostRaw,
+    grossProfit: grossProfitRaw, expenseByCategory, totalExpenses, netProfit: netProfitRaw,
   } = currentMonthPL;
+  // รวมยอดยกมา
+  const totalIncome = totalIncomeRaw + (Number(openingRevenue) || 0);
+  const totalCost = totalCostRaw + (Number(openingCost) || 0);
+  const grossProfit = totalIncome - totalCost;
+  const netProfit = grossProfit - totalExpenses;
   const profitMargin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
   // ===== สรุปรายปี: กำไรสุทธิทั้ง 12 เดือน =====
@@ -8817,18 +8828,36 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           </div>
         </div>
 
+        {/* ยอดยกมาก่อนเริ่มใช้แอพ */}
+        <div style={{ background: "#fffbeb", borderRadius: 12, border: "1px solid #fde68a", padding: "16px 20px", marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: "#854f0b", marginBottom: 12 }}>ยอดยกมาก่อนเริ่มใช้แอพ (ถ้ามี)</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: 13, color: "#374151", marginBottom: 4 }}>รายได้ยกมา (บาท)</label>
+              <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={openingRevenue} onChange={(e) => setOpeningRevenue(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 13, color: "#374151", marginBottom: 4 }}>ต้นทุนยกมา (บาท)</label>
+              <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={openingCost} onChange={(e) => setOpeningCost(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <p style={{ fontSize: 12, color: "#854f0b", margin: "8px 0 0" }}>* กรอกยอดก่อนเริ่มใช้แอพเพื่อให้งบกำไรขาดทุนถูกต้อง — บันทึกถาวรอัตโนมัติ ใช้ได้ทุกเครื่อง</p>
+        </div>
+
         {/* P&L Statement */}
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
           <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>งบกำไรขาดทุน — {periodLabel}</h3>
 
           <Row label="รายได้จากการขาย" value={`฿${fmt(totalRevenue)}`} />
           <Row label="รายได้อื่น" value={`฿${fmt(totalOtherIncome)}`} />
+          {Number(openingRevenue) > 0 && <Row label="รายได้ยกมา" value={`+฿${fmt(Number(openingRevenue))}`} color="#854f0b" />}
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
           <Row label="รวมรายได้" value={`฿${fmt(totalIncome)}`} bold />
 
           <div style={{ marginTop: 16, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>ต้นทุนขาย:</div>
           <Row label="　สินค้าคงเหลือยกมาต้นงวด" value={`฿${fmt(beginningInventory)}`} />
           <Row label="　บวก ซื้อสินค้า" value={`+฿${fmt(purchasesInRange)}`} />
+          {Number(openingCost) > 0 && <Row label="　ต้นทุนยกมา" value={`+฿${fmt(Number(openingCost))}`} color="#854f0b" />}
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
           <Row label="　สินค้าที่มีไว้เพื่อขาย" value={`฿${fmt(goodsAvailableForSale)}`} />
           <Row label="　หัก สินค้าคงเหลือปลายงวด" value={`-฿${fmt(endingInventory)}`} />
