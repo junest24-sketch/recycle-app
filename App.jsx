@@ -6665,21 +6665,25 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
         </div>
       </Header>
       <div id="tab-export-expenses">
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#faece7", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-            <Receipt size={18} color="#d85a30" />
-          </div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ค่าใช้จ่ายเดือนนี้ (สุทธิ)</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>฿{fmt(totalThisMonth)}</div>
+      {/* การ์ดสรุป */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
+        {/* การ์ดเดือนนี้ */}
+        <div style={{ background: "#faece7", borderRadius: 12, border: "1px solid #f0c0a0", padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, color: "#993c1d", marginBottom: 4, fontWeight: 600 }}>เดือนนี้ (สุทธิ)</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#993c1d" }}>฿{fmt(totalThisMonth)}</div>
         </div>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f1efe8", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-            <Receipt size={18} color="#444441" />
-          </div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ค่าใช้จ่ายรวมทั้งหมด (สุทธิ)</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>฿{fmt(totalAll)}</div>
+        {/* การ์ดรวมทั้งหมด */}
+        <div style={{ background: "#f1efe8", borderRadius: 12, border: "1px solid #d4d0c0", padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, color: "#444441", marginBottom: 4, fontWeight: 600 }}>รวมทั้งหมด (สุทธิ)</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#444441" }}>฿{fmt(totalAll)}</div>
         </div>
+        {/* การ์ดแต่ละหมวดหมู่ใหญ่ */}
+        {byCategory.map((c) => (
+          <div key={c.mainCategory} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, fontWeight: 600 }}>{c.mainCategory}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#374151" }}>฿{fmt(c.total)}</div>
+          </div>
+        ))}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, alignItems: "start" }}>
