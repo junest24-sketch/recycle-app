@@ -4996,9 +4996,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
   const combined = useMemo(() => {
     let list = [...allPurchaseRows, ...allSaleRows];
-    if (activeView === "purchase") list = allPurchaseRows.filter((r) => r.payStatus === "paid" && r.paid > 0.01);
-    if (activeView === "sale") list = allSaleRows.filter((r) => r.payStatus === "paid" && r.paid > 0.01);
-    if (activeView === "expense") list = allExpenseRows.filter((r) => r.payStatus === "paid" && r.paid > 0.01);
+    if (activeView === "purchase") list = allPurchaseRows.filter((r) => r.payStatus === "paid");
+    if (activeView === "sale") list = allSaleRows.filter((r) => r.payStatus === "paid");
+    if (activeView === "expense") list = allExpenseRows.filter((r) => r.payStatus === "paid");
     if (activeView === "unpaid-purchase") list = allPurchaseRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
