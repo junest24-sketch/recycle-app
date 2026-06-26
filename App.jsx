@@ -5605,7 +5605,7 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
       </div>{/* end tab-export-inventory */}
 
       {showBasket && (
-        <Modal title={`ตะกร้าสินค้าที่เลือก (${basketItems.length} รายการ)`} onClose={() => setShowBasket(false)}>
+        <Modal title={`ตะกร้าสินค้าที่เลือก (${basketItems.length} รายการ)`} onClose={() => setShowBasket(false)} wide>
           {basketItems.length === 0 ? (
             <p style={{ color: "#9ca3af", fontSize: 13, textAlign: "center", padding: 20 }}>ยังไม่ได้เลือกสินค้า</p>
           ) : (
