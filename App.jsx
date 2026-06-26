@@ -5121,20 +5121,17 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     const kind = historyModal.kind;
     const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
     const ts = new Date().toISOString();
-    const updatedPaidCheck = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    // ถ้า paid = 0 หลังลบ ให้ reset writeOff ด้วย
-    const resetWriteOff = updatedPaidCheck <= 0.01;
     let updatedItem;
     if (kind === "purchase") {
-      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: resetWriteOff ? false : historyModal.doc.writeOff, updated_at: ts };
+      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: false, updated_at: ts };
       setPurchases(prev => prev.map((po) => po.id === realId ? updatedItem : po));
       saveToSupabase("purchases", [updatedItem]);
     } else if (kind === "expense") {
-      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: resetWriteOff ? false : historyModal.doc.writeOff, updated_at: ts };
+      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: false, updated_at: ts };
       setExpenses(prev => prev.map((e) => e.id === realId ? updatedItem : e));
       saveToSupabase("expenses", [updatedItem]);
     } else {
-      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: resetWriteOff ? false : historyModal.doc.writeOff, updated_at: ts };
+      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: false, updated_at: ts };
       setSales(prev => prev.map((inv) => inv.id === realId ? updatedItem : inv));
       saveToSupabase("sales", [updatedItem]);
     }
@@ -5514,14 +5511,19 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
               </span>
               <button style={btnSecondary} onClick={() => {
                 const realId = historyModal.doc?.id ?? historyModal.id;
+                const ts = new Date().toISOString();
+                const updatedDoc = { ...historyModal.doc, writeOff: false, updated_at: ts };
                 if (historyModal.kind === "purchase") {
-                  setPurchases(purchases.map((po) => po.id === realId ? { ...po, writeOff: false } : po));
+                  setPurchases(prev => prev.map((po) => po.id === realId ? updatedDoc : po));
+                  saveToSupabase("purchases", [updatedDoc]);
                 } else if (historyModal.kind === "expense") {
-                  setExpenses(expenses.map((e) => e.id === realId ? { ...e, writeOff: false } : e));
+                  setExpenses(prev => prev.map((e) => e.id === realId ? updatedDoc : e));
+                  saveToSupabase("expenses", [updatedDoc]);
                 } else {
-                  setSales(sales.map((inv) => inv.id === realId ? { ...inv, writeOff: false } : inv));
+                  setSales(prev => prev.map((inv) => inv.id === realId ? updatedDoc : inv));
+                  saveToSupabase("sales", [updatedDoc]);
                 }
-                setHistoryModal({ ...historyModal, doc: { ...historyModal.doc, writeOff: false } });
+                setHistoryModal({ ...historyModal, doc: updatedDoc });
               }}>ยกเลิกการปัดเศษ</button>
             </div>
           )}
