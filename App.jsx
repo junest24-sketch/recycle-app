@@ -5126,29 +5126,15 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     } else {
       setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
     }
-    // คำนวณ total จาก doc โดยตรง (ไม่พึ่ง historyModal.total เพราะอาจไม่มี)
+    // ดึง total จาก allPurchaseRows/allSaleRows/allExpenseRows ที่คำนวณถูกต้องแล้ว
     const updatedDoc = { ...historyModal.doc, payments: newPayments };
     const updatedPaid = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    // คำนวณ total จาก doc ตาม kind
-    let docTotal = historyModal.total || 0;
-    if (!docTotal || docTotal === 0) {
-      if (historyModal.kind === "purchase") {
-        const po = updatedDoc;
-        const sub = (po.items || []).reduce((s, it) => {
-          const qty = Number(it.qty)||0, deduct = Number(it.deduct)||0;
-          const net = it.deductType === "pct" ? qty*(1-deduct/100) : (it.net!=null?Number(it.net):qty-deduct);
-          return s + net*(Number(it.price)||0)*(1-(Number(it.discountPct)||0)/100);
-        }, 0);
-        docTotal = sub + sub*((Number(po.vatRate)||0)/100);
-      } else if (historyModal.kind === "sale") {
-        const inv = updatedDoc;
-        const sub = (inv.items||[]).reduce((s,it)=>s+(it.net||0)*(it.price||0),0);
-        docTotal = sub - (inv.discount||0) + (sub-(inv.discount||0))*((Number(inv.vatRate)||0)/100);
-      } else {
-        const items = (updatedDoc.items&&updatedDoc.items.length>0)?updatedDoc.items:[{amount:updatedDoc.amount,vatEnabled:updatedDoc.vatEnabled,whtRate:updatedDoc.whtRate}];
-        docTotal = items.reduce((s,it)=>{const a=Number(it.amount)||0;return s+a+(it.vatEnabled?a*0.07:0)-a*((Number(it.whtRate)||0)/100);},0);
-      }
-    }
+    const currentRow = historyModal.kind === "purchase"
+      ? allPurchaseRows.find(r => r.id === realId)
+      : historyModal.kind === "expense"
+        ? allExpenseRows.find(r => r.id === realId)
+        : allSaleRows.find(r => r.id === realId);
+    const docTotal = currentRow?.total || historyModal.total || 0;
     const updatedRemaining = docTotal - updatedPaid;
     const updatedPayStatus = updatedDoc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
     if (updatedPayStatus !== "paid") {
