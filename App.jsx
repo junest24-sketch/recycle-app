@@ -5005,7 +5005,10 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     return list
       .filter((r) => r.id.includes(search) || rowSearchLabel(r).includes(search))
       .filter((r) => (!dateFrom || (r.date || "") >= dateFrom) && (!dateTo || (r.date || "") <= dateTo))
-      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+      });
   }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, dateFrom, dateTo, customers]);
 
   const totalPayable = unpaidPurchases.reduce((s, r) => s + r.remaining, 0);
@@ -9458,4 +9461,3 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     </div>
   );
 }
-
