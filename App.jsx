@@ -4487,14 +4487,14 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860, tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: "14%" }}>เลข Invoice</th>
+              <th style={{ ...thStyle, width: "15%" }}>เลข Invoice</th>
               <th style={{ ...thStyle, width: "10%" }}>วันที่</th>
-              <th style={{ ...thStyle, width: "16%" }}>ลูกค้า</th>
+              <th style={{ ...thStyle, width: "18%" }}>ลูกค้า</th>
               <th style={{ ...thStyle, width: "10%" }}>ทะเบียนรถ</th>
-              <th style={{ ...thStyle, textAlign: "right", width: "12%" }}>ยอดสุทธิ</th>
-              <th style={{ ...thStyle, textAlign: "right", width: "16%" }}>ยอดรับชำระ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "13%" }}>ยอดสุทธิ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "15%" }}>ยอดรับชำระ</th>
               <th style={{ ...thStyle, width: "10%" }}>สถานะ</th>
-              <th style={{ ...thStyle, textAlign: "right", width: "12%" }}>จัดการ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จัดการ</th>
             </tr>
           </thead>
           <tbody>
@@ -4517,10 +4517,10 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                   </td>
                   <td style={tdStyle}><span style={{ background: sc.bg, color: sc.color, padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500 }}>{livePayStatus}</span></td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                      <button style={iconBtn} onClick={() => openView(inv)}><Printer size={14} /> ดู Invoice</button>
-                      <button style={iconBtn} onClick={() => openEdit(inv)}><Edit2 size={14} /> แก้ไข</button>
-                      <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบใบขาย "${inv.id}" ใช่หรือไม่?`, () => remove(inv.id))}><Trash2 size={14} /> ลบ</button>
+                    <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                      <button style={{ ...iconBtn, padding: "4px 8px" }} title="ดู Invoice" onClick={() => openView(inv)}><Printer size={14} /></button>
+                      <button style={{ ...iconBtn, padding: "4px 8px" }} title="แก้ไข" onClick={() => openEdit(inv)}><Edit2 size={14} /></button>
+                      <button style={{ ...btnDanger, padding: "4px 8px" }} title="ลบ" onClick={() => confirmAction(`ต้องการลบใบขาย "${inv.id}" ใช่หรือไม่?`, () => remove(inv.id))}><Trash2 size={14} /></button>
                     </div>
                   </td>
                 </tr>
