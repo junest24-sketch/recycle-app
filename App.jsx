@@ -4484,17 +4484,17 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       </div>
       <div id="tab-export-sales" style={{ flex: 1, overflow: "auto" }}>
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860, tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th style={thStyle}>เลข Invoice</th>
-              <th style={thStyle}>วันที่</th>
-              <th style={thStyle}>ลูกค้า</th>
-              <th style={thStyle}>ทะเบียนรถ</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>ยอดสุทธิ</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>ยอดรับชำระ</th>
-              <th style={thStyle}>สถานะ</th>
-              <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
+              <th style={{ ...thStyle, width: "14%" }}>เลข Invoice</th>
+              <th style={{ ...thStyle, width: "10%" }}>วันที่</th>
+              <th style={{ ...thStyle, width: "16%" }}>ลูกค้า</th>
+              <th style={{ ...thStyle, width: "10%" }}>ทะเบียนรถ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "12%" }}>ยอดสุทธิ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "16%" }}>ยอดรับชำระ</th>
+              <th style={{ ...thStyle, width: "10%" }}>สถานะ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "12%" }}>จัดการ</th>
             </tr>
           </thead>
           <tbody>
@@ -5506,9 +5506,10 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
         </div>
       </Header>
       <div id="tab-export-inventory">
-      <Card>
+      <Card style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 260px)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f9fafb" }}>
             <tr>
               <th style={thStyle}></th>
               <th style={thStyle}>สินค้า</th>
@@ -5599,6 +5600,7 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
             </tfoot>
           )}
         </table>
+        </div>{/* end scroll wrapper */}
       </Card>
       </div>{/* end tab-export-inventory */}
 
