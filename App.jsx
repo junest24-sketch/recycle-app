@@ -3731,6 +3731,26 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
             })}
           </tbody>
           <tfoot>
+            {(() => {
+              const totalQty = po.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+              const totalNet = po.items.reduce((s, it) => {
+                const qty = Number(it.qty) || 0;
+                const net = it.deductType === "pct" ? qty*(1-(Number(it.deductPct)||0)/100) : qty - (Number(it.deduct)||0);
+                return s + net;
+              }, 0);
+              const totalDeducted = totalQty - totalNet;
+              const unit = po.items[0] ? (products.find(p=>p.id===po.items[0].productId)?.unit || "") : "";
+              return (
+                <tr style={{ background: "#f9fafb" }}>
+                  <td style={{ ...tdCompact, fontWeight: 700, color: "#374151" }}>รวมทั้งหมด</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700 }}>{fmt(totalQty)}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(totalDeducted)}</td>
+                  <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700 }}>{fmt(totalNet)}</td>
+                  <td style={{ ...tdCompact }}></td>
+                  <td style={{ ...tdCompact }}></td>
+                </tr>
+              );
+            })()}
             {po.vatRate > 0 && (
               <tr>
                 <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
@@ -4781,6 +4801,26 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               );
             })}
           </tbody>
+          <tfoot>
+            {(() => {
+              const totalQty = inv.items.reduce((s, it) => s + (Number(it.qty)||0), 0);
+              const totalNet = inv.items.reduce((s, it) => {
+                const qty = Number(it.qty)||0;
+                const net = it.deductType === "pct" ? qty*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : qty-(Number(it.deduct)||0));
+                return s + net;
+              }, 0);
+              const totalDeducted = totalQty - totalNet;
+              return (
+                <tr style={{ background: "#f9fafb" }}>
+                  <td style={{ ...tdStyle, padding: "4px 12px", fontWeight: 700 }}>รวมทั้งหมด</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700 }}>{fmt(totalQty)}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(totalDeducted)}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700 }}>{fmt(totalNet)}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px" }}></td>
+                </tr>
+              );
+            })()}
+          </tfoot>
         </table>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
