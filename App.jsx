@@ -5126,25 +5126,17 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     } else {
       setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
     }
-    // ดึง total จาก allPurchaseRows/allSaleRows/allExpenseRows ที่คำนวณถูกต้องแล้ว
     const updatedDoc = { ...historyModal.doc, payments: newPayments };
     const updatedPaid = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const currentRow = historyModal.kind === "purchase"
-      ? allPurchaseRows.find(r => r.id === realId)
-      : historyModal.kind === "expense"
-        ? allExpenseRows.find(r => r.id === realId)
-        : allSaleRows.find(r => r.id === realId);
-    const docTotal = currentRow?.total || historyModal.total || 0;
+    // ใช้ total จาก historyModal row โดยตรง (ค่าที่คำนวณตอนเปิด modal)
+    const docTotal = historyModal.total;
     const updatedRemaining = docTotal - updatedPaid;
+    const unpaidTab = historyModal.kind === "purchase" ? "unpaid-purchase"
+      : historyModal.kind === "expense" ? "unpaid-expense" : "unpaid-sale";
     const updatedPayStatus = updatedDoc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
-    if (updatedPayStatus !== "paid") {
-      const unpaidTab = historyModal.kind === "purchase" ? "unpaid-purchase"
-        : historyModal.kind === "expense" ? "unpaid-expense" : "unpaid-sale";
-      setActiveView(unpaidTab);
-      setHistoryModal(null);
-    } else {
-      setHistoryModal({ ...historyModal, doc: updatedDoc, paid: updatedPaid, remaining: updatedRemaining, payStatus: updatedPayStatus });
-    }
+    // ปิด modal เสมอ แล้วสลับแท็บตาม payStatus
+    setHistoryModal(null);
+    setActiveView(updatedPayStatus !== "paid" ? unpaidTab : historyModal.kind === "purchase" ? "purchase" : historyModal.kind === "expense" ? "expense" : "sale");
   };
 
   // คำนวณยอดล่าสุดของใบที่กำลังดูประวัติ (อ้างจาก historyModal.doc ที่อัปเดตสดๆ)
