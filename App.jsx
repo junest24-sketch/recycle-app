@@ -9457,4 +9457,4 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       )}
     </div>
   );
-}
+
