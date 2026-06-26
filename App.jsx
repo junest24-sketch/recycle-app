@@ -5118,14 +5118,20 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const deleteHistoryPayment = (idx) => {
     if (!historyModal) return;
     const realId = historyModal.doc?.id ?? historyModal.id;
+    const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
     if (historyModal.kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: (po.payments || []).filter((_, i) => i !== idx) } : po));
+      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: newPayments } : po));
     } else if (historyModal.kind === "expense") {
-      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: (e.payments || []).filter((_, i) => i !== idx) } : e));
+      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: newPayments } : e));
     } else {
-      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: (inv.payments || []).filter((_, i) => i !== idx) } : inv));
+      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
     }
-    setHistoryModal({ ...historyModal, doc: { ...historyModal.doc, payments: (historyModal.doc.payments || []).filter((_, i) => i !== idx) } });
+    // อัปเดต doc ใน historyModal ด้วยเพื่อให้ยอดแสดงถูกต้อง
+    const updatedDoc = { ...historyModal.doc, payments: newPayments };
+    const updatedPaid = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const updatedRemaining = historyModal.total - updatedPaid;
+    const updatedPayStatus = updatedDoc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
+    setHistoryModal({ ...historyModal, doc: updatedDoc, paid: updatedPaid, remaining: updatedRemaining, payStatus: updatedPayStatus });
   };
 
   // คำนวณยอดล่าสุดของใบที่กำลังดูประวัติ (อ้างจาก historyModal.doc ที่อัปเดตสดๆ)
