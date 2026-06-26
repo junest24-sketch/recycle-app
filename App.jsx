@@ -128,6 +128,7 @@ function printAsPDF(elementId, title = "") {
     return;
   }
 
+  const isLandscape = elementId === "transfer-sheet-print";
   win.document.write(`<!DOCTYPE html>
 <html>
 <head>
@@ -157,7 +158,9 @@ function printAsPDF(elementId, title = "") {
     tfoot { display: table-footer-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
     tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    @page { size: A4 portrait; margin: 10mm; }
+    ${isLandscape ? "@page { size: A4 landscape; margin: 6mm; }" : "@page { size: A4 portrait; margin: 10mm; }"}
+    ${isLandscape ? ".page { width: 297mm !important; font-size: 9px !important; }" : ""}
+    ${isLandscape ? "td, th { padding: 3px 5px !important; font-size: 9px !important; }" : ""}
     @media print {
       .toolbar { display: none !important; }
       body { background: #fff; }
@@ -5295,7 +5298,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 </button>
               ))}
             </div>
-            <div id="transfer-sheet-print">
+            <div id="transfer-sheet-print" style={{ fontSize: 12 }}>
+              <style>{`
+                @media print {
+                  #transfer-sheet-print table { font-size: 9px !important; }
+                  #transfer-sheet-print td, #transfer-sheet-print th { padding: 2px 4px !important; }
+                }
+              `}</style>
               <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 15 }}>
                 {transferTab === "purchase" ? "ตั้งโอนใบรับสินค้า" : transferTab === "expense" ? "ตั้งโอนค่าใช้จ่าย" : "ตั้งโอนใบขาย"} — {new Date().toLocaleDateString("th-TH")}
               </div>
