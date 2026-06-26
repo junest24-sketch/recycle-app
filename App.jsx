@@ -4325,31 +4325,31 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
               </div>
             </div>
 
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead><tr style={{ background: "#f3f4f6" }}>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>สินค้าต้นทาง</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>จำนวนที่เบิก</th>
-                <th style={thStyle}>สินค้าปลายทาง</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>มูลค่า</th>
+                <th style={{ ...thStyle, padding: "4px 12px" }}>#</th>
+                <th style={{ ...thStyle, padding: "4px 12px" }}>สินค้าต้นทาง</th>
+                <th style={{ ...thStyle, padding: "4px 12px", textAlign: "right" }}>จำนวนที่เบิก</th>
+                <th style={{ ...thStyle, padding: "4px 12px" }}>สินค้าปลายทาง</th>
+                <th style={{ ...thStyle, padding: "4px 12px", textAlign: "right" }}>มูลค่า</th>
               </tr></thead>
               <tbody>
                 {(printLot.items || []).map((it, i) => (
                   <tr key={i}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
-                    <td style={tdStyle}>{prodName(it.targetProductId)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(Number(it.value) || 0)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px" }}>{i + 1}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px" }}>{prodName(it.sourceProductId)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px" }}>{prodName(it.targetProductId)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>฿{fmt(Number(it.value) || 0)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={2} style={{ ...tdStyle, fontWeight: 700 }}>รวม</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>{fmt(lotQtyTotal(printLot))}</td>
-                  <td style={tdStyle}></td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#3c3489" }}>฿{fmt(lotTotal(printLot))}</td>
+                  <td colSpan={2} style={{ ...tdStyle, padding: "4px 12px", fontWeight: 700 }}>รวม</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700 }}>{fmt(lotQtyTotal(printLot))}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px" }}></td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700, color: "#3c3489" }}>฿{fmt(lotTotal(printLot))}</td>
                 </tr>
               </tfoot>
             </table>
@@ -4758,13 +4758,13 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
           )}
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
           <thead>
             <tr style={{ background: accentColor + "22" }}>
-              <th style={{ ...thStyle, color: accentColor }}>สินค้า</th>
-              <th style={{ ...thStyle, color: accentColor, textAlign: "right" }}>น้ำหนักสุทธิ</th>
-              <th style={{ ...thStyle, color: accentColor, textAlign: "right" }}>ราคา/หน่วย</th>
-              <th style={{ ...thStyle, color: accentColor, textAlign: "right" }}>จำนวนเงิน</th>
+              <th style={{ ...thStyle, color: accentColor, padding: "4px 12px" }}>สินค้า</th>
+              <th style={{ ...thStyle, color: accentColor, textAlign: "right", padding: "4px 12px" }}>น้ำหนักสุทธิ</th>
+              <th style={{ ...thStyle, color: accentColor, textAlign: "right", padding: "4px 12px" }}>ราคา/หน่วย</th>
+              <th style={{ ...thStyle, color: accentColor, textAlign: "right", padding: "4px 12px" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
@@ -4773,10 +4773,10 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               const net = it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0));
               return (
                 <tr key={idx}>
-                  <td style={tdStyle}>{p.name}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(net)} {p.unit}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.price)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(net * it.price)}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px" }}>{p.name}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(net)} {p.unit}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(it.price)}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 600 }}>{fmt(net * it.price)}</td>
                 </tr>
               );
             })}
@@ -8766,19 +8766,19 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
               {modal.item.vehicleNo && <div><strong>ทะเบียนรถ:</strong> {modal.item.vehicleNo}</div>}
               {modal.item.driverName && <div><strong>คนขับ:</strong> {modal.item.driverName}</div>}
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead><tr style={{ background: "#f3f4f6" }}>
-                <th style={thStyle}>#</th><th style={thStyle}>สินค้า</th><th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th><th style={{ ...thStyle, textAlign: "right" }}>น้ำหนักภาชนะ</th><th style={thStyle}>ประเภทภาชนะ</th><th style={{ ...thStyle, textAlign: "right" }}>จำนวนสุทธิ</th>
+                <th style={{ ...thStyle, padding: "4px 12px" }}>#</th><th style={{ ...thStyle, padding: "4px 12px" }}>สินค้า</th><th style={{ ...thStyle, padding: "4px 12px", textAlign: "right" }}>จำนวน</th><th style={{ ...thStyle, padding: "4px 12px", textAlign: "right" }}>น้ำหนักภาชนะ</th><th style={{ ...thStyle, padding: "4px 12px" }}>ประเภทภาชนะ</th><th style={{ ...thStyle, padding: "4px 12px", textAlign: "right" }}>จำนวนสุทธิ</th>
               </tr></thead>
               <tbody>
                 {modal.item.items.map((it, i) => (
                   <tr key={it.id}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>{prodName(it.productId)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)}</td>
-                    <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.containerWeight)}</td>
-                    <td style={tdStyle}>{it.containerType || "-"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(netQtyOf(it))} {prodUnit(it.productId)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px" }}>{i + 1}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px" }}>{prodName(it.productId)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(it.qty)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(it.containerWeight)}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px" }}>{it.containerType || "-"}</td>
+                    <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 600 }}>{fmt(netQtyOf(it))} {prodUnit(it.productId)}</td>
                   </tr>
                 ))}
               </tbody>
