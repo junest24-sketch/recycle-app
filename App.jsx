@@ -5121,18 +5121,20 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     const kind = historyModal.kind;
     const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
     const ts = new Date().toISOString();
-    // อัปเดต state หลัก
+    const updatedPaidCheck = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    // ถ้า paid = 0 หลังลบ ให้ reset writeOff ด้วย
+    const resetWriteOff = updatedPaidCheck <= 0.01;
     let updatedItem;
     if (kind === "purchase") {
-      updatedItem = { ...historyModal.doc, payments: newPayments, updated_at: ts };
+      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: resetWriteOff ? false : historyModal.doc.writeOff, updated_at: ts };
       setPurchases(prev => prev.map((po) => po.id === realId ? updatedItem : po));
       saveToSupabase("purchases", [updatedItem]);
     } else if (kind === "expense") {
-      updatedItem = { ...historyModal.doc, payments: newPayments, updated_at: ts };
+      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: resetWriteOff ? false : historyModal.doc.writeOff, updated_at: ts };
       setExpenses(prev => prev.map((e) => e.id === realId ? updatedItem : e));
       saveToSupabase("expenses", [updatedItem]);
     } else {
-      updatedItem = { ...historyModal.doc, payments: newPayments, updated_at: ts };
+      updatedItem = { ...historyModal.doc, payments: newPayments, writeOff: resetWriteOff ? false : historyModal.doc.writeOff, updated_at: ts };
       setSales(prev => prev.map((inv) => inv.id === realId ? updatedItem : inv));
       saveToSupabase("sales", [updatedItem]);
     }
