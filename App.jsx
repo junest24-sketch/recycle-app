@@ -5236,12 +5236,16 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   )}
                 </td>
                 <td style={{ ...tdStyle, textAlign: "center" }}>
-                  <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => setFlag(r.id, "transfer", e.target.checked)}
-                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
+                  {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) ? (
+                    <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => setFlag(r.id, "transfer", e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
+                  ) : null}
                 </td>
                 <td style={{ ...tdStyle, textAlign: "center" }}>
-                  <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => setFlag(r.id, "withdrawn", e.target.checked)}
-                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f6e56" }} />
+                  {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) ? (
+                    <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => setFlag(r.id, "withdrawn", e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f6e56" }} />
+                  ) : null}
                 </td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
