@@ -5202,9 +5202,12 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
               <th style={{ ...thStyle, textAlign: "right" }}>ยอดรวม</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ชำระแล้ว</th>
               <th style={{ ...thStyle, textAlign: "right" }}>คงค้าง</th>
-              <th style={thStyle}>สถานะ</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>ตั้งโอน</th>
-              <th style={{ ...thStyle, textAlign: "center" }}>เบิกแล้ว</th>
+              {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) && (
+                <th style={{ ...thStyle, textAlign: "center" }}>ตั้งโอน</th>
+              )}
+              {["purchase","sale","expense"].includes(activeView) && (
+                <th style={{ ...thStyle, textAlign: "center" }}>เบิกแล้ว</th>
+              )}
               <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
             </tr>
           </thead>
@@ -5226,27 +5229,19 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
                 <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(r.paid)}</td>
                 <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: r.payStatus === "paid" ? "#0f6e56" : r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.payStatus === "paid" ? 0 : r.remaining)}</td>
-                <td style={tdStyle}>
-                  {r.payStatus === "paid" ? (
-                    <span style={{ background: "#e3f5ea", color: "#0f6e56", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>ชำระครบแล้ว</span>
-                  ) : r.payStatus === "partial" ? (
-                    <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>ชำระบางส่วน</span>
-                  ) : (
-                    <span style={{ background: "#f3f4f6", color: "#6b7280", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>ยังไม่ชำระ</span>
-                  )}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "center" }}>
-                  {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) ? (
+
+                {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) && (
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
                     <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => setFlag(r.id, "transfer", e.target.checked)}
                       style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
-                  ) : null}
-                </td>
-                <td style={{ ...tdStyle, textAlign: "center" }}>
-                  {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) ? (
+                  </td>
+                )}
+                {["purchase","sale","expense"].includes(activeView) && (
+                  <td style={{ ...tdStyle, textAlign: "center" }}>
                     <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => setFlag(r.id, "withdrawn", e.target.checked)}
                       style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f6e56" }} />
-                  ) : null}
-                </td>
+                  </td>
+                )}
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                     {r.payStatus !== "paid" && (
