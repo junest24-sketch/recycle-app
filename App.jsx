@@ -5119,14 +5119,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (!historyModal) return;
     const realId = historyModal.doc?.id ?? historyModal.id;
     const kind = historyModal.kind;
-    // ลบจาก historyModal.doc.payments (ที่ modal แสดงอยู่จริงๆ)
     const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
-    const updatedPaid = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const docTotal = historyModal.total || 0;
-    const updatedRemaining = docTotal - updatedPaid;
-    const unpaidTab = kind === "purchase" ? "unpaid-purchase"
-      : kind === "expense" ? "unpaid-expense" : "unpaid-sale";
-    const updatedPayStatus = historyModal.doc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
     // อัปเดต state หลัก
     if (kind === "purchase") {
       setPurchases(prev => prev.map((po) => po.id === realId ? { ...po, payments: newPayments } : po));
@@ -5135,9 +5128,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     } else {
       setSales(prev => prev.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
     }
-    // ปิด modal และสลับแท็บ
-    setHistoryModal(null);
-    setActiveView(updatedPayStatus !== "paid" ? unpaidTab : kind === "purchase" ? "purchase" : kind === "expense" ? "expense" : "sale");
+    // อัปเดต historyModal ให้แสดงยอดใหม่
+    const updatedDoc = { ...historyModal.doc, payments: newPayments };
+    setHistoryModal({ ...historyModal, doc: updatedDoc });
   };
 
   // คำนวณยอดล่าสุดของใบที่กำลังดูประวัติ (อ้างจาก historyModal.doc ที่อัปเดตสดๆ)
