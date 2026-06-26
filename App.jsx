@@ -5291,34 +5291,74 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <th style={thStyle}>เลขที่ใบ</th>
                       <th style={thStyle}>วันที่</th>
                       <th style={thStyle}>ลูกค้า / รายการ</th>
+                      <th style={thStyle}>รายละเอียดค่าใช้จ่าย</th>
+                      <th style={thStyle}>บัญชีลูกค้า</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>ชำระบางส่วน</th>
                       <th style={{ ...thStyle, textAlign: "right" }}>ยอดคงค้าง</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {transferList.map((r) => (
-                      <tr key={r.id}>
-                        <td style={tdStyle}>
-                          {r.kind === "purchase" ? (
-                            <span style={{ background: "#faece7", color: "#993c1d", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ใบรับ)</span>
-                          ) : r.kind === "expense" ? (
-                            <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ค่าใช้จ่าย)</span>
-                          ) : (
-                            <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
-                          )}
-                        </td>
-                        <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
-                        <td style={tdStyle}>{r.date}</td>
-                        <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
+                  {(() => {
+                    const renderRow = (r) => {
+                      const cust = customers.find((c) => c.id === r.customerId);
+                      const bankInfo = cust?.bankAccounts?.length > 0
+                        ? `${cust.bankAccounts[0].bankName} ${cust.bankAccounts[0].accountNo}` : "-";
+                      // รายละเอียดค่าใช้จ่าย (เฉพาะ expense)
+                      const expenseDetail = r.kind === "expense" ? (() => {
+                        const exp = expenses.find(e => (e.refNo || e.id) === r.id || e.id === r.id);
+                        if (!exp) return "-";
+                        const items = exp.items && exp.items.length > 0 ? exp.items : [{ subCategory: exp.subCategory, description: exp.description }];
+                        return items.map(it => [it.subCategory, it.description].filter(Boolean).join(" — ")).join(", ");
+                      })() : null;
+                      return (
+                        <tr key={r.id}>
+                          <td style={tdStyle}>
+                            {r.kind === "purchase" ? (
+                              <span style={{ background: "#faece7", color: "#993c1d", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ใบรับ)</span>
+                            ) : r.kind === "expense" ? (
+                              <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ค่าใช้จ่าย)</span>
+                            ) : (
+                              <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
+                            )}
+                          </td>
+                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                          <td style={tdStyle}>{r.date}</td>
+                          <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
+                          <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail !== null ? expenseDetail : ""}</td>
+                          <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{bankInfo}</td>
+                          <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
+                        </tr>
+                      );
+                    };
+                    const purchaseRows = transferList.filter(r => r.kind === "purchase");
+                    const expenseRows  = transferList.filter(r => r.kind === "expense");
+                    const saleRows     = transferList.filter(r => r.kind === "sale");
+                    const subtotal = (rows) => rows.reduce((s, r) => s + r.remaining, 0);
+                    const groupHeader = (label, color, bg) => (
+                      <tr style={{ background: bg }}>
+                        <td colSpan={9} style={{ ...tdStyle, fontWeight: 700, color, fontSize: 13 }}>{label}</td>
                       </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ borderTop: "2px solid #185fa5" }}>
-                      <td colSpan={4} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดตั้งโอนทั้งหมด</td>
-                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(totalAmt)}</td>
-                    </tr>
-                  </tfoot>
+                    );
+                    const groupFooter = (rows, color) => rows.length > 0 && (
+                      <tr style={{ background: "#f9fafb" }}>
+                        <td colSpan={8} style={{ ...tdStyle, fontWeight: 600, color, textAlign: "right", fontSize: 12 }}>รวมกลุ่ม</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color }}>฿{fmt(subtotal(rows))}</td>
+                      </tr>
+                    );
+                    return (
+                      <tbody>
+                        {purchaseRows.length > 0 && <>{groupHeader("ใบรับสินค้า (จ่ายชำระ)", "#993c1d", "#faece7")}{purchaseRows.map(renderRow)}{groupFooter(purchaseRows, "#993c1d")}</>}
+                        {expenseRows.length > 0  && <>{groupHeader("ค่าใช้จ่าย (จ่ายชำระ)", "#854f0b", "#faeeda")}{expenseRows.map(renderRow)}{groupFooter(expenseRows, "#854f0b")}</>}
+                        {saleRows.length > 0     && <>{groupHeader("ใบขาย (รับชำระ)", "#185fa5", "#e6f1fb")}{saleRows.map(renderRow)}{groupFooter(saleRows, "#185fa5")}</>}
+                        <tr style={{ borderTop: "2px solid #185fa5" }}>
+                          <td colSpan={8} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดตั้งโอนทั้งหมด</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(totalAmt)}</td>
+                        </tr>
+                      </tbody>
+                    );
+                  })()}
                 </table>
               )}
             </div>
