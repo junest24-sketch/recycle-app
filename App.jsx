@@ -4980,7 +4980,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       const paid = (e.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
       const remaining = total - paid;
       const payStatus = e.writeOff ? "paid" : (remaining > 0.01 ? (paid > 0.01 ? "partial" : "unpaid") : "paid");
-      const vendorLabel = e.vendorName || items.map((it) => it.description).filter(Boolean).join(", ") || e.refNo || e.id;
+      const vendorLabel = e.vendorName || "";
       return { kind: "expense", id: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
     });
   }, [expenses]);
@@ -5305,7 +5305,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr>
-                      <th style={thStyle}>ประเภท</th>
                       <th style={thStyle}>เลขที่ใบ</th>
                       <th style={thStyle}>วันที่</th>
                       <th style={thStyle}>ลูกค้า / รายการ</th>
@@ -5331,15 +5330,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       })() : null;
                       return (
                         <tr key={r.id}>
-                          <td style={tdStyle}>
-                            {r.kind === "purchase" ? (
-                              <span style={{ background: "#faece7", color: "#993c1d", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ใบรับ)</span>
-                            ) : r.kind === "expense" ? (
-                              <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ค่าใช้จ่าย)</span>
-                            ) : (
-                              <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
-                            )}
-                          </td>
                           <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
                           <td style={tdStyle}>{r.date}</td>
                           <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
@@ -5356,7 +5346,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <tbody>
                         {filteredByTab.map(renderRow)}
                         <tr style={{ borderTop: "2px solid #185fa5" }}>
-                          <td colSpan={transferTab === "expense" ? 8 : 7} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
+                          <td colSpan={transferTab === "expense" ? 7 : 6} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(tabTotal)}</td>
                         </tr>
                       </tbody>
@@ -5366,19 +5356,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
               )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-              <button style={btnSecondary} onClick={() => {
-                const el = document.getElementById("transfer-sheet-print");
-                const w = window.open("", "_blank");
-                w.document.write(`<html><head><style>
-                  body { font-family: 'Sarabun', sans-serif; font-size: 10px; margin: 8mm; }
-                  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-                  th, td { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; word-break: break-word; }
-                  th { background: #f3f4f6; font-weight: 700; }
-                  @page { size: A4 landscape; margin: 8mm; }
-                  @media print { body { margin: 0; } }
-                </style></head><body>${el.innerHTML}</body></html>`);
-                w.document.close(); w.print();
-              }}><Printer size={14} /> พิมพ์ / PDF</button>
+              <button style={btnSecondary} onClick={() => printAsPDF("transfer-sheet-print", "สรุปตั้งโอน")}><Printer size={14} /> พิมพ์ / PDF</button>
               <button style={btnSecondary} onClick={() => setShowTransferSheet(false)}>ปิด</button>
             </div>
           </Modal>
