@@ -1532,7 +1532,7 @@ useEffect(() => {
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} companySettings={companySettings} />}
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
-        {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} />}
+        {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} companySettings={companySettings} setCompanySettings={setCompanySettings} bankTransfers={bankTransfers} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} storeBankAccounts={storeBankAccounts} />}
         {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
@@ -4912,7 +4912,35 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 // ===================================================================
 // PAYMENTS TAB (รับชำระ/จ่ายชำระ — รวมรายการค้างชำระจากใบรับสินค้าและใบขาย)
 // ===================================================================
-function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits, expenses, setExpenses }) {
+function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits, expenses, setExpenses, companySettings, setCompanySettings, bankTransfers }) {
+  const [showCreditSetting, setShowCreditSetting] = React.useState(false);
+  const creditLimit = Number(companySettings?.creditLimit) || 0;
+  const creditAccounts = companySettings?.creditAccounts || []; // array of storeBankAccount ids ที่นับในวงเงิน
+
+  // คำนวณยอดวงเงิน
+  const creditBalance = React.useMemo(() => {
+    if (!creditLimit) return null;
+    // รายการที่ติ๊ก "เบิกแล้ว" = withdrawn
+    const getWithdrawn = (r) => !!payFlags[`${r.id}_withdrawn`];
+
+    // ซื้อ + ค่าใช้จ่าย (ที่ติ๊กเบิกแล้ว)
+    const totalBuy = allPurchaseRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const totalExp = allExpenseRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    // รับจากขาย (ที่ติ๊กเบิกแล้ว)
+    const totalSale = allSaleRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+
+    const netOut = totalBuy + totalExp - totalSale; // ยอดที่ใช้วงเงินไปแล้ว
+    const balance = creditLimit - netOut;            // วงเงินคงเหลือ
+
+    // รายการที่ยังไม่เบิก (pending)
+    const pendingBuy = allPurchaseRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const pendingExp = allExpenseRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const pendingSale = allSaleRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const pendingNet = pendingBuy + pendingExp - pendingSale;
+
+    return { limit: creditLimit, netOut, balance, pendingNet, totalBuy, totalExp, totalSale };
+  }, [creditLimit, payFlags, allPurchaseRows, allExpenseRows, allSaleRows]);
+
   const [payFlags, setPayFlags] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("payFlags") || "{}"); } catch { return {}; }
   });
@@ -5171,6 +5199,45 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     <div>
       <Header title="รับชำระ / จ่ายชำระ" subtitle="รวมรายการใบรับสินค้าและใบขายที่ยังค้างชำระ — บันทึกการจ่าย/รับเงินจริงได้ที่นี่" />
 
+      {/* วงเงินหมุนเวียน */}
+      {creditBalance && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "2px solid #185fa5", padding: "14px 18px", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, color: "#185fa5" }}>วงเงินหมุนเวียนร้าน</span>
+            <button style={btnSecondary} onClick={() => setShowCreditSetting(true)}><Settings size={14} /> ตั้งค่า</button>
+          </div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>วงเงินตั้งต้น</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: "#185fa5" }}>฿{fmt(creditBalance.limit)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>ซื้อ+ค่าใช้จ่าย (เบิกแล้ว)</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: "#993c1d" }}>฿{fmt(creditBalance.totalBuy + creditBalance.totalExp)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>รับจากขาย (เบิกแล้ว)</div>
+              <div style={{ fontWeight: 700, fontSize: 18, color: "#0f6e56" }}>฿{fmt(creditBalance.totalSale)}</div>
+            </div>
+            <div style={{ borderLeft: "2px solid #e5e7eb", paddingLeft: 20 }}>
+              <div style={{ fontSize: 11, color: "#6b7280" }}>วงเงินคงเหลือ</div>
+              <div style={{ fontWeight: 700, fontSize: 22, color: creditBalance.balance >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(creditBalance.balance)}</div>
+            </div>
+            {creditBalance.pendingNet !== 0 && (
+              <div>
+                <div style={{ fontSize: 11, color: "#6b7280" }}>รอเบิก (ยังไม่ติ๊ก)</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "#854f0b" }}>฿{fmt(creditBalance.pendingNet)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {!creditBalance && (
+        <div style={{ marginBottom: 12, textAlign: "right" }}>
+          <button style={btnSecondary} onClick={() => setShowCreditSetting(true)}><Settings size={14} /> ตั้งค่าวงเงินหมุนเวียน</button>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 20 }}>
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
           <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ยอดที่ต้องจ่าย (ใบรับสินค้าค้างจ่าย)</div>
@@ -5290,6 +5357,37 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           </tbody>
         </table>
       </Card>
+
+      {/* Modal ตั้งค่าวงเงินหมุนเวียน */}
+      {showCreditSetting && (
+        <Modal title="ตั้งค่าวงเงินหมุนเวียนร้าน" onClose={() => setShowCreditSetting(false)}>
+          <Field label="วงเงินตั้งต้น (บาท)">
+            <input type="number" style={{ ...inputStyle, textAlign: "right" }}
+              value={companySettings?.creditLimit || ""}
+              onChange={(e) => setCompanySettings(prev => ({ ...prev, creditLimit: Number(e.target.value) || 0 }))}
+              placeholder="เช่น 500000" />
+          </Field>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>เลือกบัญชีที่นับในวงเงิน</div>
+            {storeBankAccounts.map((acc) => (
+              <label key={acc.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13, cursor: "pointer" }}>
+                <input type="checkbox"
+                  checked={(companySettings?.creditAccounts || []).includes(acc.id)}
+                  onChange={(e) => {
+                    const cur = companySettings?.creditAccounts || [];
+                    const next = e.target.checked ? [...cur, acc.id] : cur.filter(id => id !== acc.id);
+                    setCompanySettings(prev => ({ ...prev, creditAccounts: next }));
+                  }}
+                  style={{ width: 16, height: 16 }} />
+                {acc.bankName} — {acc.accountNo} ({acc.accountName || ""})
+              </label>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <button style={btnPrimary} onClick={() => setShowCreditSetting(false)}><Check size={14} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
 
       {/* Modal สรุปตั้งโอน */}
       {showTransferSheet && (() => {
