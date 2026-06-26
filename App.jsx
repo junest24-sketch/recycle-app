@@ -5126,12 +5126,19 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     } else {
       setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
     }
-    // อัปเดต doc ใน historyModal ด้วยเพื่อให้ยอดแสดงถูกต้อง
+    // ตรวจสอบ payStatus หลังลบ — ถ้าไม่ paid แล้ว ให้ปิด modal และสลับแท็บไปค้าง
     const updatedDoc = { ...historyModal.doc, payments: newPayments };
     const updatedPaid = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const updatedRemaining = historyModal.total - updatedPaid;
     const updatedPayStatus = updatedDoc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
-    setHistoryModal({ ...historyModal, doc: updatedDoc, paid: updatedPaid, remaining: updatedRemaining, payStatus: updatedPayStatus });
+    if (updatedPayStatus !== "paid") {
+      setHistoryModal(null);
+      const unpaidTab = historyModal.kind === "purchase" ? "unpaid-purchase"
+        : historyModal.kind === "expense" ? "unpaid-expense" : "unpaid-sale";
+      setActiveView(unpaidTab);
+    } else {
+      setHistoryModal({ ...historyModal, doc: updatedDoc, paid: updatedPaid, remaining: updatedRemaining, payStatus: updatedPayStatus });
+    }
   };
 
   // คำนวณยอดล่าสุดของใบที่กำลังดูประวัติ (อ้างจาก historyModal.doc ที่อัปเดตสดๆ)
