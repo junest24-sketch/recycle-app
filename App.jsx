@@ -5309,7 +5309,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <th style={thStyle}>เลขที่ใบ</th>
                       <th style={thStyle}>วันที่</th>
                       <th style={thStyle}>ลูกค้า / รายการ</th>
-                      <th style={thStyle}>รายละเอียดค่าใช้จ่าย</th>
+                      {transferTab === "expense" && <th style={thStyle}>รายละเอียดค่าใช้จ่าย</th>}
                       <th style={thStyle}>บัญชีลูกค้า</th>
                       <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
                       <th style={{ ...thStyle, textAlign: "right" }}>ชำระบางส่วน</th>
@@ -5343,7 +5343,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                           <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
                           <td style={tdStyle}>{r.date}</td>
                           <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
-                          <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail !== null ? expenseDetail : ""}</td>
+                          {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
                           <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{bankInfo}</td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
                           <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
@@ -5356,7 +5356,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <tbody>
                         {filteredByTab.map(renderRow)}
                         <tr style={{ borderTop: "2px solid #185fa5" }}>
-                          <td colSpan={8} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
+                          <td colSpan={transferTab === "expense" ? 8 : 7} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(tabTotal)}</td>
                         </tr>
                       </tbody>
@@ -5366,7 +5366,19 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
               )}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-              <button style={btnSecondary} onClick={() => printAsPDF("transfer-sheet-print", "สรุปตั้งโอน")}><Printer size={14} /> พิมพ์ / PDF</button>
+              <button style={btnSecondary} onClick={() => {
+                const el = document.getElementById("transfer-sheet-print");
+                const w = window.open("", "_blank");
+                w.document.write(`<html><head><style>
+                  body { font-family: 'Sarabun', sans-serif; font-size: 10px; margin: 8mm; }
+                  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+                  th, td { border: 1px solid #ddd; padding: 3px 6px; font-size: 10px; word-break: break-word; }
+                  th { background: #f3f4f6; font-weight: 700; }
+                  @page { size: A4 landscape; margin: 8mm; }
+                  @media print { body { margin: 0; } }
+                </style></head><body>${el.innerHTML}</body></html>`);
+                w.document.close(); w.print();
+              }}><Printer size={14} /> พิมพ์ / PDF</button>
               <button style={btnSecondary} onClick={() => setShowTransferSheet(false)}>ปิด</button>
             </div>
           </Modal>
