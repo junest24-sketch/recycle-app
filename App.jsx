@@ -4913,6 +4913,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const [payFlags, setPayFlags] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("payFlags") || "{}"); } catch { return {}; }
   });
+  const [showTransferSheet, setShowTransferSheet] = React.useState(false);
   const setFlag = (id, flag, val) => {
     const next = { ...payFlags, [`${id}_${flag}`]: val };
     setPayFlags(next);
@@ -5187,6 +5188,17 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             {opt.label}
           </button>
         ))}
+        {/* ปุ่มสรุปตั้งโอน */}
+        {(() => {
+          const transferList = [...unpaidPurchases, ...unpaidSales, ...unpaidExpenses].filter(r => getFlag(r.id, "transfer"));
+          return (
+            <button onClick={() => setShowTransferSheet(true)}
+              style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600,
+                border: "1px solid #185fa5", background: "#185fa5", color: "#fff", display: "flex", alignItems: "center", gap: 6 }}>
+              <FileText size={14} /> สรุปตั้งโอน ({transferList.length} รายการ)
+            </button>
+          );
+        })()}
       </div>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ใบ หรือชื่อลูกค้า..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
@@ -5260,6 +5272,63 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           </tbody>
         </table>
       </Card>
+
+      {/* Modal สรุปตั้งโอน */}
+      {showTransferSheet && (() => {
+        const transferList = [...unpaidPurchases, ...unpaidSales, ...unpaidExpenses].filter(r => getFlag(r.id, "transfer"));
+        const totalAmt = transferList.reduce((s, r) => s + r.remaining, 0);
+        return (
+          <Modal title="สรุปรายการตั้งโอน" onClose={() => setShowTransferSheet(false)} wide>
+            <div id="transfer-sheet-print">
+              <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 15 }}>รายการตั้งโอน — {new Date().toLocaleDateString("th-TH")}</div>
+              {transferList.length === 0 ? (
+                <p style={{ color: "#9ca3af", textAlign: "center", padding: 24 }}>ยังไม่มีรายการที่ติ๊กตั้งโอน</p>
+              ) : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>ประเภท</th>
+                      <th style={thStyle}>เลขที่ใบ</th>
+                      <th style={thStyle}>วันที่</th>
+                      <th style={thStyle}>ลูกค้า / รายการ</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>ยอดคงค้าง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transferList.map((r) => (
+                      <tr key={r.id}>
+                        <td style={tdStyle}>
+                          {r.kind === "purchase" ? (
+                            <span style={{ background: "#faece7", color: "#993c1d", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ใบรับ)</span>
+                          ) : r.kind === "expense" ? (
+                            <span style={{ background: "#faeeda", color: "#854f0b", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>จ่าย (ค่าใช้จ่าย)</span>
+                          ) : (
+                            <span style={{ background: "#e6f1fb", color: "#185fa5", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>รับ (ใบขาย)</span>
+                          )}
+                        </td>
+                        <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                        <td style={tdStyle}>{r.date}</td>
+                        <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: "2px solid #185fa5" }}>
+                      <td colSpan={4} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดตั้งโอนทั้งหมด</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(totalAmt)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+              <button style={btnSecondary} onClick={() => printAsPDF("transfer-sheet-print", "สรุปตั้งโอน")}><Printer size={14} /> พิมพ์ / PDF</button>
+              <button style={btnSecondary} onClick={() => setShowTransferSheet(false)}>ปิด</button>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {payModal && payRows && (
         <Modal
