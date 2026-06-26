@@ -4910,6 +4910,15 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 // PAYMENTS TAB (รับชำระ/จ่ายชำระ — รวมรายการค้างชำระจากใบรับสินค้าและใบขาย)
 // ===================================================================
 function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits, expenses, setExpenses }) {
+  const [payFlags, setPayFlags] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("payFlags") || "{}"); } catch { return {}; }
+  });
+  const setFlag = (id, flag, val) => {
+    const next = { ...payFlags, [`${id}_${flag}`]: val };
+    setPayFlags(next);
+    try { localStorage.setItem("payFlags", JSON.stringify(next)); } catch {}
+  };
+  const getFlag = (id, flag) => !!payFlags[`${id}_${flag}`];
   const [activeView, setActiveView] = useState("unpaid-purchase");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -5194,6 +5203,8 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
               <th style={{ ...thStyle, textAlign: "right" }}>ชำระแล้ว</th>
               <th style={{ ...thStyle, textAlign: "right" }}>คงค้าง</th>
               <th style={thStyle}>สถานะ</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>ตั้งโอน</th>
+              <th style={{ ...thStyle, textAlign: "center" }}>เบิกแล้ว</th>
               <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
             </tr>
           </thead>
@@ -5223,6 +5234,14 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   ) : (
                     <span style={{ background: "#f3f4f6", color: "#6b7280", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>ยังไม่ชำระ</span>
                   )}
+                </td>
+                <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => setFlag(r.id, "transfer", e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
+                </td>
+                <td style={{ ...tdStyle, textAlign: "center" }}>
+                  <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => setFlag(r.id, "withdrawn", e.target.checked)}
+                    style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f6e56" }} />
                 </td>
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
