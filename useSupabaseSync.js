@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase, isSupabaseReady } from './supabase'
 
 const DEVICE_ID = Math.random().toString(36).slice(2)
@@ -26,8 +26,7 @@ const SETTINGS_KEYS = [
 ]
 
 // ---------- Global sync status ----------
-// ใช้ subscriber pattern เพื่อให้ App.jsx รับสถานะได้โดยไม่ต้อง prop drilling
-let globalStatus = 'synced' // 'synced' | 'saving' | 'error'
+let globalStatus = 'synced'
 let pendingCount = 0
 const statusListeners = new Set()
 
@@ -48,7 +47,6 @@ function decrementPending(success) {
   }
 }
 
-// Hook สำหรับดึงสถานะ sync ใช้ใน App.jsx
 export function useSyncStatus() {
   const [status, setStatus] = useState(globalStatus)
   useEffect(() => {
@@ -125,10 +123,11 @@ export async function loadAllFromSupabase() {
   return result
 }
 
-export async function saveToSupabase(key, value) {
+// ---------- saveToSupabase (เรียกตรงๆ สำหรับกรณีพิเศษ) ----------
+export async function saveToSupabase(key, items) {
   const tableName = ARRAY_TABLES[key]
-  if (tableName) await saveArrayTable(tableName, value)
-  else if (SETTINGS_KEYS.includes(key)) await saveSettings(key, value)
+  if (tableName) return await saveArrayTable(tableName, items)
+  if (SETTINGS_KEYS.includes(key)) return await saveSettings(key, items)
 }
 
 // ---------- useSupabaseSync ----------
@@ -141,7 +140,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const maxWaitTimer = useRef(null)
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
-  const lastSaveTime = useRef(0)
 
   const tableName = ARRAY_TABLES[key]
   const isArrayTable = !!tableName
@@ -162,7 +160,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       saveTimer.current = null
       maxWaitTimer.current = null
       isSaving.current = true
-      lastSaveTime.current = Date.now()
 
       incrementPending()
       let success = false
