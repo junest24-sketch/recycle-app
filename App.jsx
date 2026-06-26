@@ -5327,7 +5327,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   {(() => {
                     const filteredByTab = transferList.filter(r => r.kind === transferTab);
                     const renderRow = (r) => {
-                      const cust = customers.find((c) => c.id === r.customerId);
+                      // ใบรับ/ใบขาย ใช้ customerId, ค่าใช้จ่าย ใช้ vendorId จาก doc
+                      const vendorId = r.doc?.vendorId;
+                      const cust = customers.find((c) => c.id === (r.customerId || vendorId));
                       const bankInfo = cust?.bankAccounts?.length > 0
                         ? `${cust.bankAccounts[0].bankName} ${cust.bankAccounts[0].accountNo}` : "-";
                       // รายละเอียดค่าใช้จ่าย (เฉพาะ expense)
