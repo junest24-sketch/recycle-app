@@ -4991,9 +4991,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
   const combined = useMemo(() => {
     let list = [...allPurchaseRows, ...allSaleRows];
-    if (activeView === "purchase") list = allPurchaseRows;
-    if (activeView === "sale") list = allSaleRows;
-    if (activeView === "expense") list = allExpenseRows;
+    if (activeView === "purchase") list = allPurchaseRows.filter((r) => r.payStatus === "paid");
+    if (activeView === "sale") list = allSaleRows.filter((r) => r.payStatus === "paid");
+    if (activeView === "expense") list = allExpenseRows.filter((r) => r.payStatus === "paid");
     if (activeView === "unpaid-purchase") list = allPurchaseRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-sale") list = allSaleRows.filter((r) => r.payStatus !== "paid");
     if (activeView === "unpaid-expense") list = allExpenseRows.filter((r) => r.payStatus !== "paid");
@@ -5175,9 +5175,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           { key: "unpaid-purchase", label: `ค้างจ่าย (ใบรับสินค้า) (${unpaidPurchases.length})` },
           { key: "unpaid-sale", label: `ค้างรับ (ใบขาย) (${unpaidSales.length})` },
           { key: "unpaid-expense", label: `ค้างจ่าย (ค่าใช้จ่าย) (${unpaidExpenses.length})` },
-          { key: "purchase", label: `ใบรับสินค้าทั้งหมด (${allPurchaseRows.length})` },
-          { key: "sale", label: `ใบขายทั้งหมด (${allSaleRows.length})` },
-          { key: "expense", label: `ค่าใช้จ่ายทั้งหมด (${allExpenseRows.length})` },
+          { key: "purchase", label: `จ่ายชำระแล้ว (${allPurchaseRows.filter(r=>r.payStatus==="paid").length})` },
+          { key: "sale", label: `รับชำระแล้ว (${allSaleRows.filter(r=>r.payStatus==="paid").length})` },
+          { key: "expense", label: `ค่าใช้จ่ายชำระแล้ว (${allExpenseRows.filter(r=>r.payStatus==="paid").length})` },
         ].map((opt) => (
           <button key={opt.key} onClick={() => setActiveView(opt.key)}
             style={{ flexShrink: 0, padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
