@@ -4809,13 +4809,11 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
                 const net = it.deductType === "pct" ? qty*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : qty-(Number(it.deduct)||0));
                 return s + net;
               }, 0);
-              const totalDeducted = totalQty - totalNet;
               return (
                 <tr style={{ background: "#f9fafb" }}>
                   <td style={{ ...tdStyle, padding: "4px 12px", fontWeight: 700 }}>รวมทั้งหมด</td>
-                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700 }}>{fmt(totalQty)}</td>
-                  <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(totalDeducted)}</td>
                   <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right", fontWeight: 700 }}>{fmt(totalNet)}</td>
+                  <td style={{ ...tdStyle, padding: "4px 12px" }}></td>
                   <td style={{ ...tdStyle, padding: "4px 12px" }}></td>
                 </tr>
               );
