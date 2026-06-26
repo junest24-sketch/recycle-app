@@ -5120,16 +5120,17 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     const realId = historyModal.doc?.id ?? historyModal.id;
     const kind = historyModal.kind;
     const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
-    // อัปเดต state หลัก
+    const ts = new Date().toISOString();
+    // อัปเดต state หลัก พร้อม updated_at เพื่อให้ Supabase sync รับรู้การเปลี่ยนแปลง
     if (kind === "purchase") {
-      setPurchases(prev => prev.map((po) => po.id === realId ? { ...po, payments: newPayments } : po));
+      setPurchases(prev => prev.map((po) => po.id === realId ? { ...po, payments: newPayments, updated_at: ts } : po));
     } else if (kind === "expense") {
-      setExpenses(prev => prev.map((e) => e.id === realId ? { ...e, payments: newPayments } : e));
+      setExpenses(prev => prev.map((e) => e.id === realId ? { ...e, payments: newPayments, updated_at: ts } : e));
     } else {
-      setSales(prev => prev.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
+      setSales(prev => prev.map((inv) => inv.id === realId ? { ...inv, payments: newPayments, updated_at: ts } : inv));
     }
     // อัปเดต historyModal ให้แสดงยอดใหม่
-    const updatedDoc = { ...historyModal.doc, payments: newPayments };
+    const updatedDoc = { ...historyModal.doc, payments: newPayments, updated_at: ts };
     setHistoryModal({ ...historyModal, doc: updatedDoc });
   };
 
