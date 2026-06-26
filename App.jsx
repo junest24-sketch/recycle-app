@@ -10,7 +10,7 @@ import {
   Building2, ScrollText, PieChart, Settings, Tag, ClipboardList, Banknote
 } from "lucide-react";
 import { isSupabaseReady } from './supabase'
-import { useSupabaseSync, loadAllFromSupabase, useSyncStatus } from './useSupabaseSync'
+import { useSupabaseSync, loadAllFromSupabase, useSyncStatus, saveToSupabase } from './useSupabaseSync'
 import { loadProducts, insertProduct, updateProduct, deleteProduct, useProductsRealtime } from './useProductsSync'
 // ---------- Seed data ----------
 const initialProducts = [];
@@ -5121,17 +5121,23 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     const kind = historyModal.kind;
     const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
     const ts = new Date().toISOString();
-    // อัปเดต state หลัก พร้อม updated_at เพื่อให้ Supabase sync รับรู้การเปลี่ยนแปลง
+    // อัปเดต state หลัก
+    let updatedItem;
     if (kind === "purchase") {
-      setPurchases(prev => prev.map((po) => po.id === realId ? { ...po, payments: newPayments, updated_at: ts } : po));
+      updatedItem = { ...historyModal.doc, payments: newPayments, updated_at: ts };
+      setPurchases(prev => prev.map((po) => po.id === realId ? updatedItem : po));
+      saveToSupabase("purchases", [updatedItem]);
     } else if (kind === "expense") {
-      setExpenses(prev => prev.map((e) => e.id === realId ? { ...e, payments: newPayments, updated_at: ts } : e));
+      updatedItem = { ...historyModal.doc, payments: newPayments, updated_at: ts };
+      setExpenses(prev => prev.map((e) => e.id === realId ? updatedItem : e));
+      saveToSupabase("expenses", [updatedItem]);
     } else {
-      setSales(prev => prev.map((inv) => inv.id === realId ? { ...inv, payments: newPayments, updated_at: ts } : inv));
+      updatedItem = { ...historyModal.doc, payments: newPayments, updated_at: ts };
+      setSales(prev => prev.map((inv) => inv.id === realId ? updatedItem : inv));
+      saveToSupabase("sales", [updatedItem]);
     }
     // อัปเดต historyModal ให้แสดงยอดใหม่
-    const updatedDoc = { ...historyModal.doc, payments: newPayments, updated_at: ts };
-    setHistoryModal({ ...historyModal, doc: updatedDoc });
+    setHistoryModal({ ...historyModal, doc: updatedItem });
   };
 
   // คำนวณยอดล่าสุดของใบที่กำลังดูประวัติ (อ้างจาก historyModal.doc ที่อัปเดตสดๆ)
