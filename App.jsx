@@ -5119,25 +5119,23 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     if (!historyModal) return;
     const realId = historyModal.doc?.id ?? historyModal.id;
     const kind = historyModal.kind;
-    // ดึง doc จาก state จริงๆ ไม่ใช่จาก historyModal.doc ที่อาจเก่า
-    const liveDoc = kind === "purchase" ? purchases.find(p => p.id === realId)
-      : kind === "expense" ? expenses.find(e => e.id === realId)
-      : sales.find(s => s.id === realId);
-    if (!liveDoc) return;
-    const newPayments = (liveDoc.payments || []).filter((_, i) => i !== idx);
+    // ลบจาก historyModal.doc.payments (ที่ modal แสดงอยู่จริงๆ)
+    const newPayments = (historyModal.doc.payments || []).filter((_, i) => i !== idx);
     const updatedPaid = newPayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
     const docTotal = historyModal.total || 0;
     const updatedRemaining = docTotal - updatedPaid;
     const unpaidTab = kind === "purchase" ? "unpaid-purchase"
       : kind === "expense" ? "unpaid-expense" : "unpaid-sale";
-    const updatedPayStatus = liveDoc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
+    const updatedPayStatus = historyModal.doc.writeOff ? "paid" : (updatedRemaining > 0.01 ? (updatedPaid > 0.01 ? "partial" : "unpaid") : "paid");
+    // อัปเดต state หลัก
     if (kind === "purchase") {
-      setPurchases(purchases.map((po) => po.id === realId ? { ...po, payments: newPayments } : po));
+      setPurchases(prev => prev.map((po) => po.id === realId ? { ...po, payments: newPayments } : po));
     } else if (kind === "expense") {
-      setExpenses(expenses.map((e) => e.id === realId ? { ...e, payments: newPayments } : e));
+      setExpenses(prev => prev.map((e) => e.id === realId ? { ...e, payments: newPayments } : e));
     } else {
-      setSales(sales.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
+      setSales(prev => prev.map((inv) => inv.id === realId ? { ...inv, payments: newPayments } : inv));
     }
+    // ปิด modal และสลับแท็บ
     setHistoryModal(null);
     setActiveView(updatedPayStatus !== "paid" ? unpaidTab : kind === "purchase" ? "purchase" : kind === "expense" ? "expense" : "sale");
   };
