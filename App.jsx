@@ -4914,6 +4914,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     try { return JSON.parse(localStorage.getItem("payFlags") || "{}"); } catch { return {}; }
   });
   const [showTransferSheet, setShowTransferSheet] = React.useState(false);
+  const [transferTab, setTransferTab] = React.useState("purchase"); // "purchase" | "expense"
   const setFlag = (id, flag, val) => {
     const next = { ...payFlags, [`${id}_${flag}`]: val };
     setPayFlags(next);
@@ -5279,9 +5280,26 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         const totalAmt = transferList.reduce((s, r) => s + r.remaining, 0);
         return (
           <Modal title="สรุปรายการตั้งโอน" onClose={() => setShowTransferSheet(false)} wide>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[
+                { key: "purchase", label: `ใบรับสินค้า (${transferList.filter(r=>r.kind==="purchase").length})` },
+                { key: "expense",  label: `ค่าใช้จ่าย (${transferList.filter(r=>r.kind==="expense").length})` },
+                { key: "sale",     label: `ใบขาย (${transferList.filter(r=>r.kind==="sale").length})` },
+              ].map(opt => (
+                <button key={opt.key} onClick={() => setTransferTab(opt.key)}
+                  style={{ padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, border: "1px solid",
+                    borderColor: transferTab === opt.key ? "#185fa5" : "#d1d5db",
+                    background: transferTab === opt.key ? "#185fa5" : "#fff",
+                    color: transferTab === opt.key ? "#fff" : "#6b7280" }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <div id="transfer-sheet-print">
-              <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 15 }}>รายการตั้งโอน — {new Date().toLocaleDateString("th-TH")}</div>
-              {transferList.length === 0 ? (
+              <div style={{ marginBottom: 16, fontWeight: 700, fontSize: 15 }}>
+                {transferTab === "purchase" ? "ตั้งโอนใบรับสินค้า" : transferTab === "expense" ? "ตั้งโอนค่าใช้จ่าย" : "ตั้งโอนใบขาย"} — {new Date().toLocaleDateString("th-TH")}
+              </div>
+              {transferList.filter(r => r.kind === transferTab).length === 0 ? (
                 <p style={{ color: "#9ca3af", textAlign: "center", padding: 24 }}>ยังไม่มีรายการที่ติ๊กตั้งโอน</p>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -5299,6 +5317,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                     </tr>
                   </thead>
                   {(() => {
+                    const filteredByTab = transferList.filter(r => r.kind === transferTab);
                     const renderRow = (r) => {
                       const cust = customers.find((c) => c.id === r.customerId);
                       const bankInfo = cust?.bankAccounts?.length > 0
@@ -5332,29 +5351,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                         </tr>
                       );
                     };
-                    const purchaseRows = transferList.filter(r => r.kind === "purchase");
-                    const expenseRows  = transferList.filter(r => r.kind === "expense");
-                    const saleRows     = transferList.filter(r => r.kind === "sale");
-                    const subtotal = (rows) => rows.reduce((s, r) => s + r.remaining, 0);
-                    const groupHeader = (label, color, bg) => (
-                      <tr style={{ background: bg }}>
-                        <td colSpan={9} style={{ ...tdStyle, fontWeight: 700, color, fontSize: 13 }}>{label}</td>
-                      </tr>
-                    );
-                    const groupFooter = (rows, color) => rows.length > 0 && (
-                      <tr style={{ background: "#f9fafb" }}>
-                        <td colSpan={8} style={{ ...tdStyle, fontWeight: 600, color, textAlign: "right", fontSize: 12 }}>รวมกลุ่ม</td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color }}>฿{fmt(subtotal(rows))}</td>
-                      </tr>
-                    );
+                    const tabTotal = filteredByTab.reduce((s, r) => s + r.remaining, 0);
                     return (
                       <tbody>
-                        {purchaseRows.length > 0 && <>{groupHeader("ใบรับสินค้า (จ่ายชำระ)", "#993c1d", "#faece7")}{purchaseRows.map(renderRow)}{groupFooter(purchaseRows, "#993c1d")}</>}
-                        {expenseRows.length > 0  && <>{groupHeader("ค่าใช้จ่าย (จ่ายชำระ)", "#854f0b", "#faeeda")}{expenseRows.map(renderRow)}{groupFooter(expenseRows, "#854f0b")}</>}
-                        {saleRows.length > 0     && <>{groupHeader("ใบขาย (รับชำระ)", "#185fa5", "#e6f1fb")}{saleRows.map(renderRow)}{groupFooter(saleRows, "#185fa5")}</>}
+                        {filteredByTab.map(renderRow)}
                         <tr style={{ borderTop: "2px solid #185fa5" }}>
-                          <td colSpan={8} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดตั้งโอนทั้งหมด</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(totalAmt)}</td>
+                          <td colSpan={8} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(tabTotal)}</td>
                         </tr>
                       </tbody>
                     );
