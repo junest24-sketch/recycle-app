@@ -4924,6 +4924,18 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   });
   const [showTransferSheet, setShowTransferSheet] = React.useState(false);
   const [transferTab, setTransferTab] = React.useState("purchase"); // "purchase" | "expense"
+  const [transferDetailModal, setTransferDetailModal] = React.useState(null); // { row }
+  const [transferBankId, setTransferBankId] = React.useState("");
+  const [transferAmount, setTransferAmount] = React.useState("");
+  // เก็บข้อมูลตั้งโอนแต่ละบิล { [id]: { bankId, amount } }
+  const [transferDetails, setTransferDetails] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("transferDetails") || "{}"); } catch { return {}; }
+  });
+  const saveTransferDetail = (id, bankId, amount) => {
+    const next = { ...transferDetails, [id]: { bankId, amount: Number(amount) || 0 } };
+    setTransferDetails(next);
+    try { localStorage.setItem("transferDetails", JSON.stringify(next)); } catch {}
+  };
   const setFlag = (id, flag, val) => {
     const next = { ...payFlags, [`${id}_${flag}`]: val };
     setPayFlags(next);
@@ -5369,8 +5381,22 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
 
                 {["unpaid-purchase","unpaid-sale","unpaid-expense"].includes(activeView) && (
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => setFlag(r.id, "transfer", e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => {
+                        setFlag(r.id, "transfer", e.target.checked);
+                        if (e.target.checked) {
+                          setTransferBankId(transferDetails[r.id]?.bankId || "");
+                          setTransferAmount(transferDetails[r.id]?.amount || r.remaining);
+                          setTransferDetailModal({ row: r });
+                        }
+                      }} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
+                      {getFlag(r.id, "transfer") && transferDetails[r.id]?.bankId && (
+                        <span style={{ fontSize: 10, color: "#185fa5", cursor: "pointer" }}
+                          onClick={() => { setTransferBankId(transferDetails[r.id]?.bankId || ""); setTransferAmount(transferDetails[r.id]?.amount || r.remaining); setTransferDetailModal({ row: r }); }}>
+                          {(storeBankAccounts.find(a=>a.id===transferDetails[r.id].bankId)?.bankName||"") + " ฿" + fmt(transferDetails[r.id].amount)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                 )}
                 {["purchase","sale","expense"].includes(activeView) && (
@@ -5429,6 +5455,39 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         </Modal>
       )}
 
+      {/* Modal ตั้งโอน — เลือกบัญชีและยอด */}
+      {transferDetailModal && (
+        <Modal title="ตั้งโอน — เลือกบัญชีและยอด" onClose={() => setTransferDetailModal(null)}>
+          <div style={{ marginBottom: 12, fontSize: 13, color: "#6b7280" }}>
+            เลขที่: <strong>{transferDetailModal.row.id}</strong> — {custName(transferDetailModal.row.customerId) || transferDetailModal.row.vendorLabel}
+          </div>
+          <div style={{ marginBottom: 12, fontSize: 13 }}>
+            ยอดคงค้าง: <strong style={{ color: "#993c1d" }}>฿{fmt(transferDetailModal.row.remaining)}</strong>
+          </div>
+          <Field label="บัญชีที่จะโอน">
+            <select style={inputStyle} value={transferBankId} onChange={(e) => setTransferBankId(e.target.value)}>
+              <option value="">-- เลือกบัญชี --</option>
+              {storeBankAccounts.map(a => (
+                <option key={a.id} value={a.id}>{a.bankName} — {a.accountNo} ({a.accountName || ""})</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="ยอดที่จะโอน (บาท)">
+            <input type="number" style={{ ...inputStyle, textAlign: "right" }}
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              placeholder={fmt(transferDetailModal.row.remaining)} />
+          </Field>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setTransferDetailModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={() => {
+              saveTransferDetail(transferDetailModal.row.id, transferBankId, transferAmount || transferDetailModal.row.remaining);
+              setTransferDetailModal(null);
+            }}><Check size={14} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+
       {/* Modal สรุปตั้งโอน */}
       {showTransferSheet && (() => {
         const transferList = [...unpaidPurchases, ...unpaidSales, ...unpaidExpenses].filter(r => getFlag(r.id, "transfer"));
@@ -5478,64 +5537,31 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   </thead>
                   {(() => {
                     const filteredByTab = transferList.filter(r => r.kind === transferTab);
-                    // แตกแต่ละ row เป็น sub-rows ตามธนาคารที่จ่าย
+                    // แสดงแถวตามข้อมูลตั้งโอนที่กรอกไว้
                     const expandToPaymentRows = (r) => {
                       const vendorId = r.doc?.vendorId;
-                      const cust = customers.find((c) => c.id === (r.customerId || vendorId));
                       const expenseDetail = r.kind === "expense" ? (() => {
                         const exp = expenses.find(e => (e.refNo || e.id) === r.id || e.id === r.id);
                         if (!exp) return "-";
                         const items = exp.items && exp.items.length > 0 ? exp.items : [{ subCategory: exp.subCategory, description: exp.description }];
                         return items.map(it => [it.subCategory, it.description].filter(Boolean).join(" — ")).join(", ");
                       })() : null;
-                      const payments = r.doc?.payments || [];
-                      if (payments.length <= 1) {
-                        // ไม่มีหรือมีแค่ 1 payment — แสดงแถวเดียว
-                        const p = payments[0];
-                        const acc = p ? storeBankAccounts.find(a => a.id === (r.kind==="sale" ? p.toStoreBankId : p.fromStoreBankId)) : null;
-                        const bankInfo = acc ? `${acc.bankName} ${acc.accountNo}` : (cust?.bankAccounts?.length > 0 ? `${cust.bankAccounts[0].bankName} ${cust.bankAccounts[0].accountNo}` : "-");
-                        return [(
-                          <tr key={r.id}>
-                            <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
-                            <td style={tdStyle}>{r.date}</td>
-                            <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
-                            {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
-                            <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{bankInfo}</td>
-                            <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
-                          </tr>
-                        )];
-                      }
-                      // หลาย payments — แถวหัวบิล + แถวย่อยแต่ละธนาคาร
-                      return [
-                        <tr key={`${r.id}-head`} style={{ background: "#f9fafb" }}>
-                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7", fontWeight: 700 }}>{r.id}</td>
+                      const detail = transferDetails[r.id];
+                      const acc = detail?.bankId ? storeBankAccounts.find(a => a.id === detail.bankId) : null;
+                      const bankInfo = acc ? `${acc.bankName} — ${acc.accountNo}` : "-";
+                      const transferAmt = detail?.amount || r.remaining;
+                      return [(
+                        <tr key={r.id}>
+                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
                           <td style={tdStyle}>{r.date}</td>
                           <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                           {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
-                          <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{payments.length} ธนาคาร</td>
+                          <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankInfo}</td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(r.paid)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
-                        </tr>,
-                        ...payments.map((p, pi) => {
-                          const acc = storeBankAccounts.find(a => a.id === (r.kind==="sale" ? p.toStoreBankId : p.fromStoreBankId));
-                          const bankInfo = acc ? `${acc.bankName} ${acc.accountNo}` : (p.method || "-");
-                          return (
-                            <tr key={`${r.id}-p${pi}`} style={{ background: "#fafafa" }}>
-                              <td style={{ ...tdStyle, paddingLeft: 24, color: "#9ca3af" }}>↳</td>
-                              <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{p.date || r.date}</td>
-                              <td style={tdStyle}></td>
-                              {transferTab === "expense" && <td style={tdStyle}></td>}
-                              <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankInfo}</td>
-                              <td style={tdStyle}></td>
-                              <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(Number(p.amount)||0)}</td>
-                              <td style={tdStyle}></td>
-                            </tr>
-                          );
-                        })
-                      ];
+                          <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(transferAmt)}</td>
+                        </tr>
+                      )];
                     };
                     const tabTotal = filteredByTab.reduce((s, r) => s + r.remaining, 0);
                     return (
