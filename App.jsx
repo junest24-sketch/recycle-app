@@ -5474,7 +5474,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       const cust = customers.find(c => c.id === (transferDetailModal?.row?.customerId || transferDetailModal?.row?.doc?.vendorId));
                       const bankAccs = cust?.bankAccounts || [];
                       return bankAccs.length > 0
-                        ? bankAccs.map((b, bi) => <option key={bi} value={b.accountNo}>{b.bankName} — {b.accountNo}</option>)
+                        ? bankAccs.map((b, bi) => <option key={bi} value={JSON.stringify({bankName:b.bankName,accountNo:b.accountNo})}>{b.bankName} — {b.accountNo}</option>)
                         : <option value="" disabled>ไม่มีบัญชีลูกค้า</option>;
                     })()}
                 </select>
@@ -5553,9 +5553,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <th style={thStyle}>ลูกค้า / รายการ</th>
                       {transferTab === "expense" && <th style={thStyle}>รายละเอียดค่าใช้จ่าย</th>}
                       <th style={thStyle}>บัญชีลูกค้า</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>ชำระบางส่วน</th>
-                      <th style={{ ...thStyle, textAlign: "right" }}>ยอดคงค้าง</th>
+                      <th style={{ ...thStyle, textAlign: "right" }}>ยอดตั้งโอน</th>
                     </tr>
                   </thead>
                   {(() => {
@@ -5581,8 +5579,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                             <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                             {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
                             <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankInfo}</td>
-                            <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(details[0]?.amount || r.remaining)}</td>
                           </tr>
                         )];
@@ -5595,21 +5591,21 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                           <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                           {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
                           <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{details.length} บัญชี</td>
-                          <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(totalTransfer)}</td>
                         </tr>,
                         ...details.map((d, di) => {
-                          const acc = storeBankAccounts.find(a=>a.id===d.bankId);
+                          let bankLabel = "-";
+                          try {
+                            const parsed = JSON.parse(d.bankId);
+                            bankLabel = `${parsed.bankName} — ${parsed.accountNo}`;
+                          } catch { bankLabel = d.bankId || "-"; }
                           return (
                             <tr key={`${r.id}-d${di}`} style={{ background: "#fafafa" }}>
                               <td style={{ ...tdStyle, paddingLeft: 24, color: "#9ca3af" }}>↳</td>
                               <td style={tdStyle}></td>
                               <td style={tdStyle}></td>
                               {transferTab === "expense" && <td style={tdStyle}></td>}
-                              <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{acc ? `${acc.bankName} — ${acc.accountNo}` : "-"}</td>
-                              <td style={tdStyle}></td>
-                              <td style={tdStyle}></td>
+                              <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankLabel}</td>
                               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>฿{fmt(Number(d.amount)||0)}</td>
                             </tr>
                           );
@@ -5621,7 +5617,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <tbody>
                         {filteredByTab.flatMap(expandToPaymentRows)}
                         <tr style={{ borderTop: "2px solid #185fa5" }}>
-                          <td colSpan={transferTab === "expense" ? 7 : 6} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
+                          <td colSpan={transferTab === "expense" ? 5 : 4} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(tabTotal)}</td>
                         </tr>
                       </tbody>
