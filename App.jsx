@@ -3633,6 +3633,7 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
           </div>
         )}
         <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
+      </div>{/* end flex-column */}
 
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={`${modal.mode === "add" ? "สร้างใบรับสินค้า" : "แก้ไขใบรับสินค้า"}${modal.mode === "edit" ? " · " + form.id : ""}`} onClose={() => setModal(null)} wide fullscreen>
