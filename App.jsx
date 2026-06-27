@@ -2055,6 +2055,70 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </table>
             </div>
           </div>
+
+          {/* สรุปบิลแยกตามช่องทางชำระ */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
+            {(() => {
+              // จัดกลุ่ม purchases ในช่วง
+              const pos = filteredPurchases;
+              // รวบรวม payments ทั้งหมด พร้อม po info
+              const entries = [];
+              pos.forEach(po => {
+                const custN = (customers.find(c=>c.id===po.customerId)?.name) || "-";
+                const sub = (po.items||[]).reduce((s,it)=>{
+                  const qty = Number(it.qty)||0;
+                  const net = it.deductPct!=null||it.deductKg!=null ? qty-(qty*(Number(it.deductPct)||0)/100)-(Number(it.deductKg)||0) : qty-(Number(it.deduct)||0);
+                  return s+net*(Number(it.price)||0);
+                },0);
+                const total = sub + sub*((Number(po.vatRate)||0)/100);
+                (po.payments||[]).forEach(p => {
+                  const acc = storeBankAccounts.find(a=>a.id===p.fromStoreBankId);
+                  const group = acc ? `${acc.bankName} — ${acc.accountNo}` : (p.method || "เงินสด");
+                  entries.push({ group, id: po.id, cust: custN, amount: Number(p.amount)||0 });
+                });
+                if (!(po.payments||[]).length) {
+                  entries.push({ group: "ยังไม่ชำระ", id: po.id, cust: custN, amount: total });
+                }
+              });
+              // จัดกลุ่ม
+              const grouped = {};
+              entries.forEach(e => {
+                if (!grouped[e.group]) grouped[e.group] = [];
+                grouped[e.group].push(e);
+              });
+              if (Object.keys(grouped).length === 0) return <p style={{ color: "#9ca3af", fontSize: 13 }}>ไม่มีข้อมูล</p>;
+              return Object.entries(grouped).map(([grp, rows]) => (
+                <div key={grp} style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#185fa5", background: "#e6f1fb", padding: "5px 12px", borderRadius: 6, marginBottom: 6 }}>{grp}</div>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        <th style={thStyle}>เลขที่บิล</th>
+                        <th style={thStyle}>ชื่อลูกค้า</th>
+                        <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงิน</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r,i) => (
+                        <tr key={i}>
+                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                          <td style={tdStyle}>{r.cust}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#993c1d" }}>฿{fmt(r.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ background: "#f9fafb" }}>
+                        <td colSpan={2} style={{ ...tdStyle, fontWeight: 700 }}>รวม</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>฿{fmt(rows.reduce((s,r)=>s+r.amount,0))}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ));
+            })()}
+          </div>
           </div>
         </>
       )}
