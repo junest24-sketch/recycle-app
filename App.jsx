@@ -4917,30 +4917,6 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const creditLimit = Number(companySettings?.creditLimit) || 0;
   const creditAccounts = companySettings?.creditAccounts || []; // array of storeBankAccount ids ที่นับในวงเงิน
 
-  // คำนวณยอดวงเงิน
-  const creditBalance = React.useMemo(() => {
-    if (!creditLimit) return null;
-    // รายการที่ติ๊ก "เบิกแล้ว" = withdrawn
-    const getWithdrawn = (r) => !!payFlags[`${r.id}_withdrawn`];
-
-    // ซื้อ + ค่าใช้จ่าย (ที่ติ๊กเบิกแล้ว)
-    const totalBuy = allPurchaseRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
-    const totalExp = allExpenseRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
-    // รับจากขาย (ที่ติ๊กเบิกแล้ว)
-    const totalSale = allSaleRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
-
-    const netOut = totalBuy + totalExp - totalSale; // ยอดที่ใช้วงเงินไปแล้ว
-    const balance = creditLimit - netOut;            // วงเงินคงเหลือ
-
-    // รายการที่ยังไม่เบิก (pending)
-    const pendingBuy = allPurchaseRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
-    const pendingExp = allExpenseRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
-    const pendingSale = allSaleRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
-    const pendingNet = pendingBuy + pendingExp - pendingSale;
-
-    return { limit: creditLimit, netOut, balance, pendingNet, totalBuy, totalExp, totalSale };
-  }, [creditLimit, payFlags, allPurchaseRows, allExpenseRows, allSaleRows]);
-
   const [payFlags, setPayFlags] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("payFlags") || "{}"); } catch { return {}; }
   });
@@ -5015,6 +4991,22 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       return { kind: "expense", id: e.refNo || e.id, date: e.billDate || e.recordDate || e.date, customerId: null, vendorLabel, total, paid, remaining, payStatus, doc: e };
     });
   }, [expenses]);
+
+  // คำนวณยอดวงเงิน (ต้องอยู่หลัง allPurchaseRows/allSaleRows/allExpenseRows)
+  const creditBalance = useMemo(() => {
+    if (!creditLimit) return null;
+    const getWithdrawn = (r) => !!payFlags[`${r.id}_withdrawn`];
+    const totalBuy = allPurchaseRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const totalExp = allExpenseRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const totalSale = allSaleRows.filter(r => getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const netOut = totalBuy + totalExp - totalSale;
+    const balance = creditLimit - netOut;
+    const pendingBuy = allPurchaseRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const pendingExp = allExpenseRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const pendingSale = allSaleRows.filter(r => r.payStatus === "paid" && !getWithdrawn(r)).reduce((s, r) => s + r.total, 0);
+    const pendingNet = pendingBuy + pendingExp - pendingSale;
+    return { limit: creditLimit, netOut, balance, pendingNet, totalBuy, totalExp, totalSale };
+  }, [creditLimit, payFlags, allPurchaseRows, allExpenseRows, allSaleRows]);
 
   const unpaidPurchases = allPurchaseRows.filter((r) => r.payStatus !== "paid");
   const unpaidSales = allSaleRows.filter((r) => r.payStatus !== "paid");
