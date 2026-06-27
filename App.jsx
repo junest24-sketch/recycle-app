@@ -5010,35 +5010,20 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     return { limit: creditLimit, netOut, balance, pendingNet, totalBuy, totalExp, totalSale };
   }, [creditLimit, payFlags, allPurchaseRows, allExpenseRows, allSaleRows]);
 
-  // คำนวณยอดรายวัน
+  // คำนวณยอดรายวัน — เฉพาะรายการที่ชำระครบแล้ว (payStatus === "paid")
   const creditDaySummary = useMemo(() => {
-    // ค่าสินค้า = ยอดรวมใบรับที่วันที่ตรงกับ creditDate
-    const dayCost = purchases.filter(po => po.date === creditDate).reduce((s, po) => {
-      const sub = (po.items||[]).reduce((s2, it) => {
-        const qty = Number(it.qty)||0;
-        const net = it.deductType==="pct" ? qty*(1-(Number(it.deduct)||0)/100) : (it.net!=null?Number(it.net):qty-(Number(it.deduct)||0));
-        return s2 + net*(Number(it.price)||0);
-      }, 0);
-      return s + sub + sub*((Number(po.vatRate)||0)/100);
-    }, 0);
-    // ค่าใช้จ่าย = ยอดค่าใช้จ่ายวันนั้น
-    const dayExp = expenses.filter(e => (e.billDate||e.date) === creditDate).reduce((s, e) => {
-      const items = e.items&&e.items.length>0 ? e.items : [{amount:e.amount,vatEnabled:e.vatEnabled,whtRate:e.whtRate}];
-      return s + items.reduce((s2,it)=>{const a=Number(it.amount)||0;return s2+a+(it.vatEnabled?a*0.07:0)-a*((Number(it.whtRate)||0)/100);},0);
-    }, 0);
-    // รายได้ = ยอดขายวันนั้น
-    const dayRev = sales.filter(inv => inv.date === creditDate).reduce((s, inv) => {
-      const sub = (inv.items||[]).reduce((s2,it)=>s2+(it.net||0)*(it.price||0),0);
-      return s + sub - (inv.discount||0);
-    }, 0);
-    const dayNet = dayCost + dayExp - dayRev; // ยอดที่ใช้วันนี้
-    // ยอดค้างเบิก = ยอดที่ติ๊กเบิกแล้วก่อนวันนี้แต่ยังไม่ได้รับ (ใช้ payFlags withdrawn ก่อน creditDate)
-    const pendingBefore = allPurchaseRows.filter(r => r.date < creditDate && !payFlags[`${r.id}_withdrawn`] && r.payStatus==="paid").reduce((s,r)=>s+r.total,0)
-      + allExpenseRows.filter(r => r.date < creditDate && !payFlags[`${r.id}_withdrawn`] && r.payStatus==="paid").reduce((s,r)=>s+r.total,0)
-      - allSaleRows.filter(r => r.date < creditDate && !payFlags[`${r.id}_withdrawn`] && r.payStatus==="paid").reduce((s,r)=>s+r.total,0);
+    const dayCost = allPurchaseRows.filter(r => r.date === creditDate && r.payStatus === "paid").reduce((s,r)=>s+r.total,0);
+    const dayExp  = allExpenseRows.filter(r => r.date === creditDate && r.payStatus === "paid").reduce((s,r)=>s+r.total,0);
+    const dayRev  = allSaleRows.filter(r => r.date === creditDate && r.payStatus === "paid").reduce((s,r)=>s+r.total,0);
+    const dayNet  = dayCost + dayExp - dayRev;
+    // ยอดค้างเบิก = รายการชำระครบแล้วก่อนวันที่เลือก และยังไม่ได้ติ๊กเบิก
+    const pendingBefore =
+      allPurchaseRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`]).reduce((s,r)=>s+r.total,0)
+      + allExpenseRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`]).reduce((s,r)=>s+r.total,0)
+      - allSaleRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`]).reduce((s,r)=>s+r.total,0);
     const manual = Number(creditManual) || 0;
     return { dayCost, dayExp, dayRev, dayNet, pendingBefore, manual, total: dayNet + pendingBefore + manual };
-  }, [creditDate, purchases, expenses, sales, allPurchaseRows, allExpenseRows, allSaleRows, payFlags, creditManual]);
+  }, [creditDate, allPurchaseRows, allExpenseRows, allSaleRows, payFlags, creditManual]);
 
   const unpaidPurchases = allPurchaseRows.filter((r) => r.payStatus !== "paid");
   const unpaidSales = allSaleRows.filter((r) => r.payStatus !== "paid");
@@ -5243,7 +5228,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             ].map((row, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 14px", background: row.color, borderBottom: "1px solid #f3f0f0" }}>
                 <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 400 }}>{row.label}</span>
-                <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 600, color: row.value < 0 ? "#0f6e56" : row.value > 0 ? "#993c1d" : "#374151" }}>{fmt(Math.abs(row.value))}</span>
+                <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 600, color: row.value < 0 ? "#0f6e56" : row.value > 0 ? "#993c1d" : "#374151" }}>
+                  {row.value < 0 ? `(${fmt(Math.abs(row.value))})` : fmt(row.value)}
+                </span>
               </div>
             ))}
           </div>
@@ -5262,7 +5249,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   <input type="number" value={creditManual} onChange={(e) => setCreditManual(e.target.value)}
                     style={{ width: 100, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, padding: "2px 8px", fontSize: 13 }} />
                 ) : (
-                  <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 600, color: row.value < 0 ? "#0f6e56" : row.value > 0 ? "#993c1d" : "#374151" }}>{fmt(Math.abs(row.value))}</span>
+                  <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 600, color: row.value < 0 ? "#0f6e56" : row.value > 0 ? "#993c1d" : "#374151" }}>
+                    {row.value < 0 ? `(${fmt(Math.abs(row.value))})` : fmt(row.value)}
+                  </span>
                 )}
               </div>
             ))}
