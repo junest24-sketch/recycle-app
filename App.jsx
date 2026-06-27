@@ -5584,38 +5584,58 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                         )];
                       }
                       // หลายบัญชี
-                      return [
-                        <tr key={`${r.id}-h`} style={{ background: "#f9fafb" }}>
-                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7", fontWeight: 700 }}>{r.id}</td>
-                          <td style={tdStyle}>{r.date}</td>
-                          <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
-                          {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
-                          <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{details.length} บัญชี</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(totalTransfer)}</td>
-                        </tr>,
-                        ...details.map((d, di) => {
+                      return details.map((d, di) => {
                           let bankLabel = "-";
                           try {
                             const parsed = JSON.parse(d.bankId);
                             bankLabel = `${parsed.bankName} — ${parsed.accountNo}`;
                           } catch { bankLabel = d.bankId || "-"; }
                           return (
-                            <tr key={`${r.id}-d${di}`} style={{ background: "#fafafa" }}>
-                              <td style={{ ...tdStyle, paddingLeft: 24, color: "#9ca3af" }}>↳</td>
-                              <td style={tdStyle}></td>
-                              <td style={tdStyle}></td>
-                              {transferTab === "expense" && <td style={tdStyle}></td>}
+                            <tr key={`${r.id}-d${di}`}>
+                              <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{di === 0 ? r.id : ""}</td>
+                              <td style={tdStyle}>{di === 0 ? r.date : ""}</td>
+                              <td style={tdStyle}>{di === 0 ? (r.kind === "expense" ? r.vendorLabel : custName(r.customerId)) : ""}</td>
+                              {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{di === 0 ? (expenseDetail || "-") : ""}</td>}
                               <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankLabel}</td>
                               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>฿{fmt(Number(d.amount)||0)}</td>
                             </tr>
                           );
-                        })
-                      ];
+                        });
                     };
-                    const tabTotal = filteredByTab.reduce((s, r) => s + r.remaining, 0);
+                    const tabTotal = filteredByTab.reduce((s, r) => {
+                      const dets = transferDetails[r.id] || [];
+                      const amt = dets.reduce((s2,d)=>s2+(Number(d.amount)||0),0) || r.remaining;
+                      return s + amt;
+                    }, 0);
+
+                    // จัดกลุ่มตามลูกค้า
+                    const grouped = [];
+                    const custMap = {};
+                    filteredByTab.forEach(r => {
+                      const key = r.customerId || r.vendorLabel || r.id;
+                      if (!custMap[key]) { custMap[key] = []; grouped.push({ key, rows: custMap[key] }); }
+                      custMap[key].push(r);
+                    });
+
                     return (
                       <tbody>
-                        {filteredByTab.flatMap(expandToPaymentRows)}
+                        {grouped.flatMap(({ key, rows }) => {
+                          const custTotal = rows.reduce((s, r) => {
+                            const dets = transferDetails[r.id] || [];
+                            return s + (dets.reduce((s2,d)=>s2+(Number(d.amount)||0),0) || r.remaining);
+                          }, 0);
+                          const custName2 = rows[0].kind === "expense" ? rows[0].vendorLabel : custName(rows[0].customerId);
+                          return [
+                            ...rows.flatMap(expandToPaymentRows),
+                            <tr key={`sum-${key}`} style={{ background: "#e6f1fb", borderTop: "1px solid #bfdbfe" }}>
+                              <td colSpan={transferTab === "expense" ? 4 : 3} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5", paddingLeft: 24 }}>
+                                {custName2} — รวม
+                              </td>
+                              <td style={{ ...tdStyle }}></td>
+                              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5", fontSize: 14 }}>฿{fmt(custTotal)}</td>
+                            </tr>
+                          ];
+                        })}
                         <tr style={{ borderTop: "2px solid #185fa5" }}>
                           <td colSpan={transferTab === "expense" ? 5 : 4} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(tabTotal)}</td>
