@@ -1174,7 +1174,7 @@ export default function App() {
   // ตั้งค่ากิจการ (Company Settings) — ใช้ใน header ของใบรับ/ขายสินค้า
   // shopProfile — ชื่อ/โลโก้ใน sidebar (แยกจากข้อมูลบิล)
   const [shopProfile, setShopProfile] = useState({
-    name: "วงจรกรีน",
+    name: "Changlo",
     nameEn: "ระบบซื้อขายของเก่ารีไซเคิล",
     logo: "",   // base64
   });
