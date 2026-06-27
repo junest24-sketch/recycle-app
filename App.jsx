@@ -5470,9 +5470,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   const next = [...transferEntries]; next[idx] = {...next[idx], bankId: e.target.value}; setTransferEntries(next);
                 }}>
                   <option value="">-- เลือกบัญชี --</option>
-                  {storeBankAccounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.bankName} — {a.accountNo}</option>
-                  ))}
+                  {(() => {
+                      const cust = customers.find(c => c.id === (transferDetailModal?.row?.customerId || transferDetailModal?.row?.doc?.vendorId));
+                      const bankAccs = cust?.bankAccounts || [];
+                      return bankAccs.length > 0
+                        ? bankAccs.map((b, bi) => <option key={bi} value={b.accountNo}>{b.bankName} — {b.accountNo}</option>)
+                        : <option value="" disabled>ไม่มีบัญชีลูกค้า</option>;
+                    })()}
                 </select>
               </Field>
               <Field label="ยอด (บาท)">
