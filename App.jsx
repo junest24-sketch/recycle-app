@@ -3526,10 +3526,10 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                       <td style={tdStyle}>
                         <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
                       </td>
-                      <td style={tdStyle}><NumInput style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
+                      <td style={tdStyle}><NumInput style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty != null ? (Math.round((Number(it.qty)||0)*100)/100) : ""} onChange={(e) => updateItem(idx, "qty", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                       <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{prodUnit(it.productId)}</td>
                       <td style={tdStyle}><input type="number" min={0} max={100} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductPct || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductPct", e.target.value)} /></td>
-                      <td style={tdStyle}><input type="number" min={0} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductKg || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductKg", e.target.value)} /></td>
+                      <td style={tdStyle}><input type="number" min={0} style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.deductKg != null ? (Math.round((Number(it.deductKg)||0)*100)/100) : ""} placeholder="0" onChange={(e) => updateItem(idx, "deductKg", e.target.value)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: totalDeductKg > 0 ? "#993c1d" : "#9ca3af", fontWeight: 500 }}>{fmt(totalDeductKg)}</td>
                       <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(net)}</td>
                       <td style={tdStyle}><NumInput style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
