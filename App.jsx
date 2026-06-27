@@ -6424,6 +6424,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
   }, [purchases]);
 
   const filtered = deposits.filter((d) => custName(d.customerId).includes(search) || d.id.includes(search)).filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
 
   const fromLabel = (id) => {
     if (id === "CASH") return "เงินสดหน้าร้าน";
@@ -7038,7 +7039,7 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
             </tr>
           </thead>
           <tbody>
-            {filtered.map((d) => (
+            {paged.map((d) => (
               <tr key={d.id}>
                 <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: 12 }}>{d.id}</td>
                 <td style={tdStyle}>{d.date}</td>
