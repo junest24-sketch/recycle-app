@@ -5010,20 +5010,31 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     return { limit: creditLimit, netOut, balance, pendingNet, totalBuy, totalExp, totalSale };
   }, [creditLimit, payFlags, allPurchaseRows, allExpenseRows, allSaleRows]);
 
-  // คำนวณยอดรายวัน — เฉพาะรายการที่ชำระครบแล้ว (payStatus === "paid")
+  // คำนวณยอดรายวัน — เฉพาะรายการที่ชำระครบแล้ว และมี payment ผ่านบัญชีที่เลือก
   const creditDaySummary = useMemo(() => {
-    const dayCost = allPurchaseRows.filter(r => r.date === creditDate && r.payStatus === "paid").reduce((s,r)=>s+r.total,0);
-    const dayExp  = allExpenseRows.filter(r => r.date === creditDate && r.payStatus === "paid").reduce((s,r)=>s+r.total,0);
-    const dayRev  = allSaleRows.filter(r => r.date === creditDate && r.payStatus === "paid").reduce((s,r)=>s+r.total,0);
+    const accs = new Set(creditAccounts);
+    const hasAccPayment = (doc, field) =>
+      accs.size === 0 || (doc.payments||[]).some(p => accs.has(p[field]));
+
+    const dayCost = allPurchaseRows
+      .filter(r => r.date === creditDate && r.payStatus === "paid" && hasAccPayment(r.doc, "fromStoreBankId"))
+      .reduce((s,r)=>s+r.total,0);
+    const dayExp  = allExpenseRows
+      .filter(r => r.date === creditDate && r.payStatus === "paid" && hasAccPayment(r.doc, "fromStoreBankId"))
+      .reduce((s,r)=>s+r.total,0);
+    const dayRev  = allSaleRows
+      .filter(r => r.date === creditDate && r.payStatus === "paid" && hasAccPayment(r.doc, "toStoreBankId"))
+      .reduce((s,r)=>s+r.total,0);
     const dayNet  = dayCost + dayExp - dayRev;
-    // ยอดค้างเบิก = รายการชำระครบแล้วก่อนวันที่เลือก และยังไม่ได้ติ๊กเบิก
+
     const pendingBefore =
-      allPurchaseRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`]).reduce((s,r)=>s+r.total,0)
-      + allExpenseRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`]).reduce((s,r)=>s+r.total,0)
-      - allSaleRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`]).reduce((s,r)=>s+r.total,0);
+      allPurchaseRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`] && hasAccPayment(r.doc,"fromStoreBankId")).reduce((s,r)=>s+r.total,0)
+      + allExpenseRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`] && hasAccPayment(r.doc,"fromStoreBankId")).reduce((s,r)=>s+r.total,0)
+      - allSaleRows.filter(r => r.date < creditDate && r.payStatus==="paid" && !payFlags[`${r.id}_withdrawn`] && hasAccPayment(r.doc,"toStoreBankId")).reduce((s,r)=>s+r.total,0);
+
     const manual = Number(creditManual) || 0;
     return { dayCost, dayExp, dayRev, dayNet, pendingBefore, manual, total: dayNet + pendingBefore + manual };
-  }, [creditDate, allPurchaseRows, allExpenseRows, allSaleRows, payFlags, creditManual]);
+  }, [creditDate, allPurchaseRows, allExpenseRows, allSaleRows, payFlags, creditManual, creditAccounts]);
 
   const unpaidPurchases = allPurchaseRows.filter((r) => r.payStatus !== "paid");
   const unpaidSales = allSaleRows.filter((r) => r.payStatus !== "paid");
@@ -5211,12 +5222,18 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       {/* วงเงินหมุนเวียน */}
       {/* ตารางสรุปรายวัน */}
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden", marginBottom: 16 }}>
-        <div style={{ background: "#4a1e1e", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontWeight: 700, fontSize: 14 }}>สรุปยอดใช้เงิน</span>
-          <input type="date" value={creditDate} onChange={(e) => setCreditDate(e.target.value)}
-            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#fff", padding: "3px 8px", fontSize: 13 }} />
+        <div style={{ background: "#4a1e1e", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>สรุปยอดใช้เงิน</span>
+            <input type="date" value={creditDate} onChange={(e) => setCreditDate(e.target.value)}
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#fff", padding: "3px 8px", fontSize: 13 }} />
+          </div>
+          <button onClick={() => printAsPDF("credit-day-summary-print", `สรุปยอดใช้เงิน ${creditDate}`)}
+            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#fff", padding: "4px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+            <Printer size={13} /> พิมพ์
+          </button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+        <div id="credit-day-summary-print" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {/* ซ้าย: ยอดใช้เงินต่อวัน */}
           <div>
             <div style={{ background: "#6b1f1f", color: "#fff", padding: "6px 14px", fontSize: 12, fontWeight: 700 }}>ยอดใช้เงินต่อวัน / ยอดรับต่อวัน</div>
