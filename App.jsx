@@ -2074,7 +2074,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 const total = sub + sub*((Number(po.vatRate)||0)/100);
                 (po.payments||[]).forEach(p => {
                   const acc = storeBankAccounts.find(a=>a.id===p.fromStoreBankId);
-                  const group = acc ? `${acc.bankName} — ${acc.accountNo}` : (p.method || "เงินสด");
+                  const group = p.fromStoreBankId === "DEPOSIT" ? "หักเงินมัดจำ"
+                    : acc ? `${acc.bankName} — ${acc.accountNo}`
+                    : (p.method || "เงินสด");
                   entries.push({ group, id: po.id, cust: custN, amount: Number(p.amount)||0 });
                 });
                 if (!(po.payments||[]).length) {
