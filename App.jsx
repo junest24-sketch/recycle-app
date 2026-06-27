@@ -3516,11 +3516,11 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
               </thead>
               <tbody>
                 {form.items.map((it, idx) => {
-                  const qty = Number(it.qty) || 0;
+                  const qty = Math.round((Number(it.qty) || 0) * 100) / 100;
                   const deductPct = Number(it.deductPct) || 0;
-                  const deductKg = Number(it.deductKg) || 0;
-                  const totalDeductKg = (qty * deductPct / 100) + deductKg;
-                  const net = qty - totalDeductKg;
+                  const deductKg = Math.round((Number(it.deductKg) || 0) * 100) / 100;
+                  const totalDeductKg = Math.round(((qty * deductPct / 100) + deductKg) * 100) / 100;
+                  const net = Math.round((qty - totalDeductKg) * 100) / 100;
                   return (
                     <tr key={idx}>
                       <td style={tdStyle}>
@@ -3639,16 +3639,19 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
 
   const calcNet = (it) => {
     const qty = Number(it.qty) || 0;
+    let net;
     // รองรับ field ใหม่ (deductPct/deductKg) ก่อน
     if (it.deductPct != null || it.deductKg != null) {
       const deductPct = Number(it.deductPct) || 0;
       const deductKg = Number(it.deductKg) || 0;
-      return qty - (qty * deductPct / 100) - deductKg;
+      net = qty - (qty * deductPct / 100) - deductKg;
+    } else {
+      const deduct = Number(it.deduct) || 0;
+      if (it.deductType === "pct") net = qty * (1 - deduct / 100);
+      else if (it.net != null) return Number(it.net); // ผู้ใช้กรอกเองไม่ round ทับ
+      else net = qty - deduct;
     }
-    const deduct = Number(it.deduct) || 0;
-    if (it.deductType === "pct") return qty * (1 - deduct / 100);
-    if (it.net != null) return Number(it.net);
-    return qty - deduct;
+    return Math.round(net * 100) / 100; // จำกัดทศนิยม 2 ตำแหน่ง
   };
 
   const subtotal = po.items.reduce((s, it) => {
