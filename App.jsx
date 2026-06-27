@@ -1114,7 +1114,7 @@ export default function App() {
   });
 
   const [companySettings, setCompanySettings] = useState({
-    name: "วงจรกรีน รีไซเคิล",
+    name: "Changlo",
     nameEn: "",
     taxId: "",
     address: "",
@@ -1296,7 +1296,7 @@ useEffect(() => {
                 <Boxes size={32} color="#fff" />
               </div>
             )}
-            <div style={{ fontWeight: 700, fontSize: 22, color: "#0c443c" }}>{shopProfile.name || "วงจรกรีน รีไซเคิล"}</div>
+            <div style={{ fontWeight: 700, fontSize: 22, color: "#0c443c" }}>{shopProfile.name || "Changlo"}</div>
             <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 4 }}>{shopProfile.nameEn || "ระบบซื้อขายของเก่ารีไซเคิล"}</div>
           </div>
 
@@ -3819,7 +3819,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               <img src={cs.logo} alt="logo" style={{ height: 60, maxWidth: 120, objectFit: "contain" }} />
             )}
             <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: primaryColor }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: primaryColor }}>{cs.name || "Changlo"}</div>
               {cs.nameEn && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.nameEn}</div>}
               {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
               {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
@@ -4477,7 +4477,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                   <img src={cs.logo} alt="logo" style={{ height: 50, maxWidth: 100, objectFit: "contain" }} />
                 )}
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#3c3489" }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#3c3489" }}>{cs.name || "Changlo"}</div>
                   {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
                   {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
                   {cs.phone && <div style={{ fontSize: 12, color: "#6b7280" }}>โทร: {cs.phone}</div>}
@@ -4901,7 +4901,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               <img src={cs.logo} alt="logo" style={{ height: 60, maxWidth: 120, objectFit: "contain" }} />
             )}
             <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: accentColor }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: accentColor }}>{cs.name || "Changlo"}</div>
               {cs.nameEn && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.nameEn}</div>}
               {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
               {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
@@ -7738,7 +7738,7 @@ function ExpenseVoucherModal({ expense, storeBankAccounts, companySettings, onCl
               <img src={cs.logo} alt="logo" style={{ height: 50, maxWidth: 100, objectFit: "contain" }} />
             )}
             <div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#993c1d" }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#993c1d" }}>{cs.name || "Changlo"}</div>
               {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
               {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
               {cs.phone && <div style={{ fontSize: 12, color: "#6b7280" }}>โทร: {cs.phone}</div>}
@@ -8824,7 +8824,7 @@ function CompanySettingsTab({ settings, setSettings, shopProfile, setShopProfile
         <h4 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#6b7280" }}>ข้อมูลร้านบนบิล</h4>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
           <Field label="ชื่อร้าน / บริษัท (ภาษาไทย)">
-            <input style={inputStyle} value={cs.name || ""} onChange={(e) => set("name", e.target.value)} placeholder="เช่น วงจรกรีน รีไซเคิล" />
+            <input style={inputStyle} value={cs.name || ""} onChange={(e) => set("name", e.target.value)} placeholder="เช่น Changlo" />
           </Field>
           <Field label="ชื่อร้าน / บริษัท (English)">
             <input style={inputStyle} value={cs.nameEn || ""} onChange={(e) => set("nameEn", e.target.value)} />
@@ -9385,7 +9385,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
                   <img src={cs.logo} alt="logo" style={{ height: 50, maxWidth: 100, objectFit: "contain" }} />
                 )}
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#185fa5" }}>{cs.name || "วงจรกรีน รีไซเคิล"}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: cs.accentColor || "#185fa5" }}>{cs.name || "Changlo"}</div>
                   {cs.taxId && <div style={{ fontSize: 12, color: "#6b7280" }}>เลขผู้เสียภาษี: {cs.taxId}</div>}
                   {cs.address && <div style={{ fontSize: 12, color: "#6b7280" }}>{cs.address}</div>}
                   {cs.phone && <div style={{ fontSize: 12, color: "#6b7280" }}>โทร: {cs.phone}</div>}
