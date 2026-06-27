@@ -1058,6 +1058,72 @@ function CustomerSelect({ customers, value, onChange, disabled, minWidth = 180, 
 // ===================================================================
 // MAIN APP
 // ===================================================================
+// ---------- Pagination Hook ----------
+function usePagination(items, pageSize = 50) {
+  const [page, setPage] = React.useState(1);
+  // reset กลับหน้า 1 เมื่อข้อมูลเปลี่ยน (เช่น ค้นหา/กรองวันที่)
+  React.useEffect(() => { setPage(1); }, [items.length]);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const start = (page - 1) * pageSize;
+  const paged = items.slice(start, start + pageSize);
+  return { paged, page, setPage, totalPages, total: items.length, start, end: Math.min(start + pageSize, items.length) };
+}
+
+// ---------- Pagination Component ----------
+function Pagination({ page, totalPages, setPage, total, start, end }) {
+  if (totalPages <= 1) return null;
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= page - 2 && i <= page + 2)) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== "...") {
+      pages.push("...");
+    }
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: "1px solid #e5e7eb", flexWrap: "wrap", gap: 8 }}>
+      <span style={{ fontSize: 13, color: "#6b7280" }}>
+        แสดง {start + 1}–{end} จาก {total} รายการ
+      </span>
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+          style={{ ...btnSecondary, padding: "6px 10px", opacity: page === 1 ? 0.4 : 1, cursor: page === 1 ? "not-allowed" : "pointer" }}
+        >
+          <ChevronLeft size={14} />
+        </button>
+        {pages.map((p, i) =>
+          p === "..." ? (
+            <span key={i} style={{ padding: "0 6px", color: "#9ca3af" }}>...</span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              style={{
+                width: 32, height: 32, borderRadius: 6, border: "1px solid",
+                borderColor: page === p ? "#1d9e75" : "#d1d5db",
+                background: page === p ? "#1d9e75" : "#fff",
+                color: page === p ? "#fff" : "#374151",
+                fontWeight: page === p ? 700 : 400,
+                cursor: "pointer", fontSize: 13,
+              }}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <button
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages}
+          style={{ ...btnSecondary, padding: "6px 10px", opacity: page === totalPages ? 0.4 : 1, cursor: page === totalPages ? "not-allowed" : "pointer" }}
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
@@ -1631,31 +1697,37 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
   // รวมรายได้ = ยอดขาย + รายได้อื่นยกมา
   // รวมค่าใช้จ่าย = ค่าใช้จ่ายจริง + ค่าใช้จ่ายยกมา
-  const totalExpenses = (expenses || []).filter((e) => inRange(e.billDate || e.date)).reduce((s, e) => {
-    const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, amount: e.amount }];
-    return s + items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
-  }, 0) + totalExpensesOpening;
+  const totalExpenses = (expenses || []).filter((e) => {
+  const d = e.billDate || e.date;
+  if (!dateRange) return true;
+  return d >= dateRange.start && d <= dateRange.end;
+}).reduce((s, e) => {
+  const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, amount: e.amount }];
+  return s + items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
+}, 0) + totalExpensesOpening;
 
   // ---------- ค่าใช้จ่ายแบ่งตามหมวดหมู่ย่อย ----------
-  const expensesBySubCategory = useMemo(() => {
-    const groups = {};
-    // จากค่าใช้จ่ายจริง
-    (expenses || []).filter((e) => inRange(e.billDate || e.date)).forEach((e) => {
-      const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, subCategory: e.subCategory, amount: e.amount }];
-      items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").forEach((it) => {
-        const sub = it.subCategory || "อื่นๆ";
-        if (!groups[sub]) groups[sub] = { subCategory: sub, amount: 0, count: 0 };
-        groups[sub].amount += Number(it.amount) || 0;
-        groups[sub].count += 1;
-      });
+ const expensesBySubCategory = useMemo(() => {
+  const groups = {};
+  (expenses || []).filter((e) => {
+    const d = e.billDate || e.date;
+    if (!dateRange) return true;
+    return d >= dateRange.start && d <= dateRange.end;
+  }).forEach((e) => {
+    const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, subCategory: e.subCategory, amount: e.amount }];
+    items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").forEach((it) => {
+      const sub = it.subCategory || "อื่นๆ";
+      if (!groups[sub]) groups[sub] = { subCategory: sub, amount: 0, count: 0 };
+      groups[sub].amount += Number(it.amount) || 0;
+      groups[sub].count += 1;
     });
-    // จากยอดยกมา
-    expenseOpeningRows.forEach((r) => {
-      if (!groups[r.subCategory]) groups[r.subCategory] = { subCategory: r.subCategory, amount: 0, count: 0 };
-      groups[r.subCategory].amount += r.amount;
-    });
-    return Object.values(groups).sort((a, b) => b.amount - a.amount);
-  }, [expenses, dateRange, expenseOpeningRows]);
+  });
+  expenseOpeningRows.forEach((r) => {
+    if (!groups[r.subCategory]) groups[r.subCategory] = { subCategory: r.subCategory, amount: 0, count: 0 };
+    groups[r.subCategory].amount += r.amount;
+  });
+  return Object.values(groups).sort((a, b) => b.amount - a.amount);
+}, [expenses, dateRange, expenseOpeningRows]);
 
 
   const totalStockValue = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
@@ -3296,7 +3368,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const custBankAccounts = (customerId) => customers.find((c) => c.id === customerId)?.bankAccounts || [];
 
   const filtered = purchases.filter((po) => po.id.includes(search) || custName(po.customerId).includes(search)).filter((po) => (!dateFrom || (po.date || "") >= dateFrom) && (!dateTo || (po.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
-
+const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
   // ยอดมัดจำคงเหลือของลูกค้าที่เลือก (ไม่รวมยอดที่กำลังหักในใบนี้ จากใบอื่นๆทั้งหมด)
   const depositBalanceForCustomer = (customerId, excludePoId) => {
     const opening = Number(customers.find((c) => c.id === customerId)?.depositOpening) || 0;
@@ -3423,7 +3495,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
       </div>
      <div id="tab-export-purchases" style={{ flex: 1, overflow: "auto" }}>
 <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 700 }}>
-        {filtered.map((po) => {
+        {paged.map((po) => {
           const sb = statusBadge(po.status || "รออนุมัติ");
           const SIcon = sb.icon;
           const paid = paidTotal(po);
@@ -3511,8 +3583,8 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
                       </tr>
                     </thead>
                     <tbody>
-                      {po.items.map((it, idx) => {
-                        const net = calcNet(it);
+                     {po.items.map((it, idx) => {
+                        const net = lineNet(it);
                         const deductDisplay = (Number(it.qty) || 0) - net;
                         const discountPct = Number(it.discountPct) || 0;
                         const discountedPrice = it.price * (1 - discountPct / 100);
@@ -3560,7 +3632,7 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
             ไม่พบใบรับสินค้า
           </div>
         )}
-      </div>
+        <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
 
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
         <Modal title={`${modal.mode === "add" ? "สร้างใบรับสินค้า" : "แก้ไขใบรับสินค้า"}${modal.mode === "edit" ? " · " + form.id : ""}`} onClose={() => setModal(null)} wide fullscreen>
@@ -4176,7 +4248,8 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     w.id.includes(search) || (w.targetSaleId || "").includes(search) ||
     (w.items || []).some((it) => prodName(it.sourceProductId).includes(search) || prodName(it.targetProductId).includes(search))
   ).filter((w) => (!dateFrom || (w.date || "") >= dateFrom) && (!dateTo || (w.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
-
+   const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
+    
   const lotTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.value) || 0), 0);
   const lotQtyTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
@@ -4289,6 +4362,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
             ยังไม่มีรายการเบิกสินค้า
           </div>
         )}
+        <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
       </div>
 
       {aggregates.length > 0 && (
@@ -4558,7 +4632,8 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
 
   const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).filter((inv) => (!dateFrom || (inv.date || "") >= dateFrom) && (!dateTo || (inv.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
-
+  const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
+    
   const openAdd = () => { const _d2 = new Date().toISOString().slice(0, 10); setForm({ ...blankForm(), id: genId("INV", sales, _d2) }); setModal({ mode: "add" }); };
   const openEdit = (item) => {
     let payments = item.payments && item.payments.length > 0 ? [...item.payments] : [];
@@ -4667,7 +4742,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             </tr>
           </thead>
           <tbody>
-            {filtered.map((inv) => {
+            {paged.map((inv) => {
               const t = calcInvoiceTotals(inv);
               const livePayStatus = (inv.writeOff || t.remaining <= 0.01) ? "ชำระแล้ว" : t.paid > 0.01 ? "ชำระบางส่วน" : "ค้างรับ";
               const sc = statusColor(livePayStatus);
@@ -6429,7 +6504,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
             </tr>
           </thead>
           <tbody>
-            {filtered.map((d) => (
+            {paged.map((d) => (
               <tr key={d.id}>
                 <td style={tdStyle}>{d.date}</td>
                 <td style={tdStyle}>{custName(d.customerId)}</td>
@@ -6457,6 +6532,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
           )}
         </table>
       </Card>
+      <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
 
       {depositUsages.length > 0 && (
         <div style={{ marginTop: 20 }}>
@@ -8436,6 +8512,10 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const filteredTransfers = transfers
+    .filter((t) => (t.id || "").includes(search) && (!dateFrom || (t.date || "") >= dateFrom) && (!dateTo || (t.date || "") <= dateTo));
+
+  const { paged: pagedTransfers, page: transferPage, setPage: setTransferPage, totalPages: transferTotalPages, total: transferTotal, start: transferStart, end: transferEnd } = usePagination(filteredTransfers);
 
   const bankName = (id) => {
     const b = storeBankAccounts.find((b) => b.id === id);
@@ -8481,7 +8561,7 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่, บัญชี..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
-        {transfers.filter((t) => (t.id || "").includes(search) && (!dateFrom || (t.date || "") >= dateFrom) && (!dateTo || (t.date || "") <= dateTo)).map((t) => (
+        {pagedTransfers.map((t) => (
           <div key={t.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -8505,7 +8585,8 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
             </div>
           </div>
         ))}
-        {transfers.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ยังไม่มีรายการโยกเงิน</div>}
+        {filteredTransfers.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: 40 }}>ยังไม่มีรายการโยกเงิน</div>}
+        <Pagination page={transferPage} totalPages={transferTotalPages} setPage={setTransferPage} total={transferTotal} start={transferStart} end={transferEnd} />
       </div>
 
       {modal && (
@@ -9237,6 +9318,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
     .filter((d) => d.id.includes(search) || custName(d.customerId).includes(search) || (d.vehicleNo || "").includes(search))
     .filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo))
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+      const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
 
   const deliveryNetTotal = (d) => (d.items || []).reduce((s, it) => s + netQtyOf(it), 0);
 
@@ -9251,7 +9333,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
             onExcel={() => {
               const rows = [
                 ["เลขที่", "วันที่", "ลูกค้า", "ทะเบียนรถ", "คนขับ", "ยอดรวมสุทธิ"],
-                ...filtered.map((d) => [d.id, d.date, custName(d.customerId), d.vehicleNo || "", d.driverName || "", deliveryNetTotal(d)]),
+                ...paged.map((d) => [d.id, d.date, custName(d.customerId), d.vehicleNo || "", d.driverName || "", deliveryNetTotal(d)]),
               ];
               exportExcel(rows, "ใบส่งสินค้า.xlsx", "ใบส่งสินค้า");
             }}
@@ -9299,6 +9381,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
           </tbody>
         </table>
       </Card>
+      <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
       </div>
 
       {modal && (modal.mode === "add" || modal.mode === "edit") && (
