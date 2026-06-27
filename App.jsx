@@ -1174,7 +1174,7 @@ export default function App() {
   // ตั้งค่ากิจการ (Company Settings) — ใช้ใน header ของใบรับ/ขายสินค้า
   // shopProfile — ชื่อ/โลโก้ใน sidebar (แยกจากข้อมูลบิล)
   const [shopProfile, setShopProfile] = useState({
-    name: "Changlo",
+    name: "วงจรกรีน",
     nameEn: "ระบบซื้อขายของเก่ารีไซเคิล",
     logo: "",   // base64
   });
@@ -1697,14 +1697,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
   // รวมรายได้ = ยอดขาย + รายได้อื่นยกมา
   // รวมค่าใช้จ่าย = ค่าใช้จ่ายจริง + ค่าใช้จ่ายยกมา
-  const totalExpenses = (expenses || []).filter((e) => {
+  const totalExpenses = useMemo(() => (expenses || []).filter((e) => {
   const d = e.billDate || e.date;
   if (!dateRange) return true;
   return d >= dateRange.start && d <= dateRange.end;
 }).reduce((s, e) => {
   const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, amount: e.amount }];
   return s + items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
-}, 0) + totalExpensesOpening;
+}, 0) + totalExpensesOpening, [expenses, dateRange, totalExpensesOpening]);
 
   // ---------- ค่าใช้จ่ายแบ่งตามหมวดหมู่ย่อย ----------
  const expensesBySubCategory = useMemo(() => {
@@ -5291,9 +5291,11 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
       .filter((r) => (!dateFrom || (r.date || "") >= dateFrom) && (!dateTo || (r.date || "") <= dateTo))
       .sort((a, b) => {
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-        return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+        return (b.id || "").localeCompare(a.id || "", undefined, { numeric: true });
       });
   }, [allPurchaseRows, allSaleRows, allExpenseRows, activeView, search, dateFrom, dateTo, customers]);
+
+  const { paged: pagedCombined, page: combinedPage, setPage: setCombinedPage, totalPages: combinedTotalPages, total: combinedTotal, start: combinedStart, end: combinedEnd } = usePagination(combined);
 
   const totalPayable = unpaidPurchases.reduce((s, r) => s + r.remaining, 0);
   const totalReceivable = unpaidSales.reduce((s, r) => s + r.remaining, 0);
@@ -5613,7 +5615,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             </tr>
           </thead>
           <tbody>
-            {combined.map((r) => (
+            {pagedCombined.map((r) => (
               <tr key={r.kind + r.id}>
                 <td style={tdStyle}>
                   {r.kind === "purchase" ? (
@@ -5680,6 +5682,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             {combined.length === 0 && <tr><td colSpan={9} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่มีรายการในตัวกรองนี้</td></tr>}
           </tbody>
         </table>
+        <Pagination page={combinedPage} totalPages={combinedTotalPages} setPage={setCombinedPage} total={combinedTotal} start={combinedStart} end={combinedEnd} />
       </Card>
 
       {/* Modal ตั้งค่าวงเงินหมุนเวียน */}
@@ -6946,6 +6949,8 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
     .filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo))
     .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
+  const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
+
   const openAdd = () => {
     const id = "PP" + Date.now().toString().slice(-8);
     setForm({ id, date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
@@ -7066,6 +7071,7 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
             )}
           </tbody>
         </table>
+      <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
       </div>
 
       {/* Modal บันทึกรับล่วงหน้า */}
@@ -7342,7 +7348,14 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
       return itemMatch || e.id.includes(search) || (e.refNo || "").includes(search) || (e.taxInvoiceNo || "").includes(search);
     })
     .filter((e) => (!dateFrom || (e.billDate || e.date || "") >= dateFrom) && (!dateTo || (e.billDate || e.date || "") <= dateTo))
-    .sort((a, b) => ((a.billDate || a.date) < (b.billDate || b.date) ? 1 : (a.billDate || a.date) > (b.billDate || b.date) ? -1 : 0));
+    .sort((a, b) => {
+      const dateA = a.billDate || a.date || "";
+      const dateB = b.billDate || b.date || "";
+      if (dateA !== dateB) return dateA < dateB ? 1 : -1;
+      const refA = a.refNo || a.id || "";
+      const refB = b.refNo || b.id || "";
+      return refB.localeCompare(refA, undefined, { numeric: true });
+    });
 
   const totalAll = expenses.reduce((s, e) => s + calcTotals(e).net, 0);
 
