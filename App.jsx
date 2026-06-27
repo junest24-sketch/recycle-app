@@ -1627,16 +1627,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     return rows;
   }, [expenseCategories, dateRange]);
 
-  const totalExpensesOpening = expenseOpeningRows.reduce((s, r) => s + r.amount, 0);
-
-  // รวมรายได้ = ยอดขาย + รายได้อื่นยกมา
-  // รวมค่าใช้จ่าย = ค่าใช้จ่ายจริง + ค่าใช้จ่ายยกมา
-  const totalExpenses = (expenses || []).filter((e) => inRange(e.billDate || e.date)).reduce((s, e) => {
-    const items = (e.items && e.items.length > 0) ? e.items : [{ mainCategory: e.mainCategory || e.category, amount: e.amount }];
-    return s + items.filter((it) => it.mainCategory === "ค่าใช้จ่าย").reduce((s2, it) => s2 + (Number(it.amount) || 0), 0);
-  }, 0) + totalExpensesOpening;
-
-  // ---------- ค่าใช้จ่ายแบ่งตามหมวดหมู่ย่อย ----------
   const expensesBySubCategory = useMemo(() => {
     const groups = {};
     // จากค่าใช้จ่ายจริง
