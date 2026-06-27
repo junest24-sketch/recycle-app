@@ -4916,7 +4916,9 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const [showCreditSetting, setShowCreditSetting] = React.useState(false);
   const [creditDate, setCreditDate] = React.useState(new Date().toISOString().slice(0, 10));
   const [creditManual, setCreditManual] = React.useState(0); // ยอดตกหล่น กรอกมือ
-  const [returnBankId, setReturnBankId] = React.useState(""); // บัญชีที่จะโอนคืนวงเงิน
+  const [returnBankName, setReturnBankName] = React.useState(""); // ธนาคารโอนคืน
+  const [returnBankNo, setReturnBankNo] = React.useState("");   // เลขที่บัญชีโอนคืน
+  const [returnBankOwner, setReturnBankOwner] = React.useState(""); // ชื่อบัญชีโอนคืน
   const creditLimit = Number(companySettings?.creditLimit) || 0;
   const creditAccounts = companySettings?.creditAccounts || []; // array of storeBankAccount ids ที่นับในวงเงิน
 
@@ -5291,22 +5293,27 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           </div>
         </div>
         {/* ธนาคารที่จะโอนคืนวงเงิน */}
-        <div style={{ borderTop: "1px solid #e5e7eb", padding: "10px 14px", display: "flex", alignItems: "center", gap: 12, background: "#f9fafb" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>โอนคืนวงเงินผ่าน:</span>
-          <select style={{ ...inputStyle, flex: 1, maxWidth: 320 }} value={returnBankId} onChange={(e) => setReturnBankId(e.target.value)}>
-            <option value="">-- เลือกบัญชี --</option>
-            {storeBankAccounts.map(a => (
-              <option key={a.id} value={a.id}>{a.bankName} — {a.accountNo} ({a.accountName || ""})</option>
-            ))}
-          </select>
-          {returnBankId && (() => {
-            const acc = storeBankAccounts.find(a => a.id === returnBankId);
-            return acc ? (
-              <span style={{ fontSize: 13, color: "#185fa5", fontWeight: 600 }}>
-                ยอดโอนคืน: ฿{fmt(creditDaySummary.total)}
-              </span>
-            ) : null;
-          })()}
+        <div style={{ borderTop: "1px solid #e5e7eb", padding: "10px 14px", background: "#f9fafb" }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 8 }}>โอนคืนวงเงินผ่าน</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 12px" }}>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>ธนาคาร</div>
+              <input style={inputStyle} value={returnBankName} onChange={(e) => setReturnBankName(e.target.value)} placeholder="เช่น กสิกรไทย" />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>เลขที่บัญชี</div>
+              <input style={inputStyle} value={returnBankNo} onChange={(e) => setReturnBankNo(e.target.value)} placeholder="xxx-x-xxxxx-x" />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>ชื่อบัญชี</div>
+              <input style={inputStyle} value={returnBankOwner} onChange={(e) => setReturnBankOwner(e.target.value)} placeholder="ชื่อเจ้าของบัญชี" />
+            </div>
+          </div>
+          {(returnBankName || returnBankNo) && (
+            <div style={{ marginTop: 8, fontSize: 13, color: "#185fa5", fontWeight: 600 }}>
+              ยอดโอนคืน: ฿{fmt(creditDaySummary.total)}
+            </div>
+          )}
         </div>
         </div>{/* end credit-day-summary-print */}
       </div>
