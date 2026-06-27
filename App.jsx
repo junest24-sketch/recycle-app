@@ -5478,36 +5478,69 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   </thead>
                   {(() => {
                     const filteredByTab = transferList.filter(r => r.kind === transferTab);
-                    const renderRow = (r) => {
-                      // ใบรับ/ใบขาย ใช้ customerId, ค่าใช้จ่าย ใช้ vendorId จาก doc
+                    // แตกแต่ละ row เป็น sub-rows ตามธนาคารที่จ่าย
+                    const expandToPaymentRows = (r) => {
                       const vendorId = r.doc?.vendorId;
                       const cust = customers.find((c) => c.id === (r.customerId || vendorId));
-                      const bankInfo = cust?.bankAccounts?.length > 0
-                        ? `${cust.bankAccounts[0].bankName} ${cust.bankAccounts[0].accountNo}` : "-";
-                      // รายละเอียดค่าใช้จ่าย (เฉพาะ expense)
                       const expenseDetail = r.kind === "expense" ? (() => {
                         const exp = expenses.find(e => (e.refNo || e.id) === r.id || e.id === r.id);
                         if (!exp) return "-";
                         const items = exp.items && exp.items.length > 0 ? exp.items : [{ subCategory: exp.subCategory, description: exp.description }];
                         return items.map(it => [it.subCategory, it.description].filter(Boolean).join(" — ")).join(", ");
                       })() : null;
-                      return (
-                        <tr key={r.id}>
-                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                      const payments = r.doc?.payments || [];
+                      if (payments.length <= 1) {
+                        // ไม่มีหรือมีแค่ 1 payment — แสดงแถวเดียว
+                        const p = payments[0];
+                        const acc = p ? storeBankAccounts.find(a => a.id === (r.kind==="sale" ? p.toStoreBankId : p.fromStoreBankId)) : null;
+                        const bankInfo = acc ? `${acc.bankName} ${acc.accountNo}` : (cust?.bankAccounts?.length > 0 ? `${cust.bankAccounts[0].bankName} ${cust.bankAccounts[0].accountNo}` : "-");
+                        return [(
+                          <tr key={r.id}>
+                            <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                            <td style={tdStyle}>{r.date}</td>
+                            <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
+                            {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
+                            <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{bankInfo}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
+                          </tr>
+                        )];
+                      }
+                      // หลาย payments — แถวหัวบิล + แถวย่อยแต่ละธนาคาร
+                      return [
+                        <tr key={`${r.id}-head`} style={{ background: "#f9fafb" }}>
+                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7", fontWeight: 700 }}>{r.id}</td>
                           <td style={tdStyle}>{r.date}</td>
                           <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                           {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
-                          <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{bankInfo}</td>
+                          <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{payments.length} ธนาคาร</td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(r.paid)}</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(r.remaining)}</td>
-                        </tr>
-                      );
+                        </tr>,
+                        ...payments.map((p, pi) => {
+                          const acc = storeBankAccounts.find(a => a.id === (r.kind==="sale" ? p.toStoreBankId : p.fromStoreBankId));
+                          const bankInfo = acc ? `${acc.bankName} ${acc.accountNo}` : (p.method || "-");
+                          return (
+                            <tr key={`${r.id}-p${pi}`} style={{ background: "#fafafa" }}>
+                              <td style={{ ...tdStyle, paddingLeft: 24, color: "#9ca3af" }}>↳</td>
+                              <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{p.date || r.date}</td>
+                              <td style={tdStyle}></td>
+                              {transferTab === "expense" && <td style={tdStyle}></td>}
+                              <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankInfo}</td>
+                              <td style={tdStyle}></td>
+                              <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>฿{fmt(Number(p.amount)||0)}</td>
+                              <td style={tdStyle}></td>
+                            </tr>
+                          );
+                        })
+                      ];
                     };
                     const tabTotal = filteredByTab.reduce((s, r) => s + r.remaining, 0);
                     return (
                       <tbody>
-                        {filteredByTab.map(renderRow)}
+                        {filteredByTab.flatMap(expandToPaymentRows)}
                         <tr style={{ borderTop: "2px solid #185fa5" }}>
                           <td colSpan={transferTab === "expense" ? 7 : 6} style={{ ...tdStyle, fontWeight: 700, color: "#185fa5" }}>รวมยอดทั้งหมด</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 16, color: "#185fa5" }}>฿{fmt(tabTotal)}</td>
