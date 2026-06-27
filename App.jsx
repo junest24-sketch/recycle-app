@@ -5245,7 +5245,11 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             <Printer size={13} /> พิมพ์
           </button>
         </div>
-        <div id="credit-day-summary-print" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+        <div id="credit-day-summary-print">
+          <div style={{ padding: "8px 14px", fontWeight: 700, fontSize: 14, borderBottom: "1px solid #e5e7eb" }}>
+            สรุปยอดใช้เงิน — {creditDate}
+          </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
           {/* ซ้าย: ยอดใช้เงินต่อวัน */}
           <div>
             <div style={{ background: "#6b1f1f", color: "#fff", padding: "6px 14px", fontSize: 12, fontWeight: 700 }}>ยอดใช้เงินต่อวัน / ยอดรับต่อวัน</div>
@@ -5304,6 +5308,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
             ) : null;
           })()}
         </div>
+        </div>{/* end credit-day-summary-print */}
       </div>
 
 
