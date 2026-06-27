@@ -5400,7 +5400,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 )}
                 {["purchase","sale","expense"].includes(activeView) && (
                   <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => setFlag(r.id, "withdrawn", e.target.checked)}
+                    <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => {
+                        if (!e.target.checked && getFlag(r.id, "withdrawn")) {
+                          confirmAction(`ต้องการยกเลิก "เบิกแล้ว" ของรายการ ${r.id} ใช่หรือไม่?`, () => setFlag(r.id, "withdrawn", false));
+                        } else {
+                          setFlag(r.id, "withdrawn", e.target.checked);
+                        }
+                      }}
                       style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f6e56" }} />
                   </td>
                 )}
