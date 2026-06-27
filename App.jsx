@@ -4925,14 +4925,13 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   const [showTransferSheet, setShowTransferSheet] = React.useState(false);
   const [transferTab, setTransferTab] = React.useState("purchase"); // "purchase" | "expense"
   const [transferDetailModal, setTransferDetailModal] = React.useState(null); // { row }
-  const [transferBankId, setTransferBankId] = React.useState("");
-  const [transferAmount, setTransferAmount] = React.useState("");
-  // เก็บข้อมูลตั้งโอนแต่ละบิล { [id]: { bankId, amount } }
+  const [transferEntries, setTransferEntries] = React.useState([{ bankId: "", amount: "" }]);
+  // เก็บข้อมูลตั้งโอนแต่ละบิล { [id]: [{ bankId, amount }] }
   const [transferDetails, setTransferDetails] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("transferDetails") || "{}"); } catch { return {}; }
   });
-  const saveTransferDetail = (id, bankId, amount) => {
-    const next = { ...transferDetails, [id]: { bankId, amount: Number(amount) || 0 } };
+  const saveTransferDetail = (id, entries) => {
+    const next = { ...transferDetails, [id]: entries.filter(e => e.bankId || e.amount) };
     setTransferDetails(next);
     try { localStorage.setItem("transferDetails", JSON.stringify(next)); } catch {}
   };
@@ -5385,8 +5384,8 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                       <input type="checkbox" checked={getFlag(r.id, "transfer")} onChange={(e) => {
                         setFlag(r.id, "transfer", e.target.checked);
                         if (e.target.checked) {
-                          setTransferBankId(transferDetails[r.id]?.bankId || "");
-                          setTransferAmount(transferDetails[r.id]?.amount || r.remaining);
+                          const existing = transferDetails[r.id];
+                          setTransferEntries(existing?.length > 0 ? existing.map(e=>({...e, amount: String(e.amount)})) : [{ bankId: "", amount: String(r.remaining) }]);
                           setTransferDetailModal({ row: r });
                         }
                       }} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#185fa5" }} />
@@ -5464,26 +5463,46 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
           <div style={{ marginBottom: 12, fontSize: 13 }}>
             ยอดคงค้าง: <strong style={{ color: "#993c1d" }}>฿{fmt(transferDetailModal.row.remaining)}</strong>
           </div>
-          <Field label="บัญชีที่จะโอน">
-            <select style={inputStyle} value={transferBankId} onChange={(e) => setTransferBankId(e.target.value)}>
-              <option value="">-- เลือกบัญชี --</option>
-              {storeBankAccounts.map(a => (
-                <option key={a.id} value={a.id}>{a.bankName} — {a.accountNo} ({a.accountName || ""})</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="ยอดที่จะโอน (บาท)">
-            <input type="number" style={{ ...inputStyle, textAlign: "right" }}
-              value={transferAmount}
-              onChange={(e) => setTransferAmount(e.target.value)}
-              placeholder={fmt(transferDetailModal.row.remaining)} />
-          </Field>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-            <button style={btnSecondary} onClick={() => setTransferDetailModal(null)}>ยกเลิก</button>
-            <button style={btnPrimary} onClick={() => {
-              saveTransferDetail(transferDetailModal.row.id, transferBankId, transferAmount || transferDetailModal.row.remaining);
-              setTransferDetailModal(null);
-            }}><Check size={14} /> บันทึก</button>
+          {transferEntries.map((entry, idx) => (
+            <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "0 10px", alignItems: "end", marginBottom: 10 }}>
+              <Field label={`บัญชีที่ ${idx+1}`}>
+                <select style={inputStyle} value={entry.bankId} onChange={(e) => {
+                  const next = [...transferEntries]; next[idx] = {...next[idx], bankId: e.target.value}; setTransferEntries(next);
+                }}>
+                  <option value="">-- เลือกบัญชี --</option>
+                  {storeBankAccounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.bankName} — {a.accountNo}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="ยอด (บาท)">
+                <input type="number" style={{ ...inputStyle, textAlign: "right" }} value={entry.amount}
+                  onChange={(e) => { const next=[...transferEntries]; next[idx]={...next[idx],amount:e.target.value}; setTransferEntries(next); }}
+                  placeholder="0" />
+              </Field>
+              <div style={{ paddingBottom: 4 }}>
+                {transferEntries.length > 1 && (
+                  <button style={{ ...btnDanger, padding: "6px 10px" }} onClick={() => setTransferEntries(transferEntries.filter((_,i)=>i!==idx))}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button style={{ ...btnSecondary, marginBottom: 12 }} onClick={() => setTransferEntries([...transferEntries, { bankId: "", amount: "" }])}>
+            <Plus size={13} /> เพิ่มบัญชี
+          </button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+            <span style={{ fontSize: 13, color: "#6b7280" }}>
+              รวมยอดโอน: <strong style={{ color: "#185fa5" }}>฿{fmt(transferEntries.reduce((s,e)=>s+(Number(e.amount)||0),0))}</strong>
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button style={btnSecondary} onClick={() => setTransferDetailModal(null)}>ยกเลิก</button>
+              <button style={btnPrimary} onClick={() => {
+                saveTransferDetail(transferDetailModal.row.id, transferEntries.map(e=>({bankId:e.bankId,amount:Number(e.amount)||0})));
+                setTransferDetailModal(null);
+              }}><Check size={14} /> บันทึก</button>
+            </div>
           </div>
         </Modal>
       )}
@@ -5546,22 +5565,52 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                         const items = exp.items && exp.items.length > 0 ? exp.items : [{ subCategory: exp.subCategory, description: exp.description }];
                         return items.map(it => [it.subCategory, it.description].filter(Boolean).join(" — ")).join(", ");
                       })() : null;
-                      const detail = transferDetails[r.id];
-                      const acc = detail?.bankId ? storeBankAccounts.find(a => a.id === detail.bankId) : null;
-                      const bankInfo = acc ? `${acc.bankName} — ${acc.accountNo}` : "-";
-                      const transferAmt = detail?.amount || r.remaining;
-                      return [(
-                        <tr key={r.id}>
-                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                      const details = transferDetails[r.id] || [];
+                      const totalTransfer = details.reduce((s,e)=>s+(Number(e.amount)||0),0) || r.remaining;
+                      if (details.length <= 1) {
+                        const acc = details[0]?.bankId ? storeBankAccounts.find(a=>a.id===details[0].bankId) : null;
+                        const bankInfo = acc ? `${acc.bankName} — ${acc.accountNo}` : "-";
+                        return [(
+                          <tr key={r.id}>
+                            <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7" }}>{r.id}</td>
+                            <td style={tdStyle}>{r.date}</td>
+                            <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
+                            {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
+                            <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankInfo}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(details[0]?.amount || r.remaining)}</td>
+                          </tr>
+                        )];
+                      }
+                      // หลายบัญชี
+                      return [
+                        <tr key={`${r.id}-h`} style={{ background: "#f9fafb" }}>
+                          <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", color: "#534ab7", fontWeight: 700 }}>{r.id}</td>
                           <td style={tdStyle}>{r.date}</td>
                           <td style={tdStyle}>{r.kind === "expense" ? r.vendorLabel : custName(r.customerId)}</td>
                           {transferTab === "expense" && <td style={{ ...tdStyle, fontSize: 12, color: "#6b7280" }}>{expenseDetail || "-"}</td>}
-                          <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{bankInfo}</td>
+                          <td style={{ ...tdStyle, color: "#9ca3af", fontSize: 11 }}>{details.length} บัญชี</td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(r.total)}</td>
                           <td style={{ ...tdStyle, textAlign: "right", color: "#0f6e56" }}>{r.paid > 0 ? `฿${fmt(r.paid)}` : "-"}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: r.kind === "sale" ? "#185fa5" : "#993c1d" }}>฿{fmt(transferAmt)}</td>
-                        </tr>
-                      )];
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(totalTransfer)}</td>
+                        </tr>,
+                        ...details.map((d, di) => {
+                          const acc = storeBankAccounts.find(a=>a.id===d.bankId);
+                          return (
+                            <tr key={`${r.id}-d${di}`} style={{ background: "#fafafa" }}>
+                              <td style={{ ...tdStyle, paddingLeft: 24, color: "#9ca3af" }}>↳</td>
+                              <td style={tdStyle}></td>
+                              <td style={tdStyle}></td>
+                              {transferTab === "expense" && <td style={tdStyle}></td>}
+                              <td style={{ ...tdStyle, fontSize: 12, color: "#185fa5" }}>{acc ? `${acc.bankName} — ${acc.accountNo}` : "-"}</td>
+                              <td style={tdStyle}></td>
+                              <td style={tdStyle}></td>
+                              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#185fa5" }}>฿{fmt(Number(d.amount)||0)}</td>
+                            </tr>
+                          );
+                        })
+                      ];
                     };
                     const tabTotal = filteredByTab.reduce((s, r) => s + r.remaining, 0);
                     return (
