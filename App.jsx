@@ -5259,43 +5259,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
         </div>
       </div>
 
-      {creditBalance && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "2px solid #185fa5", padding: "14px 18px", marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontWeight: 700, fontSize: 14, color: "#185fa5" }}>วงเงินหมุนเวียนร้าน</span>
-            <button style={btnSecondary} onClick={() => setShowCreditSetting(true)}><Settings size={14} /> ตั้งค่า</button>
-          </div>
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>วงเงินตั้งต้น</div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: "#185fa5" }}>฿{fmt(creditBalance.limit)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>ซื้อ+ค่าใช้จ่าย (เบิกแล้ว)</div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: "#993c1d" }}>฿{fmt(creditBalance.totalBuy + creditBalance.totalExp)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>รับจากขาย (เบิกแล้ว)</div>
-              <div style={{ fontWeight: 700, fontSize: 18, color: "#0f6e56" }}>฿{fmt(creditBalance.totalSale)}</div>
-            </div>
-            <div style={{ borderLeft: "2px solid #e5e7eb", paddingLeft: 20 }}>
-              <div style={{ fontSize: 11, color: "#6b7280" }}>วงเงินคงเหลือ</div>
-              <div style={{ fontWeight: 700, fontSize: 22, color: creditBalance.balance >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(creditBalance.balance)}</div>
-            </div>
-            {creditBalance.pendingNet !== 0 && (
-              <div>
-                <div style={{ fontSize: 11, color: "#6b7280" }}>รอเบิก (ยังไม่ติ๊ก)</div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#854f0b" }}>฿{fmt(creditBalance.pendingNet)}</div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {!creditBalance && (
-        <div style={{ marginBottom: 12, textAlign: "right" }}>
-          <button style={btnSecondary} onClick={() => setShowCreditSetting(true)}><Settings size={14} /> ตั้งค่าวงเงินหมุนเวียน</button>
-        </div>
-      )}
+
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 20 }}>
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
