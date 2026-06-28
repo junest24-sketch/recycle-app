@@ -1402,7 +1402,7 @@ export default function App() {
   // ตั้งค่ากิจการ (Company Settings) — ใช้ใน header ของใบรับ/ขายสินค้า
   // shopProfile — ชื่อ/โลโก้ใน sidebar (แยกจากข้อมูลบิล)
   const [shopProfile, setShopProfile] = useState({
-    name: "วงจรกรีน",
+    name: "Changlo",
     nameEn: "ระบบซื้อขายของเก่ารีไซเคิล",
     logo: "",   // base64
   });
@@ -1673,7 +1673,7 @@ useEffect(() => {
               )}
               <div style={{ minWidth: 0, overflow: "hidden" }}>
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {shopProfile.name || "วงจรกรีน"}
+                  {shopProfile.name || "Changlo"}
                 </div>
                 <div style={{ fontSize: 10, color: "#F5C6C6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {shopProfile.nameEn || "ระบบซื้อขายของเก่ารีไซเคิล"}
@@ -9137,7 +9137,7 @@ function CompanySettingsTab({ settings, setSettings, shopProfile, setShopProfile
 
           <div style={{ flex: 1, minWidth: 200 }}>
             <Field label="ชื่อร้าน (บรรทัดบนใน sidebar)">
-              <input style={inputStyle} value={sp.name || ""} onChange={(e) => setSP("name", e.target.value)} placeholder="เช่น วงจรกรีน" />
+              <input style={inputStyle} value={sp.name || ""} onChange={(e) => setSP("name", e.target.value)} placeholder="เช่น Changlo" />
             </Field>
             <Field label="คำบรรยาย (บรรทัดล่างใน sidebar)">
               <input style={inputStyle} value={sp.nameEn || ""} onChange={(e) => setSP("nameEn", e.target.value)} placeholder="เช่น ระบบซื้อขายของเก่ารีไซเคิล" />
