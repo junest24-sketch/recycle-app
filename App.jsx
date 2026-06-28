@@ -1124,6 +1124,234 @@ function Pagination({ page, totalPages, setPage, total, start, end }) {
     </div>
   );
 }
+
+// ===================================================================
+// IMPORT FROM EXCEL UTILITIES
+// ===================================================================
+function ImportProductsModal({ onClose, onImport, productCategories, unitOptions }) {
+  const [rows, setRows] = React.useState([]);
+  const [error, setError] = React.useState("");
+  const [preview, setPreview] = React.useState(false);
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        // หา header row (แถวแรกที่มี "รหัส" หรือ "id")
+        const headerIdx = data.findIndex(row => row.some(c => String(c).toLowerCase().includes("รหัส") || String(c).toLowerCase() === "id"));
+        if (headerIdx === -1) { setError("ไม่พบ header row — กรุณาใช้ template ที่ดาวน์โหลดมา"); return; }
+        const headers = data[headerIdx].map(h => String(h).trim().toLowerCase());
+        const getCol = (row, ...keys) => {
+          for (const k of keys) {
+            const idx = headers.findIndex(h => h.includes(k));
+            if (idx >= 0 && row[idx] !== undefined && row[idx] !== "") return row[idx];
+          }
+          return "";
+        };
+        const parsed = data.slice(headerIdx + 1)
+          .filter(row => row.some(c => c !== ""))
+          .map(row => ({
+            id: String(getCol(row, "รหัส", "id") || "").trim(),
+            name: String(getCol(row, "ชื่อสินค้า", "name") || "").trim(),
+            type: String(getCol(row, "ประเภท", "type") || "").trim(),
+            unit: String(getCol(row, "หน่วย", "unit") || "กก.").trim(),
+            openingQty: Number(getCol(row, "ยอดยกมา", "openingqty", "qty")) || 0,
+            openingCost: Number(getCol(row, "ต้นทุน", "openingcost", "cost")) || 0,
+            openingMonth: String(getCol(row, "เดือน", "month") || "").trim(),
+            buyPrice: Number(getCol(row, "ราคาหน้าร้าน", "buyprice", "buy")) || 0,
+            vipPrice: Number(getCol(row, "ราคาvip", "vipprice", "vip")) || 0,
+          }))
+          .filter(r => r.id && r.name);
+        if (parsed.length === 0) { setError("ไม่พบข้อมูลสินค้า — ตรวจสอบว่ากรอกรหัสและชื่อสินค้าครบ"); return; }
+        setRows(parsed);
+        setError("");
+        setPreview(true);
+      } catch(e) {
+        setError("อ่านไฟล์ไม่ได้: " + e.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const rows = [
+      ["รหัส", "ชื่อสินค้า", "ประเภท", "หน่วย", "ยอดยกมา (จำนวน)", "ต้นทุน/หน่วย", "เดือนยกมา (YYYY-MM)", "ราคาหน้าร้าน", "ราคา VIP"],
+      ["P001", "ตัวอย่างสินค้า", "อลูมิเนียม", "กก.", 0, 0, "", 0, 0],
+    ];
+    exportExcel(rows, "template_สินค้า.xlsx", "สินค้า");
+  };
+
+  return (
+    <Modal title="นำเข้าสินค้าจาก Excel" onClose={onClose} wide>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <button style={btnSecondary} onClick={downloadTemplate}><Download size={14} /> ดาวน์โหลด Template</button>
+        <label style={{ ...btnPrimary, cursor: "pointer" }}>
+          <FileSpreadsheet size={14} /> เลือกไฟล์ Excel
+          <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: "none" }} />
+        </label>
+      </div>
+      <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+        <strong>คอลัมน์ที่รองรับ:</strong> รหัส, ชื่อสินค้า, ประเภท, หน่วย, ยอดยกมา, ต้นทุน/หน่วย, เดือนยกมา, ราคาหน้าร้าน, ราคา VIP
+      </div>
+      {error && <div style={{ background: "#fcebeb", border: "1px solid #f5c2c2", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#a32d2d", marginBottom: 12 }}>{error}</div>}
+      {preview && rows.length > 0 && (
+        <>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>ตัวอย่างข้อมูลที่จะนำเข้า ({rows.length} รายการ)</div>
+          <div style={{ overflowX: "auto", maxHeight: 320, overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>รหัส</th>
+                  <th style={thStyle}>ชื่อสินค้า</th>
+                  <th style={thStyle}>ประเภท</th>
+                  <th style={thStyle}>หน่วย</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุน/หน่วย</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>ราคาหน้าร้าน</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ ...tdStyle, fontFamily: "monospace" }}>{r.id}</td>
+                    <td style={tdStyle}>{r.name}</td>
+                    <td style={tdStyle}>{r.type || "-"}</td>
+                    <td style={tdStyle}>{r.unit}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>{r.openingQty}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>{r.openingCost}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>{r.buyPrice}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button style={btnSecondary} onClick={() => { setRows([]); setPreview(false); }}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={() => { onImport(rows); onClose(); }}>
+              <ArrowDownToLine size={14} /> นำเข้า {rows.length} รายการ
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function ImportCustomersModal({ onClose, onImport }) {
+  const [rows, setRows] = React.useState([]);
+  const [error, setError] = React.useState("");
+  const [preview, setPreview] = React.useState(false);
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: "binary" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        const headerIdx = data.findIndex(row => row.some(c => String(c).toLowerCase().includes("รหัส") || String(c).toLowerCase().includes("ชื่อ")));
+        if (headerIdx === -1) { setError("ไม่พบ header row — กรุณาใช้ template ที่ดาวน์โหลดมา"); return; }
+        const headers = data[headerIdx].map(h => String(h).trim().toLowerCase());
+        const getCol = (row, ...keys) => {
+          for (const k of keys) {
+            const idx = headers.findIndex(h => h.includes(k));
+            if (idx >= 0 && row[idx] !== undefined && row[idx] !== "") return row[idx];
+          }
+          return "";
+        };
+        const parsed = data.slice(headerIdx + 1)
+          .filter(row => row.some(c => c !== ""))
+          .map(row => ({
+            id: String(getCol(row, "รหัส", "id") || "").trim(),
+            name: String(getCol(row, "ชื่อ", "name") || "").trim(),
+            phone: String(getCol(row, "โทร", "phone", "เบอร์") || "").trim(),
+            taxId: String(getCol(row, "เลขบัตร", "taxid", "เลขผู้เสีย") || "").trim(),
+            address: String(getCol(row, "ที่อยู่", "address") || "").trim(),
+            line: String(getCol(row, "line", "ไลน์") || "").trim(),
+            email: String(getCol(row, "email", "อีเมล") || "").trim(),
+            deliveries: Number(getCol(row, "จำนวนการส่ง", "deliveries")) || 0,
+            bankAccounts: [],
+            idCardImage: "",
+          }))
+          .filter(r => r.name);
+        if (parsed.length === 0) { setError("ไม่พบข้อมูลลูกค้า — ตรวจสอบว่ากรอกชื่อลูกค้าครบ"); return; }
+        setRows(parsed);
+        setError("");
+        setPreview(true);
+      } catch(e) {
+        setError("อ่านไฟล์ไม่ได้: " + e.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const rows = [
+      ["รหัส", "ชื่อลูกค้า / บริษัท", "เบอร์โทร", "เลขบัตรประชาชน / เลขผู้เสียภาษี", "ที่อยู่", "Line ID", "Email"],
+      ["C001", "ตัวอย่างลูกค้า", "0812345678", "1234567890123", "123 ถ.ตัวอย่าง", "", ""],
+    ];
+    exportExcel(rows, "template_ลูกค้า.xlsx", "ลูกค้า");
+  };
+
+  return (
+    <Modal title="นำเข้าลูกค้าจาก Excel" onClose={onClose} wide>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <button style={btnSecondary} onClick={downloadTemplate}><Download size={14} /> ดาวน์โหลด Template</button>
+        <label style={{ ...btnPrimary, cursor: "pointer" }}>
+          <FileSpreadsheet size={14} /> เลือกไฟล์ Excel
+          <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFile} style={{ display: "none" }} />
+        </label>
+      </div>
+      <div style={{ background: "#f9fafb", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+        <strong>คอลัมน์ที่รองรับ:</strong> รหัส, ชื่อลูกค้า, เบอร์โทร, เลขบัตร/ผู้เสียภาษี, ที่อยู่, Line ID, Email
+      </div>
+      {error && <div style={{ background: "#fcebeb", border: "1px solid #f5c2c2", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#a32d2d", marginBottom: 12 }}>{error}</div>}
+      {preview && rows.length > 0 && (
+        <>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>ตัวอย่างข้อมูลที่จะนำเข้า ({rows.length} รายการ)</div>
+          <div style={{ overflowX: "auto", maxHeight: 320, overflowY: "auto", border: "1px solid #e5e7eb", borderRadius: 8, marginBottom: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>รหัส</th>
+                  <th style={thStyle}>ชื่อ</th>
+                  <th style={thStyle}>เบอร์โทร</th>
+                  <th style={thStyle}>เลขบัตร/ภาษี</th>
+                  <th style={thStyle}>ที่อยู่</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td style={{ ...tdStyle, fontFamily: "monospace" }}>{r.id || "-"}</td>
+                    <td style={tdStyle}>{r.name}</td>
+                    <td style={tdStyle}>{r.phone || "-"}</td>
+                    <td style={tdStyle}>{r.taxId || "-"}</td>
+                    <td style={{ ...tdStyle, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>{r.address || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button style={btnSecondary} onClick={() => { setRows([]); setPreview(false); }}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={() => { onImport(rows); onClose(); }}>
+              <ArrowDownToLine size={14} /> นำเข้า {rows.length} รายการ
+            </button>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
@@ -1174,7 +1402,7 @@ export default function App() {
   // ตั้งค่ากิจการ (Company Settings) — ใช้ใน header ของใบรับ/ขายสินค้า
   // shopProfile — ชื่อ/โลโก้ใน sidebar (แยกจากข้อมูลบิล)
   const [shopProfile, setShopProfile] = useState({
-    name: "Changlo",
+    name: "วงจรกรีน",
     nameEn: "ระบบซื้อขายของเก่ารีไซเคิล",
     logo: "",   // base64
   });
@@ -1445,7 +1673,7 @@ useEffect(() => {
               )}
               <div style={{ minWidth: 0, overflow: "hidden" }}>
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {shopProfile.name || "Changlo"}
+                  {shopProfile.name || "วงจรกรีน"}
                 </div>
                 <div style={{ fontSize: 10, color: "#F5C6C6", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {shopProfile.nameEn || "ระบบซื้อขายของเก่ารีไซเคิล"}
@@ -2883,6 +3111,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 function ProductsTab({ products, setProducts, unitOptions, setUnitOptions, productCategories, setProductCategories }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [importModal, setImportModal] = useState(false);
   const [form, setForm] = useState({ id: "", name: "", type: productCategories[0] || "", unit: unitOptions[0] || "กก.", openingQty: 0, openingCost: 0, openingMonth: "", buyPrice: 0, vipPrice: 0 });
   // inline price editing: { productId, field } — ช่องที่กำลังแก้ไขอยู่ในตาราง
   const [inlineEdit, setInlineEdit] = useState(null);
@@ -2982,6 +3211,7 @@ const save = async () => {
             }}
             onImage={() => printAsPDF("products-print", "ข้อมูลสินค้า")}
           />
+          <button style={btnSecondary} onClick={() => setImportModal(true)}><FileSpreadsheet size={16} /> นำเข้าจาก Excel</button>
           <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> เพิ่มสินค้า</button>
         </div>
       </Header>
@@ -3070,6 +3300,30 @@ const save = async () => {
       </div>
 
 
+      {importModal && (
+        <ImportProductsModal
+          onClose={() => setImportModal(false)}
+          productCategories={productCategories}
+          unitOptions={unitOptions}
+          onImport={(rows) => {
+            const newProducts = [];
+            const updatedProducts = [...products];
+            rows.forEach((r) => {
+              const existing = updatedProducts.findIndex(p => p.id === r.id);
+              if (existing >= 0) {
+                updatedProducts[existing] = { ...updatedProducts[existing], ...r };
+              } else {
+                newProducts.push(r);
+              }
+            });
+            setProducts([...updatedProducts, ...newProducts]);
+            // เพิ่มหมวดหมู่ใหม่ที่ไม่มีในระบบ
+            const newTypes = [...new Set(rows.map(r => r.type).filter(Boolean))].filter(t => !productCategories.includes(t));
+            if (newTypes.length > 0) setProductCategories([...productCategories, ...newTypes]);
+            alert("นำเข้าสำเร็จ! " + rows.length + " รายการ (อัปเดต " + rows.filter(r => products.find(p => p.id === r.id)).length + " / เพิ่มใหม่ " + newProducts.length + ")");
+          }}
+        />
+      )}
       {modal && (
         <Modal title={modal.mode === "add" ? "เพิ่มสินค้า" : "แก้ไขสินค้า"} onClose={() => setModal(null)}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
@@ -3147,6 +3401,7 @@ const save = async () => {
 function CustomersTab({ customers, setCustomers }) {
   const [modal, setModal] = useState(null);
   const [search, setSearch] = useState("");
+  const [importModal, setImportModal] = useState(false);
   const [viewIdCard, setViewIdCard] = useState(null); // รูปบัตรประชาชนที่เปิดดูเต็ม
   const blank = { id: "", name: "", taxId: "", address: "", phone: "", line: "", email: "", deliveries: 0, bankAccounts: [], idCardImage: "" };
   const [form, setForm] = useState(blank);
@@ -3192,6 +3447,7 @@ function CustomersTab({ customers, setCustomers }) {
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
       <div style={{ flexShrink: 0 }}>
       <Header title="ข้อมูลลูกค้า" subtitle="รายชื่อลูกค้าและผู้ส่งของรีไซเคิล">
+        <button style={btnSecondary} onClick={() => setImportModal(true)}><FileSpreadsheet size={16} /> นำเข้าจาก Excel</button>
         <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> เพิ่มลูกค้า</button>
       </Header>
 
@@ -3259,7 +3515,28 @@ function CustomersTab({ customers, setCustomers }) {
       )}
 
      </div>{/* end scroll area */}
-      {modal && (
+      {importModal && (
+        <ImportCustomersModal
+          onClose={() => setImportModal(false)}
+          onImport={(rows) => {
+            const newCustomers = [];
+            const updatedCustomers = [...customers];
+            rows.forEach((r) => {
+              // ถ้าไม่มีรหัส ให้สร้างใหม่
+              if (!r.id) r.id = genSeqId("C", updatedCustomers);
+              const existing = updatedCustomers.findIndex(c => c.id === r.id);
+              if (existing >= 0) {
+                updatedCustomers[existing] = { ...updatedCustomers[existing], ...r };
+              } else {
+                newCustomers.push(r);
+              }
+            });
+            setCustomers([...updatedCustomers, ...newCustomers]);
+            alert("นำเข้าสำเร็จ! " + rows.length + " รายการ (อัปเดต " + rows.filter(r => customers.find(c => c.id === r.id)).length + " / เพิ่มใหม่ " + newCustomers.length + ")");
+          }}
+        />
+      )}
+     {modal && (
         <Modal title={modal.mode === "add" ? "เพิ่มลูกค้าใหม่" : "แก้ไขข้อมูลลูกค้า"} onClose={() => setModal(null)} wide>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
             <Field label="รหัสลูกค้า">
@@ -8860,7 +9137,7 @@ function CompanySettingsTab({ settings, setSettings, shopProfile, setShopProfile
 
           <div style={{ flex: 1, minWidth: 200 }}>
             <Field label="ชื่อร้าน (บรรทัดบนใน sidebar)">
-              <input style={inputStyle} value={sp.name || ""} onChange={(e) => setSP("name", e.target.value)} placeholder="เช่น Changlo" />
+              <input style={inputStyle} value={sp.name || ""} onChange={(e) => setSP("name", e.target.value)} placeholder="เช่น วงจรกรีน" />
             </Field>
             <Field label="คำบรรยาย (บรรทัดล่างใน sidebar)">
               <input style={inputStyle} value={sp.nameEn || ""} onChange={(e) => setSP("nameEn", e.target.value)} placeholder="เช่น ระบบซื้อขายของเก่ารีไซเคิล" />
