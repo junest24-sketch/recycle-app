@@ -4261,6 +4261,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               const unit = po.items[0] ? (products.find(p=>p.id===po.items[0].productId)?.unit || "") : "";
               return (
                 <tr style={{ background: "#f9fafb" }}>
+                  <td style={{ ...tdCompact }}></td>
                   <td style={{ ...tdCompact, fontWeight: 700, color: "#374151" }}>รวมทั้งหมด</td>
                   <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700 }}>{fmt(totalQty)}</td>
                   <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>{fmt(totalDeducted)}</td>
@@ -4272,18 +4273,18 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
             })()}
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
+                <td colSpan={6} style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>ยอดก่อน VAT</td>
                 <td style={{ ...tdCompact, textAlign: "right", fontSize: 11 }}>{fmt(subtotal)} บาท</td>
               </tr>
             )}
             {po.vatRate > 0 && (
               <tr>
-                <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
+                <td colSpan={6} style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>VAT {po.vatRate}%</td>
                 <td style={{ ...tdCompact, textAlign: "right", fontSize: 11, color: "#993c1d" }}>+{fmt(vat)} บาท</td>
               </tr>
             )}
             <tr style={{ background: "#f0fdf4" }}>
-              <td colSpan={5} style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
+              <td colSpan={6} style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13 }}>จำนวนเงินสุทธิ</td>
               <td style={{ ...tdCompact, textAlign: "right", fontWeight: 700, fontSize: 13, color: "#8B2020" }}>{fmt(total)}</td>
             </tr>
           </tfoot>
