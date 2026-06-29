@@ -7548,12 +7548,15 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
   };
 
   // เมื่อพิมพ์หมวดหมู่ย่อยใหม่ที่ยังไม่มีในหมวดหมู่ใหญ่นี้ ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที
-  const handleItemSubCategoryChange = (idx, mainCategory, value) => {
-    if (value && mainCategory && !subCategoriesFor(mainCategory).includes(value)) {
-      setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), { name: value, openingBalance: 0, openingMonth: "" }] }));
-    }
-    updateItem(idx, "subCategory", value);
-  };
+  
+const handleItemSubCategoryChange = (idx, mainCategory, value) => {
+  updateItem(idx, "subCategory", value);
+};
+const handleItemSubCategoryBlur = (idx, mainCategory, value) => {
+  if (value && mainCategory && !subCategoriesFor(mainCategory).includes(value)) {
+    setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), { name: value, openingBalance: 0, openingMonth: "" }] }));
+  }
+};
 
   // โหมด "เพิ่มหมวดหมู่ใหม่" ต่อรายการ — เก็บเป็น { [idx]: "main" | "sub" | null }
   const [addingMainCatFor, setAddingMainCatFor] = useState({});
@@ -7909,10 +7912,11 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                 <Field label="หมวดหมู่ย่อย">
                   <>
                     <input
-                      style={inputStyle}
+                    style={inputStyle}
                       list={`subcats-${idx}`}
                       value={it.subCategory}
                       onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)}
+                      onBlur={(e) => handleItemSubCategoryBlur(idx, it.mainCategory, e.target.value)}
                       placeholder="-- พิมพ์หรือเลือกหมวดหมู่ย่อย --"
                       disabled={!it.mainCategory}
                     />
