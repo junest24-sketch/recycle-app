@@ -3221,6 +3221,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   exportExcel(rows, "เงินหมุนร้าน.xlsx", "เงินหมุน");
                 }}
                 onImage={() => printAsPDF("dash-cashflow", "สรุปเงินหมุนร้าน")}
+                shareElementId="dash-cashflow"
+                shareTitle="เงินหมุนร้าน"
               />
             </div>
 
