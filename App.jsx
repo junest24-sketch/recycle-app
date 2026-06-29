@@ -5759,90 +5759,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
     <div>
       <Header title="รับชำระ / จ่ายชำระ" subtitle="รวมรายการใบรับสินค้าและใบขายที่ยังค้างชำระ — บันทึกการจ่าย/รับเงินจริงได้ที่นี่" />
 
-      {/* วงเงินหมุนเวียน */}
-      {/* ตารางสรุปรายวัน */}
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "hidden", marginBottom: 16 }}>
-        <div style={{ background: "#4a1e1e", color: "#fff", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>สรุปยอดใช้เงิน</span>
-            <input type="date" value={creditDate} onChange={(e) => setCreditDate(e.target.value)}
-              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#fff", padding: "3px 8px", fontSize: 13 }} />
-          </div>
-          <button onClick={() => printAsPDF("credit-day-summary-print", `สรุปยอดใช้เงิน ${creditDate}`)}
-            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, color: "#fff", padding: "4px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-            <Printer size={13} /> พิมพ์
-          </button>
-        </div>
-        <div id="credit-day-summary-print">
-          <div style={{ padding: "8px 14px", fontWeight: 700, fontSize: 14, borderBottom: "1px solid #e5e7eb" }}>
-            สรุปยอดใช้เงิน — {creditDate}
-          </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          {/* ซ้าย: ยอดใช้เงินต่อวัน */}
-          <div>
-            <div style={{ background: "#6b1f1f", color: "#fff", padding: "6px 14px", fontSize: 12, fontWeight: 700 }}>ยอดใช้เงินต่อวัน / ยอดรับต่อวัน</div>
-            {[
-              { label: "ค่าสินค้า", value: creditDaySummary.dayCost, color: "#faece7" },
-              { label: "ค่าใช้จ่าย", value: creditDaySummary.dayExp, color: "#fff" },
-              { label: "หัก รายได้จากสินค้า", value: -creditDaySummary.dayRev, color: "#faece7" },
-              { label: "รวมยอดใช้วันนี้", value: creditDaySummary.dayNet, color: "#e8d4d4", bold: true },
-            ].map((row, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 14px", background: row.color, borderBottom: "1px solid #f3f0f0" }}>
-                <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 400 }}>{row.label}</span>
-                <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 600, color: row.value < 0 ? "#8B2020" : row.value > 0 ? "#993c1d" : "#374151" }}>
-                  {row.value < 0 ? `(${fmt(Math.abs(row.value))})` : fmt(row.value)}
-                </span>
-              </div>
-            ))}
-          </div>
-          {/* ขวา: ยอดที่ต้องเบิกคืน */}
-          <div style={{ borderLeft: "1px solid #e5e7eb" }}>
-            <div style={{ background: "#1a3a5c", color: "#fff", padding: "6px 14px", fontSize: 12, fontWeight: 700 }}>ยอดใช้ที่ต้องเบิกคืน</div>
-            {[
-              { label: "ยอดใช้วันนี้", value: creditDaySummary.dayNet, color: "#e6f1fb" },
-              { label: "ยอดค้างเบิก", value: creditDaySummary.pendingBefore, color: "#fff" },
-              { label: "ยอดตกหล่น", value: null, color: "#e6f1fb", input: true },
-              { label: "ยอดรวมที่ต้องเบิก", value: creditDaySummary.total, color: "#d0e4f7", bold: true },
-            ].map((row, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 14px", background: row.color, borderBottom: "1px solid #f0f4f8" }}>
-                <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 400 }}>{row.label}</span>
-                {row.input ? (
-                  <input type="number" value={creditManual} onChange={(e) => setCreditManual(e.target.value)}
-                    style={{ width: 100, textAlign: "right", border: "1px solid #d1d5db", borderRadius: 6, padding: "2px 8px", fontSize: 13 }} />
-                ) : (
-                  <span style={{ fontSize: 13, fontWeight: row.bold ? 700 : 600, color: row.value < 0 ? "#8B2020" : row.value > 0 ? "#993c1d" : "#374151" }}>
-                    {row.value < 0 ? `(${fmt(Math.abs(row.value))})` : fmt(row.value)}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* ธนาคารที่จะโอนคืนวงเงิน */}
-        <div style={{ borderTop: "1px solid #e5e7eb", padding: "10px 14px", background: "#f9fafb" }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 8 }}>โอนคืนวงเงินผ่าน</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 12px" }}>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>ธนาคาร</div>
-              <input style={inputStyle} value={returnBankName} onChange={(e) => setReturnBankName(e.target.value)} placeholder="เช่น กสิกรไทย" />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>เลขที่บัญชี</div>
-              <input style={inputStyle} value={returnBankNo} onChange={(e) => setReturnBankNo(e.target.value)} placeholder="xxx-x-xxxxx-x" />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 3 }}>ชื่อบัญชี</div>
-              <input style={inputStyle} value={returnBankOwner} onChange={(e) => setReturnBankOwner(e.target.value)} placeholder="ชื่อเจ้าของบัญชี" />
-            </div>
-          </div>
-          {(returnBankName || returnBankNo) && (
-            <div style={{ marginTop: 8, fontSize: 13, color: "#185fa5", fontWeight: 600 }}>
-              ยอดโอนคืน: ฿{fmt(creditDaySummary.total)}
-            </div>
-          )}
-        </div>
-        </div>{/* end credit-day-summary-print */}
-      </div>
+
 
 
 
@@ -5911,7 +5828,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                 <th style={{ ...thStyle, textAlign: "center" }}>ตั้งโอน</th>
               )}
               {["purchase","sale","expense"].includes(activeView) && (
-                <th style={{ ...thStyle, textAlign: "center" }}>เบิกแล้ว</th>
+                null
               )}
               <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
             </tr>
@@ -5956,16 +5873,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
                   </td>
                 )}
                 {["purchase","sale","expense"].includes(activeView) && (
-                  <td style={{ ...tdStyle, textAlign: "center" }}>
-                    <input type="checkbox" checked={getFlag(r.id, "withdrawn")} onChange={(e) => {
-                        if (!e.target.checked && getFlag(r.id, "withdrawn")) {
-                          confirmAction(`ต้องการยกเลิก "เบิกแล้ว" ของรายการ ${r.id} ใช่หรือไม่?`, () => setFlag(r.id, "withdrawn", false));
-                        } else {
-                          setFlag(r.id, "withdrawn", e.target.checked);
-                        }
-                      }}
-                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#8B2020" }} />
-                  </td>
+                  null
                 )}
                 <td style={{ ...tdStyle, textAlign: "right" }}>
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
