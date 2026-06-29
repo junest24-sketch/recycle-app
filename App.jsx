@@ -335,8 +335,40 @@ function handleEnterNavigate(e, onSubmit) {
     onSubmit();
   }
 }
-// ExportToolbar component — renders 3 export buttons for a section
-function ExportToolbar({ onPDF, onExcel, onImage, label = "" }) {
+// ExportToolbar component — renders 3 export buttons + LINE share for a section
+function ExportToolbar({ onPDF, onExcel, onImage, label = "", shareElementId = "", shareTitle = "" }) {
+  const shareToLine = async () => {
+    if (!shareElementId) return;
+    const el = document.getElementById(shareElementId);
+    if (!el) return;
+    try {
+      if (!window.html2canvas) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          script.onload = resolve; script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      const fullWidth = el.scrollWidth;
+      const fullHeight = el.scrollHeight;
+      const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fff", width: fullWidth, height: fullHeight, windowWidth: fullWidth, scrollX: 0, scrollY: 0 });
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `${shareTitle || "export"}.png`, { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: shareTitle || "สรุปข้อมูล" });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${shareTitle || "export"}.png`; a.click();
+          URL.revokeObjectURL(url);
+          alert("บราวเซอร์นี้ไม่รองรับการแชร์ — ดาวน์โหลดรูปแล้วแชร์เข้า LINE ได้เลยครับ");
+        }
+      }, "image/png");
+    } catch (e) { alert("เกิดข้อผิดพลาด: " + e.message); }
+  };
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       {label && <span style={{ fontSize: 12, color: "#6b7280", marginRight: 4 }}>{label}</span>}
@@ -361,6 +393,16 @@ function ExportToolbar({ onPDF, onExcel, onImage, label = "" }) {
       >
         <Image size={13} /> รูปภาพ
       </button>
+      {shareElementId && (
+        <button
+          onClick={shareToLine}
+          title="แชร์เข้า LINE"
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "none", background: "#06C755", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 600 }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
+          LINE
+        </button>
+      )}
     </div>
   );
 }
@@ -2285,7 +2327,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "#6b7280" }}>ข้อมูลตามช่วงเวลา: {periodLabel}</span>
-            <ExportToolbar onPDF={exportHandlers.purchases.pdf} onExcel={exportHandlers.purchases.excel} onImage={exportHandlers.purchases.image} />
+            <ExportToolbar onPDF={exportHandlers.purchases.pdf} onExcel={exportHandlers.purchases.excel} onImage={exportHandlers.purchases.image} shareElementId="dash-export-purchases" shareTitle="ยอดซื้อ" />
           </div>
           <div id="dash-export-purchases">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
@@ -2449,7 +2491,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "#6b7280" }}>ข้อมูลตามช่วงเวลา: {periodLabel}</span>
-            <ExportToolbar onPDF={exportHandlers.sales.pdf} onExcel={exportHandlers.sales.excel} onImage={exportHandlers.sales.image} />
+            <ExportToolbar onPDF={exportHandlers.sales.pdf} onExcel={exportHandlers.sales.excel} onImage={exportHandlers.sales.image} shareElementId="dash-export-sales" shareTitle="ยอดขาย" />
           </div>
           <div id="dash-export-sales">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
@@ -2535,7 +2577,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "#6b7280" }}>ข้อมูลตามช่วงเวลา: {periodLabel}</span>
-            <ExportToolbar onPDF={exportHandlers.expenses.pdf} onExcel={exportHandlers.expenses.excel} onImage={exportHandlers.expenses.image} />
+            <ExportToolbar onPDF={exportHandlers.expenses.pdf} onExcel={exportHandlers.expenses.excel} onImage={exportHandlers.expenses.image} shareElementId="dash-export-expenses" shareTitle="ค่าใช้จ่าย" />
           </div>
           <div id="dash-export-expenses">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
@@ -2646,7 +2688,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "#6b7280" }}>ยอดคงเหลือ ณ วันที่ {today}</span>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <ExportToolbar onPDF={exportHandlers.stock.pdf} onExcel={exportHandlers.stock.excel} onImage={exportHandlers.stock.image} />
+              <ExportToolbar onPDF={exportHandlers.stock.pdf} onExcel={exportHandlers.stock.excel} onImage={exportHandlers.stock.image} shareElementId="dash-export-stock" shareTitle="สต็อก" />
               <button
                 onClick={async () => {
                   const el = document.getElementById("dash-export-stock");
@@ -2890,15 +2932,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                             <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>{g.type} (ยอดรวม)</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.qty)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5" }}>{fmt(g.value)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>
-                              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
-                                {fmt(g.avgCost)}
-                                <button onClick={shareTypeToLine} style={{ background: "#06C755", color: "#fff", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
-                                  แชร์
-                                </button>
-                              </div>
-                            </td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.avgCost)}</td>
                           </tr>
                         </>
                       )}
@@ -2915,15 +2949,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                           <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>{g.type} (ยอดรวม)</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.qty)}</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5" }}>{fmt(g.value)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>
-                            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
-                              {fmt(g.avgCost)}
-                              <button onClick={shareTypeToLine} style={{ background: "#06C755", color: "#fff", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
-                                แชร์
-                              </button>
-                            </div>
-                          </td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.avgCost)}</td>
                         </tr>
                       )}
                     </React.Fragment>
@@ -2961,7 +2987,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "#6b7280" }}>ยอดคงเหลือ ณ วันที่ {today}</span>
-            <ExportToolbar onPDF={exportHandlers.loans.pdf} onExcel={exportHandlers.loans.excel} onImage={exportHandlers.loans.image} />
+            <ExportToolbar onPDF={exportHandlers.loans.pdf} onExcel={exportHandlers.loans.excel} onImage={exportHandlers.loans.image} shareElementId="dash-export-loans" shareTitle="สินเชื่อ" />
           </div>
           <div id="dash-export-loans" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
             {renderCard(loanCard, true)}
