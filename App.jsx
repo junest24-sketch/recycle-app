@@ -4219,7 +4219,8 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
           <thead>
             <tr style={{ background: primaryColor + "22" }}>
-              <th style={{ ...thCompact, color: primaryColor, width: "35%" }}>สินค้า</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "center", width: "6%" }}>ที่</th>
+              <th style={{ ...thCompact, color: primaryColor, width: "29%" }}>สินค้า</th>
               <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวน</th>
               <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>รวมหัก</th>
               <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>สุทธิ</th>
@@ -4237,6 +4238,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
               const amount = net * (Number(it.price) || 0) * (1 - discountPct / 100);
               return (
                 <tr key={idx}>
+                  <td style={{ ...tdCompact, textAlign: "center", color: "#6b7280" }}>{idx + 1}</td>
                   <td style={{ ...tdCompact, wordBreak: "break-word" }}>{p.name}</td>
                   <td style={{ ...tdCompact, textAlign: "right" }}>{fmt(qty)} {p.unit}</td>
                   <td style={{ ...tdCompact, textAlign: "right", color: deducted > 0 ? "#993c1d" : "#9ca3af" }}>{deducted > 0 ? fmt(deducted) : "0"}</td>
