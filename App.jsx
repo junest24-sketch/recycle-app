@@ -2644,7 +2644,37 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, color: "#6b7280" }}>ยอดคงเหลือ ณ วันที่ {today}</span>
-            <ExportToolbar onPDF={exportHandlers.stock.pdf} onExcel={exportHandlers.stock.excel} onImage={exportHandlers.stock.image} />
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <ExportToolbar onPDF={exportHandlers.stock.pdf} onExcel={exportHandlers.stock.excel} onImage={exportHandlers.stock.image} />
+              <button
+                onClick={() => {
+                  const lines = ["📦 สรุปสต็อกแยกตามประเภท", `วันที่ ${today}`, ""];
+                  stockByType.forEach((g) => {
+                    const visibleItems = g.items.filter((s) => s.qty > 0);
+                    if (visibleItems.length === 0) return;
+                    lines.push(`🔹 ${g.type}`);
+                    visibleItems.forEach((s) => {
+                      lines.push(`  - ${s.name}: ${Number(s.qty).toLocaleString("th-TH", { maximumFractionDigits: 2 })} ${s.unit || ""} | มูลค่า ฿${Number(s.totalCost).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                    });
+                    lines.push(`  รวม: ${Number(g.qty).toLocaleString("th-TH", { maximumFractionDigits: 2 })} | ฿${Number(g.value).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                    lines.push("");
+                  });
+                  const totalQty = stockByType.reduce((s, g) => s + g.qty, 0);
+                  const totalVal = stockByType.reduce((s, g) => s + g.value, 0);
+                  lines.push(`📊 ผลรวมทั้งหมด: ${Number(totalQty).toLocaleString("th-TH", { maximumFractionDigits: 2 })} | ฿${Number(totalVal).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                  const text = lines.join("\n");
+                  if (navigator.share) {
+                    navigator.share({ title: "สรุปสต็อก", text }).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(text).then(() => alert("คัดลอกข้อความแล้ว! วางในไลน์ได้เลยครับ")).catch(() => alert("ไม่สามารถแชร์ได้ในเบราว์เซอร์นี้"));
+                  }
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: "#06C755", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
+                แชร์ LINE
+              </button>
+            </div>
           </div>
           <div id="dash-export-stock">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
