@@ -7907,25 +7907,20 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                   )}
                 </Field>
                 <Field label="หมวดหมู่ย่อย">
-                  {addingSubCatFor[idx] ? (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <input style={inputStyle} autoFocus value={it.subCategory} onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)} placeholder="พิมพ์ชื่อหมวดหมู่ย่อยใหม่" />
-                      <button type="button" style={roundBtn} title="เสร็จสิ้น" onClick={() => setAddingSubCatFor((p) => ({ ...p, [idx]: false }))}><Check size={14} /></button>
-                    </div>
-                  ) : (
-                    <>
-  <input
-    style={inputStyle}
-    list={`subcats-${idx}`}
-    value={it.subCategory}
-    onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)}
-    placeholder="-- พิมพ์หรือเลือกหมวดหมู่ย่อย --"
-    disabled={!it.mainCategory}
-  />
-  <datalist id={`subcats-${idx}`}>
-    {subCategoriesFor(it.mainCategory).map((c) => <option key={c} value={c} />)}
-  </datalist>
-</>
+                  <>
+                    <input
+                      style={inputStyle}
+                      list={`subcats-${idx}`}
+                      value={it.subCategory}
+                      onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)}
+                      placeholder="-- พิมพ์หรือเลือกหมวดหมู่ย่อย --"
+                      disabled={!it.mainCategory}
+                    />
+                    <datalist id={`subcats-${idx}`}>
+                      {subCategoriesFor(it.mainCategory).map((c) => <option key={c} value={c} />)}
+                    </datalist>
+                  </>
+                </Field>
                   )}
                 </Field>
                 <Field label="รายละเอียด">
