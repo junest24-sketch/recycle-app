@@ -1859,6 +1859,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   // ---------- หมวดหมู่แดชบอร์ด ----------
   const [dashSubTab, setDashSubTab] = useState("purchases"); // "purchases" | "sales" | "expenses" | "stock" | "loans"
   const [expandedStockTypes, setExpandedStockTypes] = useState({}); // { [type]: bool } ติ๊กเลือกเพื่อดูรายการสินค้าในประเภทนั้น
+  const [selectedStockTypes, setSelectedStockTypes] = useState({}); // { [type]: bool } เลือกประเภทที่จะแชร์
 
   // ---------- ตัวเลือกช่วงเวลา: รายวัน / ช่วงวันที่ (เลือกเอง) / ทั้งหมด ----------
   const today = new Date().toISOString().slice(0, 10);
@@ -2651,7 +2652,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   const el = document.getElementById("dash-export-stock");
                   if (!el) return;
                   try {
-                    // โหลด html2canvas จาก CDN
                     if (!window.html2canvas) {
                       await new Promise((resolve, reject) => {
                         const script = document.createElement("script");
@@ -2661,14 +2661,25 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                         document.head.appendChild(script);
                       });
                     }
-                    const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fff" });
+                    // จับความกว้างจริงของ element (ไม่ตัดตามหน้าจอ)
+                    const fullWidth = el.scrollWidth;
+                    const fullHeight = el.scrollHeight;
+                    const canvas = await window.html2canvas(el, {
+                      scale: 2,
+                      useCORS: true,
+                      backgroundColor: "#fff",
+                      width: fullWidth,
+                      height: fullHeight,
+                      windowWidth: fullWidth,
+                      scrollX: 0,
+                      scrollY: 0,
+                    });
                     canvas.toBlob(async (blob) => {
                       if (!blob) return;
                       const file = new File([blob], "stock-summary.png", { type: "image/png" });
                       if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         await navigator.share({ files: [file], title: "สรุปสต็อก" });
                       } else {
-                        // fallback: ดาวน์โหลดรูป
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
                         a.href = url; a.download = "stock-summary.png"; a.click();
@@ -2695,11 +2706,87 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflowX: "auto" }}>
             <div style={{ background: "#5a1414", color: "#fff", padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>มูลค่าสต๊อกรวม</h3>
-              <span style={{ fontSize: 12, color: "#e7c9c9" }}>วันที่ {today}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "#e7c9c9" }}>วันที่ {today}</span>
+                {Object.values(selectedStockTypes).some(Boolean) && (
+                  <button
+                    onClick={async () => {
+                      const selectedGroups = stockByType.filter(g => selectedStockTypes[g.type] && g.items.filter(s => s.qty > 0).length > 0);
+                      if (selectedGroups.length === 0) return;
+                      try {
+                        if (!window.html2canvas) {
+                          await new Promise((resolve, reject) => {
+                            const script = document.createElement("script");
+                            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+                            script.onload = resolve; script.onerror = reject;
+                            document.head.appendChild(script);
+                          });
+                        }
+                        const tmp = document.createElement("div");
+                        tmp.style.cssText = "position:fixed;left:-9999px;top:0;background:#fff;padding:20px;font-family:'Noto Sans Thai',sans-serif;width:600px;";
+                        tmp.innerHTML = `
+                          <div style="background:#5a1414;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;font-size:16px;font-weight:700;">
+                            📦 สรุปสต็อก: ${selectedGroups.map(g=>g.type).join(", ")} <span style="font-size:12px;opacity:0.8;">วันที่ ${today}</span>
+                          </div>
+                          ${selectedGroups.map(g => {
+                            const visibleItems = g.items.filter(s => s.qty > 0);
+                            return `
+                              <div style="margin-top:12px;">
+                                <div style="background:#1f2937;color:#fff;padding:6px 12px;font-weight:700;font-size:13px;">🔹 ${g.type}</div>
+                                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                                  <thead><tr style="background:#f3f4f6;">
+                                    <th style="padding:6px 10px;text-align:left;border:1px solid #e5e7eb;">รายการสินค้า</th>
+                                    <th style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">คงเหลือ</th>
+                                    <th style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">มูลค่า</th>
+                                    <th style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">ราคาเฉลี่ย</th>
+                                  </tr></thead>
+                                  <tbody>
+                                    ${visibleItems.map(s => `
+                                      <tr>
+                                        <td style="padding:5px 10px;border:1px solid #e5e7eb;">${s.name}</td>
+                                        <td style="padding:5px 10px;text-align:right;border:1px solid #e5e7eb;">${Number(s.qty).toLocaleString("th-TH",{maximumFractionDigits:2})} ${s.unit||""}</td>
+                                        <td style="padding:5px 10px;text-align:right;border:1px solid #e5e7eb;color:#993c1d;">฿${Number(s.totalCost).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                        <td style="padding:5px 10px;text-align:right;border:1px solid #e5e7eb;">${Number(s.avgCost).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                      </tr>`).join("")}
+                                  </tbody>
+                                  <tfoot><tr style="background:#1f2937;">
+                                    <td style="padding:6px 10px;font-weight:700;color:#fff;border:1px solid #374151;">รวม</td>
+                                    <td style="padding:6px 10px;text-align:right;font-weight:700;color:#fff;border:1px solid #374151;">${Number(g.qty).toLocaleString("th-TH",{maximumFractionDigits:2})}</td>
+                                    <td style="padding:6px 10px;text-align:right;font-weight:700;color:#fca5a5;border:1px solid #374151;">฿${Number(g.value).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                    <td style="padding:6px 10px;text-align:right;font-weight:700;color:#fff;border:1px solid #374151;">${Number(g.avgCost).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                  </tr></tfoot>
+                                </table>
+                              </div>`;
+                          }).join("")}`;
+                        document.body.appendChild(tmp);
+                        const canvas = await window.html2canvas(tmp, { scale: 2, useCORS: true, backgroundColor: "#fff", width: 600, windowWidth: 600 });
+                        document.body.removeChild(tmp);
+                        canvas.toBlob(async (blob) => {
+                          if (!blob) return;
+                          const file = new File([blob], "stock-selected.png", { type: "image/png" });
+                          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({ files: [file], title: "สรุปสต็อก" });
+                          } else {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url; a.download = "stock-selected.png"; a.click();
+                            URL.revokeObjectURL(url);
+                          }
+                        }, "image/png");
+                      } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
+                    }}
+                    style={{ background: "#06C755", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
+                    แชร์ที่เลือก ({Object.values(selectedStockTypes).filter(Boolean).length})
+                  </button>
+                )}
+              </div>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
               <thead>
                 <tr>
+                  <th style={{ ...thStyle, width: 36, textAlign: "center" }}><input type="checkbox" onChange={(e) => { const s = {}; stockByType.forEach(g => { s[g.type] = e.target.checked; }); setSelectedStockTypes(s); }} style={{ cursor: "pointer" }} /></th>
                   <th style={thStyle}>ประเภทสินค้า / รายการสินค้า</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ/{stockByType[0]?.items[0]?.unit || "หน่วย"}</th>
                   <th style={{ ...thStyle, textAlign: "right" }}>มูลค่าคงเหลือ</th>
@@ -2711,6 +2798,66 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   const visibleItems = g.items.filter((s) => s.qty > 0);
                   if (visibleItems.length === 0) return null;
                   const isExpanded = !!expandedStockTypes[g.type];
+
+                  const shareTypeToLine = async (e) => {
+                    e.stopPropagation();
+                    try {
+                      if (!window.html2canvas) {
+                        await new Promise((resolve, reject) => {
+                          const script = document.createElement("script");
+                          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+                          script.onload = resolve; script.onerror = reject;
+                          document.head.appendChild(script);
+                        });
+                      }
+                      // สร้าง div ชั่วคราวสำหรับ render ตารางประเภทนี้
+                      const tmp = document.createElement("div");
+                      tmp.style.cssText = "position:fixed;left:-9999px;top:0;background:#fff;padding:20px;font-family:'Noto Sans Thai',sans-serif;width:600px;";
+                      tmp.innerHTML = `
+                        <div style="background:#5a1414;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;font-size:16px;font-weight:700;">
+                          📦 ${g.type} — สรุปสต็อก <span style="font-size:12px;opacity:0.8;">วันที่ ${today}</span>
+                        </div>
+                        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                          <thead><tr style="background:#f3f4f6;">
+                            <th style="padding:8px 12px;text-align:left;border:1px solid #e5e7eb;">รายการสินค้า</th>
+                            <th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">คงเหลือ</th>
+                            <th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">มูลค่า</th>
+                            <th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">ราคาเฉลี่ย</th>
+                          </tr></thead>
+                          <tbody>
+                            ${visibleItems.map(s => `
+                              <tr>
+                                <td style="padding:7px 12px;border:1px solid #e5e7eb;">${s.name}</td>
+                                <td style="padding:7px 12px;text-align:right;border:1px solid #e5e7eb;">${Number(s.qty).toLocaleString("th-TH",{maximumFractionDigits:2})} ${s.unit||""}</td>
+                                <td style="padding:7px 12px;text-align:right;border:1px solid #e5e7eb;color:#993c1d;">฿${Number(s.totalCost).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                                <td style="padding:7px 12px;text-align:right;border:1px solid #e5e7eb;">${Number(s.avgCost).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                              </tr>`).join("")}
+                          </tbody>
+                          <tfoot><tr style="background:#1f2937;">
+                            <td style="padding:8px 12px;font-weight:700;color:#fff;border:1px solid #374151;">รวม ${g.type}</td>
+                            <td style="padding:8px 12px;text-align:right;font-weight:700;color:#fff;border:1px solid #374151;">${Number(g.qty).toLocaleString("th-TH",{maximumFractionDigits:2})}</td>
+                            <td style="padding:8px 12px;text-align:right;font-weight:700;color:#fca5a5;border:1px solid #374151;">฿${Number(g.value).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                            <td style="padding:8px 12px;text-align:right;font-weight:700;color:#fff;border:1px solid #374151;">${Number(g.avgCost).toLocaleString("th-TH",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                          </tr></tfoot>
+                        </table>`;
+                      document.body.appendChild(tmp);
+                      const canvas = await window.html2canvas(tmp, { scale: 2, useCORS: true, backgroundColor: "#fff", width: 600, windowWidth: 600 });
+                      document.body.removeChild(tmp);
+                      canvas.toBlob(async (blob) => {
+                        if (!blob) return;
+                        const file = new File([blob], `stock-${g.type}.png`, { type: "image/png" });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          await navigator.share({ files: [file], title: `สต็อก ${g.type}` });
+                        } else {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url; a.download = `stock-${g.type}.png`; a.click();
+                          URL.revokeObjectURL(url);
+                        }
+                      }, "image/png");
+                    } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
+                  };
+
                   return (
                     <React.Fragment key={g.type}>
                       {isExpanded && (
@@ -2721,6 +2868,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                             onMouseEnter={(e) => { e.currentTarget.style.background = "#f3f4f6"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
                           >
+                            <td style={{ ...tdStyle, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={!!selectedStockTypes[g.type]} onChange={(e) => setSelectedStockTypes(prev => ({ ...prev, [g.type]: e.target.checked }))} style={{ cursor: "pointer", accentColor: "#06C755" }} />
+                            </td>
                             <td style={{ ...tdStyle, fontWeight: 700, color: "#993c1d" }}>{g.type}</td>
                             <td style={tdStyle}></td>
                             <td style={tdStyle}></td>
@@ -2728,6 +2878,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                           </tr>
                           {visibleItems.map((s) => (
                             <tr key={s.productId}>
+                              <td style={tdStyle}></td>
                               <td style={{ ...tdStyle, color: "#111827", paddingLeft: 24 }}>- {s.name}</td>
                               <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(s.qty)}</td>
                               <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d" }}>{fmt(s.totalCost)}</td>
@@ -2735,10 +2886,19 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                             </tr>
                           ))}
                           <tr style={{ background: "#1f2937" }}>
+                            <td style={tdStyle}></td>
                             <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>{g.type} (ยอดรวม)</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.qty)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5" }}>{fmt(g.value)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.avgCost)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>
+                              <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+                                {fmt(g.avgCost)}
+                                <button onClick={shareTypeToLine} style={{ background: "#06C755", color: "#fff", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
+                                  แชร์
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         </>
                       )}
@@ -2749,10 +2909,21 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                           onMouseEnter={(e) => { e.currentTarget.style.background = "#374151"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = "#1f2937"; }}
                         >
+                          <td style={{ ...tdStyle, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={!!selectedStockTypes[g.type]} onChange={(e) => setSelectedStockTypes(prev => ({ ...prev, [g.type]: e.target.checked }))} style={{ cursor: "pointer", accentColor: "#06C755" }} />
+                          </td>
                           <td style={{ ...tdStyle, fontWeight: 700, color: "#fff" }}>{g.type} (ยอดรวม)</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.qty)}</td>
                           <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fca5a5" }}>{fmt(g.value)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>{fmt(g.avgCost)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#fff" }}>
+                            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+                              {fmt(g.avgCost)}
+                              <button onClick={shareTypeToLine} style={{ background: "#06C755", color: "#fff", border: "none", borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 3 }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
+                                แชร์
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       )}
                     </React.Fragment>
@@ -2765,6 +2936,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               {stockByType.length > 0 && (
                 <tfoot>
                   <tr style={{ borderTop: "3px solid #8B2020" }}>
+                    <td style={tdStyle}></td>
                     <td style={{ ...tdStyle, fontWeight: 700, color: "#8B2020", fontSize: 14 }}>ผลรวม</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020", fontSize: 14 }}>{fmt(stockByType.reduce((s, g) => s + g.qty, 0))}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020", fontSize: 14 }}>{fmt(stockByType.reduce((s, g) => s + g.value, 0))}</td>
