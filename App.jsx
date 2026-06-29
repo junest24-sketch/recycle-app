@@ -335,6 +335,45 @@ function handleEnterNavigate(e, onSubmit) {
     onSubmit();
   }
 }
+// ShareLineBtn — ปุ่มแชร์ LINE สำหรับแต่ละกล่อง
+function ShareLineBtn({ elementId, title = "สรุปข้อมูล" }) {
+  const share = async (e) => {
+    e.stopPropagation();
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    try {
+      if (!window.html2canvas) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+          script.onload = resolve; script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fff", width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth, scrollX: 0, scrollY: 0 });
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `${title}.png`, { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${title}.png`; a.click();
+          URL.revokeObjectURL(url);
+          alert("บราวเซอร์นี้ไม่รองรับการแชร์ — ดาวน์โหลดรูปแล้วแชร์เข้า LINE ได้เลยครับ");
+        }
+      }, "image/png");
+    } catch (err) { alert("เกิดข้อผิดพลาด: " + err.message); }
+  };
+  return (
+    <button onClick={share} title="แชร์เข้า LINE" style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, border: "none", background: "#06C755", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 600 }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.02 2 11c0 3.07 1.63 5.79 4.14 7.5L5 22l4.22-2.23C10.08 20.24 11.03 20.4 12 20.4c5.52 0 10-4.02 10-8.9C22 6.02 17.52 2 12 2z"/></svg>
+      LINE
+    </button>
+  );
+}
+
 // ExportToolbar component — renders 3 export buttons + LINE share for a section
 function ExportToolbar({ onPDF, onExcel, onImage, label = "", shareElementId = "", shareTitle = "" }) {
   const shareToLine = async () => {
@@ -2334,8 +2373,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             {renderCard(purchaseCard)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-  <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามประเภทสินค้า</h3>
+            <div id="dash-section-purchase-type" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามประเภทสินค้า</h3>
+    <ShareLineBtn elementId="dash-section-purchase-type" title="ยอดซื้อ-ประเภทสินค้า" />
+  </div>
   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <colgroup>
                   <col style={{ width: "50%" }} />
@@ -2375,8 +2417,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </table>
             </div>
 
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามรายการสินค้า</h3>
+            <div id="dash-section-purchase-product" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามรายการสินค้า</h3>
+                <ShareLineBtn elementId="dash-section-purchase-product" title="ยอดซื้อ-รายการสินค้า" />
+              </div>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <colgroup>
                   <col style={{ width: "50%" }} />
@@ -2418,8 +2463,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           </div>
 
           {/* สรุปบิลแยกตามช่องทางชำระ */}
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
+          <div id="dash-section-purchase-payment" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
+              <ShareLineBtn elementId="dash-section-purchase-payment" title="ยอดซื้อ-ช่องทางชำระ" />
+            </div>
             {(() => {
               // จัดกลุ่ม purchases ในช่วง
               const pos = filteredPurchases;
@@ -2498,8 +2546,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             {renderCard(salesCard)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามประเภทสินค้า</h3>
+            <div id="dash-section-sale-type" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามประเภทสินค้า</h3>
+                <ShareLineBtn elementId="dash-section-sale-type" title="ยอดขาย-ประเภทสินค้า" />
+              </div>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
@@ -2533,8 +2584,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </table>
             </div>
 
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามรายการสินค้า</h3>
+            <div id="dash-section-sale-product" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามรายการสินค้า</h3>
+                <ShareLineBtn elementId="dash-section-sale-product" title="ยอดขาย-รายการสินค้า" />
+              </div>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500  }}>
                 <thead>
                   <tr>
@@ -2583,8 +2637,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
               {renderCard(expensesCard)}
             </div>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>ค่าใช้จ่าย แบ่งตามหมวดหมู่ย่อย</h3>
+            <div id="dash-section-expense-cat" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ค่าใช้จ่าย แบ่งตามหมวดหมู่ย่อย</h3>
+                <ShareLineBtn elementId="dash-section-expense-cat" title="ค่าใช้จ่าย-หมวดหมู่" />
+              </div>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
@@ -2621,8 +2678,11 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             </div>
 
             {/* สรุปค่าใช้จ่ายแยกตามช่องทางชำระ */}
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
-              <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
+            <div id="dash-section-expense-payment" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
+                <ShareLineBtn elementId="dash-section-expense-payment" title="ค่าใช้จ่าย-ช่องทางชำระ" />
+              </div>
               {(() => {
                 const exps = (expenses || []).filter(e => inRange(e.billDate || e.date));
                 const entries = [];
