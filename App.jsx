@@ -7549,14 +7549,14 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
 
   // เมื่อพิมพ์หมวดหมู่ย่อยใหม่ที่ยังไม่มีในหมวดหมู่ใหญ่นี้ ให้เพิ่มเข้าฐานข้อมูล expenseCategories ทันที
   
-const handleItemSubCategoryChange = (idx, mainCategory, value) => {
-  updateItem(idx, "subCategory", value);
-};
-const handleItemSubCategoryBlur = (idx, mainCategory, value) => {
-  if (value && mainCategory && !subCategoriesFor(mainCategory).includes(value)) {
-    setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), { name: value, openingBalance: 0, openingMonth: "" }] }));
-  }
-};
+  const handleItemSubCategoryChange = (idx, mainCategory, value) => {
+    updateItem(idx, "subCategory", value);
+  };
+  const handleItemSubCategoryBlur = (idx, mainCategory, value) => {
+    if (value && mainCategory && !subCategoriesFor(mainCategory).includes(value)) {
+      setExpenseCategories((prev) => ({ ...prev, [mainCategory]: [...(prev[mainCategory] || []), { name: value, openingBalance: 0, openingMonth: "" }] }));
+    }
+  };
 
   // โหมด "เพิ่มหมวดหมู่ใหม่" ต่อรายการ — เก็บเป็น { [idx]: "main" | "sub" | null }
   const [addingMainCatFor, setAddingMainCatFor] = useState({});
@@ -8297,6 +8297,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
     const updated = { ...expenseCategories };
     delete updated[main];
     setExpenseCategories(updated);
+    saveToSupabase('expenseCategories', updated);
   };
 
   // ---------- หมวดหมู่ย่อย ----------
@@ -8333,7 +8334,9 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
       alert(`ลบไม่ได้ — มีค่าใช้จ่าย ${used} รายการที่ใช้หมวดหมู่ย่อยนี้อยู่ กรุณาเปลี่ยนหมวดหมู่ของรายการนั้นก่อน`);
       return;
     }
-    setExpenseCategories({ ...expenseCategories, [main]: subsOf(main).filter((s) => s.name !== subName) });
+    const updated = { ...expenseCategories, [main]: subsOf(main).filter((s) => s.name !== subName) };
+    setExpenseCategories(updated);
+    saveToSupabase('expenseCategories', updated);
   };
 
   return (
