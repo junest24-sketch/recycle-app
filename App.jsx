@@ -7921,8 +7921,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                     </datalist>
                   </>
                 </Field>
-                  )}
-                </Field>
+                  )}  
                 <Field label="รายละเอียด">
                   <input style={inputStyle} value={it.description} onChange={(e) => updateItem(idx, "description", e.target.value)} placeholder="เช่น ค่าน้ำมันรถบรรทุกขนของ" />
                 </Field>
