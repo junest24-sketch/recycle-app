@@ -4011,6 +4011,7 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
               <thead>
                 <tr>
+                  <th style={{ ...thStyle, textAlign: "center", width: 32 }}>ที่</th>
                   <th style={thStyle}>สินค้า</th>
                   <th style={{ ...thStyle, textAlign: "right", width: 90 }}>จำนวน</th>
                   <th style={{ ...thStyle, width: 52 }}>หน่วย</th>
@@ -4032,6 +4033,7 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
                   const net = Math.round((qty - totalDeductKg) * 100) / 100;
                   return (
                     <tr key={idx}>
+                      <td style={{ ...tdStyle, textAlign: "center", color: "#6b7280", fontWeight: 600 }}>{idx + 1}</td>
                       <td style={tdStyle}>
                         <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
                       </td>
@@ -5089,7 +5091,8 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead>
                 <tr>
-                  <th style={{ ...thStyle, width: "28%" }}>สินค้า</th>
+                  <th style={{ ...thStyle, width: "4%", textAlign: "center" }}>ที่</th>
+                  <th style={{ ...thStyle, width: "24%" }}>สินค้า</th>
                   <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จำนวน</th>
                   <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จำนวนสุทธิ</th>
                   <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จำนวนหัก</th>
@@ -5108,6 +5111,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                   const insufficient = !fromW && stock && net > stock.qty;
                   return (
                     <tr key={idx} style={fromW ? { background: "#eeedfe" } : undefined}>
+                      <td style={{ ...tdStyle, textAlign: "center", color: "#6b7280", fontWeight: 600 }}>{idx + 1}</td>
                       <td style={tdStyle}>
                         <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} disabled={fromW} labelWithId={false} />
                         {fromW && (
@@ -5299,6 +5303,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
           <thead>
             <tr style={{ background: accentColor + "22" }}>
+              <th style={{ ...thStyle, color: accentColor, padding: "4px 8px", textAlign: "center", width: 32 }}>ที่</th>
               <th style={{ ...thStyle, color: accentColor, padding: "4px 12px" }}>สินค้า</th>
               <th style={{ ...thStyle, color: accentColor, textAlign: "right", padding: "4px 12px" }}>น้ำหนักสุทธิ</th>
               <th style={{ ...thStyle, color: accentColor, textAlign: "right", padding: "4px 12px" }}>ราคา/หน่วย</th>
@@ -5311,6 +5316,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
               const net = it.deductType === "pct" ? (Number(it.qty)||0)*(1-(Number(it.deduct)||0)/100) : (it.net != null ? Number(it.net) : (Number(it.qty)||0)-(Number(it.deduct)||0));
               return (
                 <tr key={idx}>
+                  <td style={{ ...tdStyle, padding: "4px 8px", textAlign: "center", color: "#6b7280" }}>{idx + 1}</td>
                   <td style={{ ...tdStyle, padding: "4px 12px" }}>{p.name}</td>
                   <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(net)} {p.unit}</td>
                   <td style={{ ...tdStyle, padding: "4px 12px", textAlign: "right" }}>{fmt(it.price)}</td>
@@ -9725,6 +9731,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
           <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
             <thead>
               <tr>
+                <th style={{ ...thStyle, textAlign: "center", width: 32 }}>ที่</th>
                 <th style={thStyle}>สินค้า</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>จำนวน</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>น้ำหนักภาชนะ</th>
@@ -9736,6 +9743,7 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
             <tbody>
               {form.items.map((it, idx) => (
                 <tr key={it.id}>
+                  <td style={{ ...tdStyle, textAlign: "center", color: "#6b7280", fontWeight: 600 }}>{idx + 1}</td>
                   <td style={tdStyle}><ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} /></td>
                   <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} /></td>
                   <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: 90, textAlign: "right" }} value={it.containerWeight} onChange={(e) => updateItem(idx, "containerWeight", e.target.value)} /></td>
