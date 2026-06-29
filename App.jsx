@@ -2647,26 +2647,37 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <ExportToolbar onPDF={exportHandlers.stock.pdf} onExcel={exportHandlers.stock.excel} onImage={exportHandlers.stock.image} />
               <button
-                onClick={() => {
-                  const lines = ["📦 สรุปสต็อกแยกตามประเภท", `วันที่ ${today}`, ""];
-                  stockByType.forEach((g) => {
-                    const visibleItems = g.items.filter((s) => s.qty > 0);
-                    if (visibleItems.length === 0) return;
-                    lines.push(`🔹 ${g.type}`);
-                    visibleItems.forEach((s) => {
-                      lines.push(`  - ${s.name}: ${Number(s.qty).toLocaleString("th-TH", { maximumFractionDigits: 2 })} ${s.unit || ""} | มูลค่า ฿${Number(s.totalCost).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-                    });
-                    lines.push(`  รวม: ${Number(g.qty).toLocaleString("th-TH", { maximumFractionDigits: 2 })} | ฿${Number(g.value).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-                    lines.push("");
-                  });
-                  const totalQty = stockByType.reduce((s, g) => s + g.qty, 0);
-                  const totalVal = stockByType.reduce((s, g) => s + g.value, 0);
-                  lines.push(`📊 ผลรวมทั้งหมด: ${Number(totalQty).toLocaleString("th-TH", { maximumFractionDigits: 2 })} | ฿${Number(totalVal).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-                  const text = lines.join("\n");
-                  if (navigator.share) {
-                    navigator.share({ title: "สรุปสต็อก", text }).catch(() => {});
-                  } else {
-                    navigator.clipboard.writeText(text).then(() => alert("คัดลอกข้อความแล้ว! วางในไลน์ได้เลยครับ")).catch(() => alert("ไม่สามารถแชร์ได้ในเบราว์เซอร์นี้"));
+                onClick={async () => {
+                  const el = document.getElementById("dash-export-stock");
+                  if (!el) return;
+                  try {
+                    // โหลด html2canvas จาก CDN
+                    if (!window.html2canvas) {
+                      await new Promise((resolve, reject) => {
+                        const script = document.createElement("script");
+                        script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                      });
+                    }
+                    const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fff" });
+                    canvas.toBlob(async (blob) => {
+                      if (!blob) return;
+                      const file = new File([blob], "stock-summary.png", { type: "image/png" });
+                      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({ files: [file], title: "สรุปสต็อก" });
+                      } else {
+                        // fallback: ดาวน์โหลดรูป
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url; a.download = "stock-summary.png"; a.click();
+                        URL.revokeObjectURL(url);
+                        alert("บราวเซอร์นี้ไม่รองรับการแชร์ — ดาวน์โหลดรูปแล้วแชร์เข้า LINE ได้เลยครับ");
+                      }
+                    }, "image/png");
+                  } catch (e) {
+                    alert("เกิดข้อผิดพลาด: " + e.message);
                   }
                 }}
                 style={{ display: "flex", alignItems: "center", gap: 6, background: "#06C755", color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
