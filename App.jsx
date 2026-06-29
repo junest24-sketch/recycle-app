@@ -7913,14 +7913,19 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
                       <button type="button" style={roundBtn} title="เสร็จสิ้น" onClick={() => setAddingSubCatFor((p) => ({ ...p, [idx]: false }))}><Check size={14} /></button>
                     </div>
                   ) : (
-                    <select style={inputStyle} value={it.subCategory} onChange={(e) => {
-                      if (e.target.value === "__add_new__") { setAddingSubCatFor((p) => ({ ...p, [idx]: true })); handleItemSubCategoryChange(idx, it.mainCategory, ""); return; }
-                      handleItemSubCategoryChange(idx, it.mainCategory, e.target.value);
-                    }} disabled={!it.mainCategory}>
-                      <option value="">-- เลือกหมวดหมู่ย่อย --</option>
-                      {subCategoriesFor(it.mainCategory).map((c) => <option key={c} value={c}>{c}</option>)}
-                      <option value="__add_new__">+ เพิ่มหมวดหมู่ย่อยใหม่...</option>
-                    </select>
+                    <>
+  <input
+    style={inputStyle}
+    list={`subcats-${idx}`}
+    value={it.subCategory}
+    onChange={(e) => handleItemSubCategoryChange(idx, it.mainCategory, e.target.value)}
+    placeholder="-- พิมพ์หรือเลือกหมวดหมู่ย่อย --"
+    disabled={!it.mainCategory}
+  />
+  <datalist id={`subcats-${idx}`}>
+    {subCategoriesFor(it.mainCategory).map((c) => <option key={c} value={c} />)}
+  </datalist>
+</>
                   )}
                 </Field>
                 <Field label="รายละเอียด">
