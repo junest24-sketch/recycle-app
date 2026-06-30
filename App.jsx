@@ -4322,7 +4322,11 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
           </p>
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>สินค้า</div>
-          <div style={{ overflowX: "auto" }}>
+          <style>{`
+            @media (min-width: 640px) { .po-desktop-table { display: block !important; } .po-mobile-cards { display: none !important; } }
+            @media (max-width: 639px) { .po-desktop-table { display: none !important; } .po-mobile-cards { display: flex !important; } }
+          `}</style>
+          <div className="po-desktop-table" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750, tableLayout: "fixed" }}>
               <thead>
                 <tr>
@@ -4366,6 +4370,59 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="po-mobile-cards" style={{ flexDirection: "column", gap: 12 }}>
+            {form.items.map((it, idx) => {
+              const qty = Math.round((Number(it.qty) || 0) * 100) / 100;
+              const deductPct = Number(it.deductPct) || 0;
+              const deductKg = Math.round((Number(it.deductKg) || 0) * 100) / 100;
+              const totalDeductKg = Math.round(((qty * deductPct / 100) + deductKg) * 100) / 100;
+              const net = Math.round((qty - totalDeductKg) * 100) / 100;
+              return (
+                <div key={idx} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", background: "#fff" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontWeight: 700, color: "#6b7280", fontSize: 13 }}>รายการที่ {idx + 1}</span>
+                    <button style={btnDanger} onClick={() => removeItem(idx)}><Trash2 size={14} /></button>
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>สินค้า</div>
+                    <ProductSelect products={products} value={it.productId} onChange={(pid) => updateItem(idx, "productId", pid)} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>จำนวน ({prodUnit(it.productId)})</div>
+                      <NumInput style={{ ...inputStyle, width: "100%" }} value={it.qty != null ? (Math.round((Number(it.qty)||0)*100)/100) : ""} onChange={(e) => updateItem(idx, "qty", e.target.value)} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>ราคา/หน่วย</div>
+                      <NumInput style={{ ...inputStyle, width: "100%" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>หัก%</div>
+                      <input type="number" min={0} max={100} style={{ ...inputStyle, width: "100%" }} value={it.deductPct || ""} placeholder="0" onChange={(e) => updateItem(idx, "deductPct", e.target.value)} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>หัก(กก.)</div>
+                      <input type="number" min={0} style={{ ...inputStyle, width: "100%" }} value={it.deductKg != null ? (Math.round((Number(it.deductKg)||0)*100)/100) : ""} placeholder="0" onChange={(e) => updateItem(idx, "deductKg", e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 10, background: "#f9fafb", borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "#6b7280" }}>รวมหัก</div>
+                      <div style={{ fontWeight: 600, color: "#993c1d" }}>{fmt(totalDeductKg)}</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "#6b7280" }}>สุทธิ</div>
+                      <div style={{ fontWeight: 700 }}>{fmt(net)}</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "#6b7280" }}>จำนวนเงิน</div>
+                      <div style={{ fontWeight: 700, color: "#993c1d" }}>฿{fmt(net * (Number(it.price) || 0))}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, flexWrap: "wrap", gap: 10 }}>
