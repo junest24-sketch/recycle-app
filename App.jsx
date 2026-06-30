@@ -350,7 +350,14 @@ function ShareLineBtn({ elementId, title = "สรุปข้อมูล" }) {
           document.head.appendChild(script);
         });
       }
-      const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fff", width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth, scrollX: 0, scrollY: 0 });
+      // clone เนื้อหาแล้วใส่ใน div กว้าง 800px เพื่อไม่ให้ถูกตัด
+      const clone = el.cloneNode(true);
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:#fff;padding:16px;font-family:'Noto Sans Thai',sans-serif;box-sizing:border-box;";
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+      const canvas = await window.html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#fff", width: 800, windowWidth: 800, scrollX: 0, scrollY: 0 });
+      document.body.removeChild(wrapper);
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         const file = new File([blob], `${title}.png`, { type: "image/png" });
@@ -389,9 +396,13 @@ function ExportToolbar({ onPDF, onExcel, onImage, label = "", shareElementId = "
           document.head.appendChild(script);
         });
       }
-      const fullWidth = el.scrollWidth;
-      const fullHeight = el.scrollHeight;
-      const canvas = await window.html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#fff", width: fullWidth, height: fullHeight, windowWidth: fullWidth, scrollX: 0, scrollY: 0 });
+      const clone = el.cloneNode(true);
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:#fff;padding:16px;font-family:'Noto Sans Thai',sans-serif;box-sizing:border-box;";
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+      const canvas = await window.html2canvas(wrapper, { scale: 2, useCORS: true, backgroundColor: "#fff", width: 800, windowWidth: 800, scrollX: 0, scrollY: 0 });
+      document.body.removeChild(wrapper);
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         const file = new File([blob], `${shareTitle || "export"}.png`, { type: "image/png" });
@@ -2763,19 +2774,22 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                         document.head.appendChild(script);
                       });
                     }
-                    // จับความกว้างจริงของ element (ไม่ตัดตามหน้าจอ)
-                    const fullWidth = el.scrollWidth;
-                    const fullHeight = el.scrollHeight;
-                    const canvas = await window.html2canvas(el, {
+                    // clone เนื้อหาใส่ใน div กว้าง 800px
+                    const clone = el.cloneNode(true);
+                    const wrapper = document.createElement("div");
+                    wrapper.style.cssText = "position:fixed;left:-9999px;top:0;width:800px;background:#fff;padding:16px;font-family:'Noto Sans Thai',sans-serif;box-sizing:border-box;";
+                    wrapper.appendChild(clone);
+                    document.body.appendChild(wrapper);
+                    const canvas = await window.html2canvas(wrapper, {
                       scale: 2,
                       useCORS: true,
                       backgroundColor: "#fff",
-                      width: fullWidth,
-                      height: fullHeight,
-                      windowWidth: fullWidth,
+                      width: 800,
+                      windowWidth: 800,
                       scrollX: 0,
                       scrollY: 0,
                     });
+                    document.body.removeChild(wrapper);
                     canvas.toBlob(async (blob) => {
                       if (!blob) return;
                       const file = new File([blob], "stock-summary.png", { type: "image/png" });
