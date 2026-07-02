@@ -2553,7 +2553,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               ));
             })()}
           </SectionBox>
-          </div>
+          </div>{/* flex column */}
+          </div>{/* dash-export-purchases */}
         </>
       )}
 
