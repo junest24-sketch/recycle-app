@@ -1931,7 +1931,7 @@ export default function App() {
         {tab === "prepayments" && <PrepaymentsTab customers={customers} setCustomers={setCustomers} prepayments={prepayments} setPrepayments={setPrepayments} sales={sales} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} customers={customers} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
-        {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} />}
+        {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} storeBankAccounts={storeBankAccounts} setStoreBankAccounts={setStoreBankAccounts} />}
         {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
@@ -7196,7 +7196,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
 // ===================================================================
 // LOANS TAB (เงินกู้ยืม / เช่าซื้อ)
 // ===================================================================
-function LoansTab({ loans, setLoans, expenses, customers }) {
+function LoansTab({ loans, setLoans, expenses, customers, storeBankAccounts, setStoreBankAccounts }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'schedule', item}
 
   const blankForm = () => ({
@@ -7204,16 +7204,17 @@ function LoansTab({ loans, setLoans, expenses, customers }) {
     billNo: "",
     name: "",
     type: LOAN_TYPES[0],
-    lenderCustomerId: "", // อ้างอิงลูกค้าจากฐานข้อมูล (ถ้ามี)
-    lender: "", // ชื่อผู้ให้กู้/ไฟแนนซ์ (พิมพ์เองได้ ถ้าไม่มีในฐานข้อมูลลูกค้า)
+    lenderCustomerId: "",
+    lender: "",
     principal: 0,
-    interestMode: "rate", // "rate" = % ต่อปี, "amount" = จำนวนเงินดอกเบี้ยรวมตลอดสัญญา
+    interestMode: "rate",
     annualInterestRate: 0,
     totalInterestAmount: 0,
     totalInstallments: 12,
     startDate: new Date().toISOString().slice(0, 10),
-    dueDayOfMonth: new Date().getDate(), // ครบกำหนดชำระทุกวันที่เท่าไรของเดือน (1-31)
-    paidInstallments: [], // [{no, expenseId, paidDate}]
+    dueDayOfMonth: new Date().getDate(),
+    paidInstallments: [],
+    receiveBankAccountId: "", // บัญชีที่รับเงินกู้เข้า
   });
   const [form, setForm] = useState(blankForm());
 
@@ -7230,8 +7231,26 @@ function LoansTab({ loans, setLoans, expenses, customers }) {
       totalInterestAmount: Number(form.totalInterestAmount) || 0,
       totalInstallments: Number(form.totalInstallments) || 0,
     };
-    if (modal.mode === "add") setLoans([...loans, cleaned]);
-    else setLoans(loans.map((l) => (l.id === modal.item.id ? cleaned : l)));
+    if (modal.mode === "add") {
+      setLoans([...loans, cleaned]);
+      // ถ้าเลือกบัญชีรับเงิน → บันทึกรายการรับเงินเข้าบัญชี
+      if (cleaned.receiveBankAccountId && setStoreBankAccounts) {
+        setStoreBankAccounts((prev) => prev.map((acc) => {
+          if (acc.id !== cleaned.receiveBankAccountId) return acc;
+          const txn = {
+            id: `LOAN-${cleaned.id}-${Date.now()}`,
+            date: cleaned.startDate,
+            type: "รับเข้า",
+            amount: cleaned.principal,
+            note: `รับเงินกู้ยืม: ${cleaned.name}${cleaned.billNo ? ` (${cleaned.billNo})` : ""}`,
+            ref: cleaned.id,
+          };
+          return { ...acc, transactions: [...(acc.transactions || []), txn] };
+        }));
+      }
+    } else {
+      setLoans(loans.map((l) => (l.id === modal.item.id ? cleaned : l)));
+    }
     setModal(null);
   };
 
@@ -7388,6 +7407,29 @@ function LoansTab({ loans, setLoans, expenses, customers }) {
               </p>
             </Field>
           </div>
+
+          {modal?.mode === "add" && (
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "#166534", marginBottom: 8 }}>💰 บัญชีที่รับเงินกู้เข้า (ถ้ามี)</div>
+              <select
+                style={{ ...inputStyle, width: "100%" }}
+                value={form.receiveBankAccountId || ""}
+                onChange={(e) => setForm({ ...form, receiveBankAccountId: e.target.value })}
+              >
+                <option value="">— ไม่บันทึกรายการเข้าบัญชี —</option>
+                {(storeBankAccounts || []).map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.bankName} {acc.accountNo} {acc.accountName ? `(${acc.accountName})` : ""}
+                  </option>
+                ))}
+              </select>
+              {form.receiveBankAccountId && (
+                <p style={{ fontSize: 12, color: "#166534", marginTop: 6, marginBottom: 0 }}>
+                  ✓ ระบบจะบันทึกรับเงิน ฿{fmt(Number(form.principal) || 0)} เข้าบัญชีที่เลือกอัตโนมัติ
+                </p>
+              )}
+            </div>
+          )}
 
           {preview.length > 0 && (
             <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 14 }}>
@@ -8552,7 +8594,9 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
     if (!trimmed) return;
     if (mainModal.mode === "add") {
       if (expenseCategories[trimmed]) { alert("มีหมวดหมู่ใหญ่นี้อยู่แล้ว"); return; }
-      setExpenseCategories({ ...expenseCategories, [trimmed]: [] });
+      const updated = { ...expenseCategories, [trimmed]: [] };
+      setExpenseCategories(updated);
+      saveToSupabase('expenseCategories', updated);
     } else {
       if (trimmed !== mainModal.oldName && expenseCategories[trimmed]) { alert("มีหมวดหมู่ใหญ่นี้อยู่แล้ว"); return; }
       const updated = { ...expenseCategories };
@@ -8560,6 +8604,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
       delete updated[mainModal.oldName];
       updated[trimmed] = subs;
       setExpenseCategories(updated);
+      saveToSupabase('expenseCategories', updated);
       if (trimmed !== mainModal.oldName) {
         setExpenses(expenses.map((e) => {
           if (!(e.items && e.items.length > 0)) {
@@ -8596,10 +8641,14 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
     const cleaned = { name: trimmed, openingBalance: Number(subForm.openingBalance) || 0, openingMonth: subForm.openingMonth || "" };
     if (subModal.mode === "add") {
       if (subs.some((s) => s.name === trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
-      setExpenseCategories({ ...expenseCategories, [main]: [...subs, cleaned] });
+      const updated = { ...expenseCategories, [main]: [...subs, cleaned] };
+      setExpenseCategories(updated);
+      saveToSupabase('expenseCategories', updated);
     } else {
       if (trimmed !== subModal.oldName && subs.some((s) => s.name === trimmed)) { alert("มีหมวดหมู่ย่อยนี้อยู่แล้ว"); return; }
-      setExpenseCategories({ ...expenseCategories, [main]: subs.map((s) => (s.name === subModal.oldName ? cleaned : s)) });
+      const updated = { ...expenseCategories, [main]: subs.map((s) => (s.name === subModal.oldName ? cleaned : s)) };
+      setExpenseCategories(updated);
+      saveToSupabase('expenseCategories', updated);
       if (trimmed !== subModal.oldName) {
         setExpenses(expenses.map((e) => {
           if (!(e.items && e.items.length > 0)) {
