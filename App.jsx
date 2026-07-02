@@ -158,7 +158,7 @@ function printAsPDF(elementId, title = "") {
     tfoot { display: table-footer-group; }
     tr { page-break-inside: avoid; page-break-after: auto; }
     tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    ${isLandscape ? "@page { size: A4 landscape; margin: 6mm; }" : "@page { size: A4 portrait; margin: 10mm; }"}
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     ${isLandscape ? ".page { width: 297mm !important; font-size: 9px !important; }" : ""}
     ${isLandscape ? "td, th { padding: 3px 5px !important; font-size: 9px !important; }" : ""}
     @media print {
@@ -224,6 +224,7 @@ thead { display: table-header-group; }
 tfoot { display: table-footer-group; }
 tr { page-break-inside: avoid; page-break-after: auto; }
 tr, td, th { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 @page { size: A4 landscape; margin: 8mm; }
 @media print { body { padding: 0; } }
 </style></head><body>${preview.html}</body></html>`);
@@ -2191,12 +2192,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const loanCard = { label: "คงเหลือสินเชื่อ/เงินกู้", value: fmt(totalLoanRemaining), suffix: "บาท", icon: CreditCard, color: "#993c1d", bg: "#faece7" };
 
   const subTabs = [
-    { key: "purchases", label: "ซื้อ", icon: ArrowDownToLine },
-    { key: "sales", label: "ขาย", icon: ArrowUpFromLine },
-    { key: "expenses", label: "ค่าใช้จ่าย", icon: Receipt },
-    { key: "stock", label: "สต็อก", icon: Boxes },
-    { key: "loans", label: "สินเชื่อ", icon: CreditCard },
-    { key: "cashflow", label: "เงินหมุนร้าน", icon: Landmark },
+    { key: "purchases", label: "ซื้อ",       icon: ArrowDownToLine, color: "#1d4ed8", bg: "#dbeafe", activeBg: "#1d4ed8", activeBorder: "#1d4ed8" },
+    { key: "sales",     label: "ขาย",        icon: ArrowUpFromLine,  color: "#15803d", bg: "#dcfce7", activeBg: "#15803d", activeBorder: "#15803d" },
+    { key: "expenses",  label: "ค่าใช้จ่าย", icon: Receipt,          color: "#b45309", bg: "#fef3c7", activeBg: "#b45309", activeBorder: "#b45309" },
+    { key: "stock",     label: "สต็อก",      icon: Boxes,            color: "#7c3aed", bg: "#ede9fe", activeBg: "#7c3aed", activeBorder: "#7c3aed" },
+    { key: "loans",     label: "สินเชื่อ",   icon: CreditCard,       color: "#0e7490", bg: "#cffafe", activeBg: "#0e7490", activeBorder: "#0e7490" },
+    { key: "cashflow",  label: "เงินหมุนร้าน", icon: Landmark,       color: "#be185d", bg: "#fce7f3", activeBg: "#be185d", activeBorder: "#be185d" },
   ];
 
   const renderCard = (c, snapshot) => {
@@ -2359,10 +2360,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               onClick={() => setDashSubTab(t.key)}
               style={{
                 display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
-                padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                border: active ? "1px solid #A52828" : "1px solid #d1d5db",
-                background: active ? "#FDEAEA" : "#fff",
-                color: active ? "#8B2020" : "#6b7280",
+                padding: "8px 18px", borderRadius: 10, cursor: "pointer", fontSize: 13, fontWeight: 700,
+                border: active ? `2px solid ${t.activeBorder}` : "2px solid #e5e7eb",
+                background: active ? t.activeBg : "#fff",
+                color: active ? "#fff" : t.color,
+                boxShadow: active ? `0 2px 8px ${t.activeBg}88` : "none",
+                transition: "all 0.15s ease",
               }}
             >
               <Icon size={15} />
@@ -2375,8 +2378,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== ซื้อ ===== */}
       {dashSubTab === "purchases" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 13, color: "#6b7280" }}>ข้อมูลตามช่วงเวลา: {periodLabel}</span>
+          <div style={{ background: "linear-gradient(135deg, #1d4ed8, #3b82f6)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <ArrowDownToLine size={22} color="#fff" />
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>ยอดซื้อ</div>
+                <div style={{ color: "#bfdbfe", fontSize: 12 }}>ข้อมูลตามช่วงเวลา: {periodLabel}</div>
+              </div>
+            </div>
             <ExportToolbar onPDF={exportHandlers.purchases.pdf} onExcel={exportHandlers.purchases.excel} onImage={exportHandlers.purchases.image} shareElementId="dash-export-purchases" shareTitle="ยอดซื้อ" />
           </div>
           <div id="dash-export-purchases">
@@ -2548,8 +2557,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== ขาย ===== */}
       {dashSubTab === "sales" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 13, color: "#6b7280" }}>ข้อมูลตามช่วงเวลา: {periodLabel}</span>
+          <div style={{ background: "linear-gradient(135deg, #15803d, #22c55e)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <ArrowUpFromLine size={22} color="#fff" />
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>ยอดขาย</div>
+                <div style={{ color: "#bbf7d0", fontSize: 12 }}>ข้อมูลตามช่วงเวลา: {periodLabel}</div>
+              </div>
+            </div>
             <ExportToolbar onPDF={exportHandlers.sales.pdf} onExcel={exportHandlers.sales.excel} onImage={exportHandlers.sales.image} shareElementId="dash-export-sales" shareTitle="ยอดขาย" />
           </div>
           <div id="dash-export-sales">
@@ -2640,8 +2655,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== ค่าใช้จ่าย ===== */}
       {dashSubTab === "expenses" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 13, color: "#6b7280" }}>ข้อมูลตามช่วงเวลา: {periodLabel}</span>
+          <div style={{ background: "linear-gradient(135deg, #b45309, #f59e0b)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Receipt size={22} color="#fff" />
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>ค่าใช้จ่าย</div>
+                <div style={{ color: "#fde68a", fontSize: 12 }}>ข้อมูลตามช่วงเวลา: {periodLabel}</div>
+              </div>
+            </div>
             <ExportToolbar onPDF={exportHandlers.expenses.pdf} onExcel={exportHandlers.expenses.excel} onImage={exportHandlers.expenses.image} shareElementId="dash-export-expenses" shareTitle="ค่าใช้จ่าย" />
           </div>
           <div id="dash-export-expenses">
@@ -2756,8 +2777,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== สต็อก ===== */}
       {dashSubTab === "stock" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 13, color: "#6b7280" }}>ยอดคงเหลือ ณ วันที่ {today}</span>
+          <div style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Boxes size={22} color="#fff" />
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>สต็อกสินค้า</div>
+                <div style={{ color: "#e9d5ff", fontSize: 12 }}>ยอดคงเหลือ ณ วันที่ {today}</div>
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <ExportToolbar onPDF={exportHandlers.stock.pdf} onExcel={exportHandlers.stock.excel} onImage={exportHandlers.stock.image} shareElementId="dash-export-stock" shareTitle="สต็อก" />
               <button
@@ -3059,8 +3086,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== สินเชื่อ ===== */}
       {dashSubTab === "loans" && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 13, color: "#6b7280" }}>ยอดคงเหลือ ณ วันที่ {today}</span>
+          <div style={{ background: "linear-gradient(135deg, #0e7490, #06b6d4)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <CreditCard size={22} color="#fff" />
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>สินเชื่อ / เงินกู้</div>
+                <div style={{ color: "#a5f3fc", fontSize: 12 }}>ยอดคงเหลือ ณ วันที่ {today}</div>
+              </div>
+            </div>
             <ExportToolbar onPDF={exportHandlers.loans.pdf} onExcel={exportHandlers.loans.excel} onImage={exportHandlers.loans.image} shareElementId="dash-export-loans" shareTitle="สินเชื่อ" />
           </div>
           <div id="dash-export-loans" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
@@ -3212,10 +3245,16 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
         return (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-              <span style={{ fontSize: 13, color: "#6b7280" }}>
-                {dateRange ? `ข้อมูลรับเข้า/จ่ายออกตามช่วงเวลา: ${periodLabel} (ยอดยกมา = คงเหลือก่อนวันที่ ${dateRange.start})` : `ยอดเงินหมุนเวียนสะสมทั้งหมด ณ วันที่ ${today}`}
-              </span>
+            <div style={{ background: "linear-gradient(135deg, #be185d, #ec4899)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Landmark size={22} color="#fff" />
+                <div>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 17 }}>เงินหมุนร้าน</div>
+                  <div style={{ color: "#fbcfe8", fontSize: 12 }}>
+                    {dateRange ? `ช่วงเวลา: ${periodLabel}` : `ยอดสะสมทั้งหมด ณ วันที่ ${today}`}
+                  </div>
+                </div>
+              </div>
               <ExportToolbar
                 onPDF={() => printAsPDF("dash-cashflow", "สรุปเงินหมุนร้าน")}
                 onExcel={() => {
