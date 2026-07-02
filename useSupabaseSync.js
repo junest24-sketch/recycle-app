@@ -154,6 +154,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const maxWaitTimer = useRef(null)
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
+  const isRealtimeUpdate = useRef(false) // flag: value เปลี่ยนจาก realtime ไม่ต้อง save กลับ
 
   const tableName = ARRAY_TABLES[key]
   const isArrayTable = !!tableName
@@ -164,6 +165,13 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     if (!loaded || !isSupabaseReady) return
     if (isFirstRender.current) {
       isFirstRender.current = false
+      prevValueRef.current = value
+      return
+    }
+
+    // ถ้า value เปลี่ยนจาก realtime update → ไม่ต้อง save กลับ
+    if (isRealtimeUpdate.current) {
+      isRealtimeUpdate.current = false
       prevValueRef.current = value
       return
     }
@@ -231,6 +239,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: tableName }, (payload) => {
           const item = payload.new?.data
           if (!item || item._updated_by === DEVICE_ID) return
+          isRealtimeUpdate.current = true
           setValue(prev => {
             if (prev.some(x => x.id === item.id)) return prev
             return [...prev, item]
@@ -239,11 +248,13 @@ export function useSupabaseSync(key, value, setValue, loaded) {
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: tableName }, (payload) => {
           const item = payload.new?.data
           if (!item || item._updated_by === DEVICE_ID) return
+          isRealtimeUpdate.current = true
           setValue(prev => prev.map(x => x.id === item.id ? item : x))
         })
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: tableName }, (payload) => {
           const id = payload.old?.id
           if (!id) return
+          isRealtimeUpdate.current = true
           setValue(prev => prev.filter(x => x.id !== id))
         })
         .subscribe()
@@ -257,7 +268,10 @@ export function useSupabaseSync(key, value, setValue, loaded) {
           const updatedBy = payload.new?.data?._updated_by
           if (updatedBy === DEVICE_ID) return
           const newValue = payload.new?.data?.value
-          if (newValue !== undefined) setValue(newValue)
+          if (newValue !== undefined) {
+            isRealtimeUpdate.current = true
+            setValue(newValue)
+          }
         })
         .subscribe()
       return () => { supabase.removeChannel(channel) }
