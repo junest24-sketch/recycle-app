@@ -8868,6 +8868,33 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
       }
     });
 
+    // รับเงินกู้ยืม: สัญญาที่เลือกบัญชีนี้รับเงิน
+    (loans || []).forEach((loan) => {
+      if (loan.receiveBankAccountId === acc.id && inRange(loan.startDate)) {
+        rows.push({
+          date: loan.startDate,
+          type: "รับเงินกู้ยืม",
+          ref: loan.id,
+          description: `รับเงินกู้ยืม: ${loan.name}${loan.billNo ? ` (${loan.billNo})` : ""}`,
+          credit: Number(loan.principal) || 0,
+          debit: 0,
+        });
+      }
+      // จ่ายคืนเงินกู้: งวดที่ชำระแล้วจากบัญชีนี้
+      (loan.paidInstallments || []).forEach((p) => {
+        if (p.fromStoreBankId === acc.id && inRange(p.paidDate)) {
+          rows.push({
+            date: p.paidDate,
+            type: "จ่ายคืนเงินกู้",
+            ref: loan.id,
+            description: `จ่ายคืนเงินกู้ ${loan.name} งวดที่ ${p.no}`,
+            debit: Number(p.amount) || 0,
+            credit: 0,
+          });
+        }
+      });
+    });
+
     rows.sort((a, b) => a.date.localeCompare(b.date));
 
     // คำนวณยอดคงเหลือ
