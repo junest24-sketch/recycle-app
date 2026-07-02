@@ -336,6 +336,22 @@ function handleEnterNavigate(e, onSubmit) {
     onSubmit();
   }
 }
+// SectionBox — กล่องหัวข้อพร้อมสีสัน
+function SectionBox({ id, title, color, children, shareTitle }) {
+  const headerBg = color || "#5a1414";
+  return (
+    <div id={id} style={{ background: "#fff", borderRadius: 12, border: `1.5px solid ${headerBg}33`, overflow: "hidden" }}>
+      <div style={{ background: headerBg, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fff" }}>{title}</h3>
+        {shareTitle && id && <ShareLineBtn elementId={id} title={shareTitle} />}
+      </div>
+      <div style={{ padding: "16px 20px", overflowX: "auto" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ShareLineBtn — ปุ่มแชร์ LINE สำหรับแต่ละกล่อง
 function ShareLineBtn({ elementId, title = "สรุปข้อมูล" }) {
   const share = async (e) => {
@@ -2182,14 +2198,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
 
-  const purchaseCard = { label: "มูลค่าซื้อ ก่อน VAT (อนุมัติแล้ว)", value: fmt(totalPurchaseValue), suffix: "บาท", icon: ArrowDownToLine, color: "#d85a30", bg: "#faece7" };
-  const salesCard = { label: "มูลค่าขายสะสม", value: fmt(totalSalesValue), suffix: "บาท", icon: ArrowUpFromLine, color: "#185fa5", bg: "#e6f1fb" };
-  const expensesCard = { label: "ค่าใช้จ่ายรวม", value: fmt(totalExpenses), suffix: "บาท", icon: Receipt, color: "#993c1d", bg: "#faece7" };
+  const purchaseCard = { label: "มูลค่าซื้อ ก่อน VAT (อนุมัติแล้ว)", value: fmt(totalPurchaseValue), suffix: "บาท", icon: ArrowDownToLine, color: "#1d4ed8", bg: "#dbeafe", cardBg: "linear-gradient(135deg, #eff6ff, #dbeafe)", border: "#93c5fd" };
+  const salesCard = { label: "มูลค่าขายสะสม", value: fmt(totalSalesValue), suffix: "บาท", icon: ArrowUpFromLine, color: "#15803d", bg: "#dcfce7", cardBg: "linear-gradient(135deg, #f0fdf4, #dcfce7)", border: "#86efac" };
+  const expensesCard = { label: "ค่าใช้จ่ายรวม", value: fmt(totalExpenses), suffix: "บาท", icon: Receipt, color: "#b45309", bg: "#fef3c7", cardBg: "linear-gradient(135deg, #fffbeb, #fef3c7)", border: "#fcd34d" };
   const stockCard = {
     label: "ยอดคงเหลือสต็อก (ต้นทุนก่อน VAT)",
-    value: fmt(totalStockValue), suffix: "บาท", icon: Boxes, color: "#A52828", bg: "#FDEAEA"
+    value: fmt(totalStockValue), suffix: "บาท", icon: Boxes, color: "#7c3aed", bg: "#ede9fe", cardBg: "linear-gradient(135deg, #f5f3ff, #ede9fe)", border: "#c4b5fd"
   };
-  const loanCard = { label: "คงเหลือสินเชื่อ/เงินกู้", value: fmt(totalLoanRemaining), suffix: "บาท", icon: CreditCard, color: "#993c1d", bg: "#faece7" };
+  const loanCard = { label: "คงเหลือสินเชื่อ/เงินกู้", value: fmt(totalLoanRemaining), suffix: "บาท", icon: CreditCard, color: "#0e7490", bg: "#cffafe", cardBg: "linear-gradient(135deg, #ecfeff, #cffafe)", border: "#67e8f9" };
 
   const subTabs = [
     { key: "purchases", label: "ซื้อ",       icon: ArrowDownToLine, color: "#1d4ed8", bg: "#dbeafe", activeBg: "#1d4ed8", activeBorder: "#1d4ed8" },
@@ -2203,12 +2219,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const renderCard = (c, snapshot) => {
     const Icon = c.icon;
     return (
-      <div key={c.label} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "16px 18px" }}>
+      <div key={c.label} style={{ background: c.cardBg || "#fff", borderRadius: 12, border: `1.5px solid ${c.border || "#e5e7eb"}`, padding: "16px 18px" }}>
         <div style={{ width: 36, height: 36, borderRadius: 8, background: c.bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
           <Icon size={18} color={c.color} />
         </div>
-        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{c.label} {snapshot && <span style={{ color: "#bcb6e0" }}>(ปัจจุบัน)</span>}</div>
-        <div style={{ fontSize: 22, fontWeight: 700 }}>{c.value} <span style={{ fontSize: 13, fontWeight: 400, color: "#9ca3af" }}>{c.suffix}</span></div>
+        <div style={{ fontSize: 12, color: c.color, marginBottom: 4, fontWeight: 600 }}>{c.label} {snapshot && <span style={{ color: "#bcb6e0" }}>(ปัจจุบัน)</span>}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: c.color }}>{c.value} <span style={{ fontSize: 13, fontWeight: 400, color: "#9ca3af" }}>{c.suffix}</span></div>
       </div>
     );
   };
@@ -2393,11 +2409,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             {renderCard(purchaseCard)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div id="dash-section-purchase-type" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามประเภทสินค้า</h3>
-    <ShareLineBtn elementId="dash-section-purchase-type" title="ยอดซื้อ-ประเภทสินค้า" />
-  </div>
+            <div id="dash-section-purchase-type">
+            <SectionBox title="ยอดซื้อ แบ่งตามประเภทสินค้า" color="#1d4ed8" shareTitle="ยอดซื้อ-ประเภทสินค้า" id="dash-section-purchase-type-inner">
   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <colgroup>
                   <col style={{ width: "50%" }} />
@@ -2435,13 +2448,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tfoot>
                 )}
               </table>
-            </div>
+            </SectionBox>
 
-            <div id="dash-section-purchase-product" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดซื้อ แบ่งตามรายการสินค้า</h3>
-                <ShareLineBtn elementId="dash-section-purchase-product" title="ยอดซื้อ-รายการสินค้า" />
-              </div>
+            <SectionBox id="dash-section-purchase-product" title="ยอดซื้อ แบ่งตามรายการสินค้า" color="#1d4ed8" shareTitle="ยอดซื้อ-รายการสินค้า">
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <colgroup>
                   <col style={{ width: "50%" }} />
@@ -2479,15 +2488,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tfoot>
                 )}
               </table>
-            </div>
-          </div>
+            </SectionBox>
 
           {/* สรุปบิลแยกตามช่องทางชำระ */}
-          <div id="dash-section-purchase-payment" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
-              <ShareLineBtn elementId="dash-section-purchase-payment" title="ยอดซื้อ-ช่องทางชำระ" />
-            </div>
+          <SectionBox id="dash-section-purchase-payment" title="สรุปบิลแยกตามช่องทางชำระ (ซื้อ)" color="#1d4ed8" shareTitle="ยอดซื้อ-ช่องทางชำระ">
             {(() => {
               // จัดกลุ่ม purchases ในช่วง
               const pos = filteredPurchases;
@@ -2572,11 +2576,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             {renderCard(salesCard)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div id="dash-section-sale-type" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามประเภทสินค้า</h3>
-                <ShareLineBtn elementId="dash-section-sale-type" title="ยอดขาย-ประเภทสินค้า" />
-              </div>
+            <SectionBox id="dash-section-sale-type" title="ยอดขาย แบ่งตามประเภทสินค้า" color="#15803d" shareTitle="ยอดขาย-ประเภทสินค้า">
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
@@ -2608,13 +2608,9 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tfoot>
                 )}
               </table>
-            </div>
+            </SectionBox>
 
-            <div id="dash-section-sale-product" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ยอดขาย แบ่งตามรายการสินค้า</h3>
-                <ShareLineBtn elementId="dash-section-sale-product" title="ยอดขาย-รายการสินค้า" />
-              </div>
+            <SectionBox id="dash-section-sale-product" title="ยอดขาย แบ่งตามรายการสินค้า" color="#15803d" shareTitle="ยอดขาย-รายการสินค้า">
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500  }}>
                 <thead>
                   <tr>
@@ -2646,7 +2642,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tfoot>
                 )}
               </table>
-            </div>
+            </SectionBox>
           </div>
           </div>
         </>
@@ -2669,11 +2665,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
               {renderCard(expensesCard)}
             </div>
-            <div id="dash-section-expense-cat" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", overflowX: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>ค่าใช้จ่าย แบ่งตามหมวดหมู่ย่อย</h3>
-                <ShareLineBtn elementId="dash-section-expense-cat" title="ค่าใช้จ่าย-หมวดหมู่" />
-              </div>
+            <SectionBox id="dash-section-expense-cat" title="ค่าใช้จ่าย แบ่งตามหมวดหมู่ย่อย" color="#b45309" shareTitle="ค่าใช้จ่าย-หมวดหมู่">
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <thead>
                   <tr>
@@ -2707,14 +2699,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tfoot>
                 )}
               </table>
-            </div>
+            </SectionBox>
 
             {/* สรุปค่าใช้จ่ายแยกตามช่องทางชำระ */}
-            <div id="dash-section-expense-payment" style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "18px 20px", marginTop: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>สรุปบิลแยกตามช่องทางชำระ</h3>
-                <ShareLineBtn elementId="dash-section-expense-payment" title="ค่าใช้จ่าย-ช่องทางชำระ" />
-              </div>
+            <SectionBox id="dash-section-expense-payment" title="สรุปบิลแยกตามช่องทางชำระ (ค่าใช้จ่าย)" color="#b45309" shareTitle="ค่าใช้จ่าย-ช่องทางชำระ">
               {(() => {
                 const exps = (expenses || []).filter(e => inRange(e.billDate || e.date));
                 const entries = [];
@@ -2769,7 +2757,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </div>
                 ));
               })()}
-            </div>
+            </SectionBox>
           </div>
         </>
       )}
