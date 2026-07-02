@@ -845,8 +845,8 @@ const roundBtn = {
   cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: "#8B2020", lineHeight: 1, flexShrink: 0, minWidth: 38,
 };
 
-const thStyle = { textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" };
-const tdStyle = { padding: "10px 12px", fontSize: 14, borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap" };
+const thStyle = { textAlign: "left", padding: "6px 12px", fontSize: 14, fontWeight: 600, color: "#6b7280", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" };
+const tdStyle = { padding: "6px 12px", fontSize: 16, borderBottom: "1px solid #f3f4f6", whiteSpace: "nowrap" };
 
 function genId(prefix, list, dateStr) {
   const now = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
