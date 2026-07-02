@@ -2409,8 +2409,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             {renderCard(purchaseCard)}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div id="dash-section-purchase-type">
-            <SectionBox title="ยอดซื้อ แบ่งตามประเภทสินค้า" color="#1d4ed8" shareTitle="ยอดซื้อ-ประเภทสินค้า" id="dash-section-purchase-type-inner">
+            <SectionBox id="dash-section-purchase-type" title="ยอดซื้อ แบ่งตามประเภทสินค้า" color="#1d4ed8" shareTitle="ยอดซื้อ-ประเภทสินค้า">
   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                 <colgroup>
                   <col style={{ width: "50%" }} />
@@ -2553,7 +2552,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 </div>
               ));
             })()}
-          </div>
+          </SectionBox>
           </div>
         </>
       )}
@@ -3098,7 +3097,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 </div>
               </div>
             )}
-        </div>{/* end dash-export-loans */}
+          </div>
+          </div>{/* end dash-export-loans */}
         </>
       )}
 
