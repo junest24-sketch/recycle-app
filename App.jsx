@@ -2082,6 +2082,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
   // ---------- สต๊อกคงเหลือ แบ่งตามประเภทสินค้า (สำหรับตัวกรองดรอปดาวน์) ----------
   const stockByType = useMemo(() => {
+    const STOCK_ORDER = ["ทองแดง","ทองเหลือง","แบต","สแตนเลส","อลูมิเนียม","ตะกั่ว","กระดาษ","แก้ว","ลังเบียร์","พลาสติก","เหล็ก"];
     const groups = {}; // type -> { type, qty, value, items: [...] }
     inventory.summary.forEach((s) => {
       const p = products.find((pr) => pr.id === s.productId);
@@ -2093,7 +2094,14 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     });
     return Object.values(groups)
       .map((g) => ({ ...g, avgCost: g.qty > 0 ? g.value / g.qty : 0 }))
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => {
+        const ia = STOCK_ORDER.indexOf(a.type);
+        const ib = STOCK_ORDER.indexOf(b.type);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return b.value - a.value; // ที่เหลือเรียงตามมูลค่า
+      });
   }, [inventory.summary, products]);
 
   // ---------- คงเหลือสินเชื่อ/เงินกู้ — ยอดเงินต้นคงเหลือรวมทุกสัญญา ณ ปัจจุบัน ----------
