@@ -2378,6 +2378,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== ซื้อ ===== */}
       {dashSubTab === "purchases" && (
         <>
+          <div id="dash-export-purchases">
           <div style={{ background: "linear-gradient(135deg, #1d4ed8, #3b82f6)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <ArrowDownToLine size={22} color="#fff" />
@@ -2388,7 +2389,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             </div>
             <ExportToolbar onPDF={exportHandlers.purchases.pdf} onExcel={exportHandlers.purchases.excel} onImage={exportHandlers.purchases.image} shareElementId="dash-export-purchases" shareTitle="ยอดซื้อ" />
           </div>
-          <div id="dash-export-purchases">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
             {renderCard(purchaseCard)}
           </div>
@@ -2557,6 +2557,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== ขาย ===== */}
       {dashSubTab === "sales" && (
         <>
+          <div id="dash-export-sales">
           <div style={{ background: "linear-gradient(135deg, #15803d, #22c55e)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <ArrowUpFromLine size={22} color="#fff" />
@@ -2567,7 +2568,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             </div>
             <ExportToolbar onPDF={exportHandlers.sales.pdf} onExcel={exportHandlers.sales.excel} onImage={exportHandlers.sales.image} shareElementId="dash-export-sales" shareTitle="ยอดขาย" />
           </div>
-          <div id="dash-export-sales">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
             {renderCard(salesCard)}
           </div>
@@ -2655,6 +2655,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== ค่าใช้จ่าย ===== */}
       {dashSubTab === "expenses" && (
         <>
+          <div id="dash-export-expenses">
           <div style={{ background: "linear-gradient(135deg, #b45309, #f59e0b)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <Receipt size={22} color="#fff" />
@@ -2665,7 +2666,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             </div>
             <ExportToolbar onPDF={exportHandlers.expenses.pdf} onExcel={exportHandlers.expenses.excel} onImage={exportHandlers.expenses.image} shareElementId="dash-export-expenses" shareTitle="ค่าใช้จ่าย" />
           </div>
-          <div id="dash-export-expenses">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
               {renderCard(expensesCard)}
             </div>
@@ -2777,6 +2777,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== สต็อก ===== */}
       {dashSubTab === "stock" && (
         <>
+          <div id="dash-export-stock">
           <div style={{ background: "linear-gradient(135deg, #7c3aed, #a78bfa)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <Boxes size={22} color="#fff" />
@@ -2841,7 +2842,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               </button>
             </div>
           </div>
-          <div id="dash-export-stock">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 20 }}>
             {renderCard(stockCard, true)}
 
@@ -3086,6 +3086,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
       {/* ===== สินเชื่อ ===== */}
       {dashSubTab === "loans" && (
         <>
+          <div id="dash-export-loans">
           <div style={{ background: "linear-gradient(135deg, #0e7490, #06b6d4)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <CreditCard size={22} color="#fff" />
@@ -3096,7 +3097,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             </div>
             <ExportToolbar onPDF={exportHandlers.loans.pdf} onExcel={exportHandlers.loans.excel} onImage={exportHandlers.loans.image} shareElementId="dash-export-loans" shareTitle="สินเชื่อ" />
           </div>
-          <div id="dash-export-loans" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
             {renderCard(loanCard, true)}
             {totalOpeningBankBalance > 0 && (
               <div style={{ background: "#e6f1fb", borderRadius: 12, border: "1px solid #b3d0f0", padding: "14px 18px" }}>
@@ -3245,6 +3246,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
 
         return (
           <>
+            <div id="dash-cashflow">
             <div style={{ background: "linear-gradient(135deg, #be185d, #ec4899)", borderRadius: 12, padding: "16px 20px", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Landmark size={22} color="#fff" />
@@ -3278,8 +3280,6 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 shareTitle="เงินหมุนร้าน"
               />
             </div>
-
-            <div id="dash-cashflow">
               {/* การ์ดสรุป */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 14 }}>
                 {cfCard(dateRange ? "เงินในธนาคารรวม (ช่วงที่เลือก)" : "เงินในธนาคารรวม", bankGroupTotal, "#185fa5", "#e6f1fb", `${bankGroupRows.length} บัญชี`)}
