@@ -4624,11 +4624,7 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
           <tfoot>
             {(() => {
               const totalQty = po.items.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-              const totalNet = po.items.reduce((s, it) => {
-                const qty = Number(it.qty) || 0;
-                const net = it.deductType === "pct" ? qty*(1-(Number(it.deductPct)||0)/100) : qty - (Number(it.deduct)||0);
-                return s + net;
-              }, 0);
+              const totalNet = po.items.reduce((s, it) => s + calcNet(it), 0);
               const totalDeducted = totalQty - totalNet;
               const unit = po.items[0] ? (products.find(p=>p.id===po.items[0].productId)?.unit || "") : "";
               return (
