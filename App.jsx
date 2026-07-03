@@ -3184,6 +3184,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             bankInflowsRange[t.toBankId] = (bankInflowsRange[t.toBankId] || 0) + (Number(t.amount) || 0);
           }
         });
+        // รับเงินกู้ยืมเข้าบัญชี (ตามช่วงวันที่)
+        (loans || []).forEach((loan) => {
+          if (loan.receiveBankAccountId && inRange(loan.startDate)) {
+            bankInflowsRange[loan.receiveBankAccountId] = (bankInflowsRange[loan.receiveBankAccountId] || 0) + (Number(loan.principal) || 0);
+          }
+        });
 
         const bankOutflowsRange = {};
         const addOutflowRange = (bankId, amount, date) => {
@@ -3216,6 +3222,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             (bankTransfers || []).forEach((t) => {
               if (t.fromBankId === b.id && beforeDate(t.date)) bal -= Number(t.amount) || 0;
               if (t.toBankId === b.id && beforeDate(t.date)) bal += Number(t.amount) || 0;
+            });
+            // รับเงินกู้ยืมก่อนช่วงที่เลือก
+            (loans || []).forEach((loan) => {
+              if (loan.receiveBankAccountId === b.id && beforeDate(loan.startDate)) bal += Number(loan.principal) || 0;
             });
             beforeRangeBalance[b.id] = bal;
           });
