@@ -3471,9 +3471,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                         const depBalance = depOpening + depIn - depOut;
                         return (
                           <tr style={{ background: "#fffbeb" }}>
-                            <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b", display: "flex", alignItems: "center", gap: 6 }}>
+                            <td style={{ ...tdStyle, fontWeight: 700, color: "#854f0b", display: "flex", alignItems: "center", gap: 6 }}>
                               <Wallet size={13} color="#854f0b" /> เงินมัดจำคงเหลือรวม
                             </td>
+                            <td style={tdStyle}></td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>{depOpening !== 0 ? `฿${fmt(depOpening)}` : "-"}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020" }}>+฿{fmt(depIn)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(depOut)}</td>
