@@ -2187,8 +2187,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     sales.forEach((inv) => (inv.payments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0)));
     (prepayments || []).forEach((p) => add(p.toStoreBankId, Number(p.amount) || 0));
     (bankTransfers || []).forEach((t) => add(t.toBankId, Number(t.amount) || 0));
+    // รับเงินกู้ยืมเข้าบัญชี
+    (loans || []).forEach((loan) => {
+      if (loan.receiveBankAccountId) add(loan.receiveBankAccountId, Number(loan.principal) || 0);
+    });
     return inn;
-  }, [sales, bankTransfers, prepayments]);
+  }, [sales, bankTransfers, prepayments, loans]);
 
 
   // ---------- ซื้อ/ขาย แบ่งตามประเภทสินค้า และแบ่งตามรายการสินค้า ----------
@@ -3281,8 +3285,19 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
         const stockVal = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
 
-        // เงินหมุนยอดทั้งหมด = ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้ + สต๊อก
-        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalPrepayment + totalReceivable - totalPayable + stockVal;
+        // 6. มูลค่าสินทรัพย์ (book value ปัจจุบัน)
+        const totalAssetVal = (assets || []).reduce((s, a) => {
+          const cost = Number(a.cost) || 0;
+          const life = Number(a.usefulLife) || 0;
+          const purchaseDate = a.purchaseDate || "";
+          if (!purchaseDate || life === 0) return s + cost;
+          const months = Math.max(0, Math.floor((Date.now() - new Date(purchaseDate)) / (1000 * 60 * 60 * 24 * 30.44)));
+          const dep = Math.min(cost, (cost / (life * 12)) * months);
+          return s + Math.max(0, cost - dep);
+        }, 0);
+
+        // เงินหมุนยอดทั้งหมด = ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้ + สต๊อก + สินทรัพย์
+        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalPrepayment + totalReceivable - totalPayable + stockVal + totalAssetVal;
 
         const cfCard = (label, value, color, bg, sub) => (
           <div style={{ background: bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${color}33` }}>
@@ -3336,6 +3351,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                 {cfCard("เงินมัดจำคงเหลือ", totalDeposit, "#854f0b", "#faeeda", "มัดจำที่ยังไม่ใช้ (ปัจจุบัน)")}
                 {cfCard("รับล่วงหน้าคงเหลือ", totalPrepayment, "#1d4ed8", "#eff6ff", "ลูกค้าจ่ายล่วงหน้าที่ยังไม่ได้ตัด")}
                 {cfCard("มูลค่าสต๊อก (ทุน)", stockVal, "#A52828", "#FDEAEA", "สินค้าคงเหลือ (ปัจจุบัน)")}
+                {cfCard("มูลค่าสินทรัพย์ (net)", totalAssetVal, "#065f46", "#d1fae5", "ราคาตามบัญชี (หักค่าเสื่อม)")}
                 {cfCard(dateRange ? "เงินสดรวม (ช่วงที่เลือก)" : "เงินสดรวม", cashGroupTotal, "#8B2020", "#FDEAEA", `${cashGroupRows.length} บัญชี`)}
               </div>
 
@@ -3343,7 +3359,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               <div style={{ background: grandTotal >= 0 ? "#FDEAEA" : "#fcebeb", borderRadius: 16, padding: "24px 28px", border: `3px solid ${grandTotal >= 0 ? "#8B2020" : "#a32d2d"}`, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, color: grandTotal >= 0 ? "#8B2020" : "#a32d2d", marginBottom: 6, fontWeight: 700 }}>เงินหมุนยอดทั้งหมด</div>
                 <div style={{ fontWeight: 700, fontSize: 32, color: grandTotal >= 0 ? "#8B2020" : "#a32d2d" }}>฿{fmt(grandTotal)}</div>
-                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ − เจ้าหนี้ + สต๊อก</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ − เจ้าหนี้ + สต๊อก + สินทรัพย์</div>
               </div>
 
               {/* ตารางรายละเอียดธนาคาร */}
@@ -3454,7 +3470,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                           -฿{fmt(bankRows.reduce((s,b)=>s+b.outflow,0) + purchases.reduce((s,po)=>s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0),0))}
                         </td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5", fontSize: 15 }}>
-                          ฿{fmt(totalBankBalance + totalDeposit)}
+                          ฿{fmt(totalBankBalance + cashGroupRows.reduce((s,b)=>s+b.balance,0) + unsetGroupRows.reduce((s,b)=>s+b.balance,0) + totalDeposit)}
                         </td>
                       </tr>
                     </tfoot>
@@ -9386,7 +9402,20 @@ function AssetsTab({ assets, setAssets }) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const ASSET_CATEGORIES = ["ยานพาหนะ", "เครื่องจักร/อุปกรณ์", "อาคาร/สิ่งปลูกสร้าง", "คอมพิวเตอร์/IT", "เฟอร์นิเจอร์/ของตกแต่ง", "อื่นๆ"];
+  const ASSET_CATEGORIES_DEFAULT = ["ยานพาหนะ", "เครื่องจักร/อุปกรณ์", "อาคาร/สิ่งปลูกสร้าง", "คอมพิวเตอร์/IT", "เฟอร์นิเจอร์/ของตกแต่ง", "อื่นๆ"];
+  const [assetCategories, setAssetCategories] = React.useState(() => {
+    try { const s = localStorage.getItem('assetCategories'); return s ? JSON.parse(s) : ASSET_CATEGORIES_DEFAULT; } catch { return ASSET_CATEGORIES_DEFAULT; }
+  });
+  const [newCatInput, setNewCatInput] = React.useState("");
+  const ASSET_CATEGORIES = assetCategories;
+  const addCategory = () => {
+    const trimmed = newCatInput.trim();
+    if (!trimmed || assetCategories.includes(trimmed)) return;
+    const updated = [...assetCategories, trimmed];
+    setAssetCategories(updated);
+    try { localStorage.setItem('assetCategories', JSON.stringify(updated)); } catch {}
+    setNewCatInput("");
+  };
 
   const blankForm = () => ({
     id: genId("AS", assets),
@@ -9503,6 +9532,16 @@ function AssetsTab({ assets, setAssets }) {
               <select style={inputStyle} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <input
+                  style={{ ...inputStyle, flex: 1 }}
+                  placeholder="เพิ่มหมวดหมู่ใหม่..."
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } }}
+                />
+                <button type="button" style={btnSecondary} onClick={addCategory}>+ เพิ่ม</button>
+              </div>
             </Field>
             <Field label="วันที่ซื้อ"><input type="date" style={inputStyle} value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} /></Field>
             <Field label="ราคาทุน (บาท)"><input type="number" min={0} style={inputStyle} value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} /></Field>
