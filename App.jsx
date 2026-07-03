@@ -3281,8 +3281,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
         // 5. สต๊อกสินค้า (มูลค่าทุน ณ ปัจจุบัน)
         const stockVal = inventory.summary.reduce((s, x) => s + x.totalCost, 0);
 
-        // เงินหมุนยอดทั้งหมด = ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้
-        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalPrepayment + totalReceivable - totalPayable;
+        // เงินหมุนยอดทั้งหมด = ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ - เจ้าหนี้ + สต๊อก
+        const grandTotal = bankGroupTotal + cashGroupTotal + totalDeposit + totalPrepayment + totalReceivable - totalPayable + stockVal;
 
         const cfCard = (label, value, color, bg, sub) => (
           <div style={{ background: bg, borderRadius: 12, padding: "14px 18px", border: `1px solid ${color}33` }}>
@@ -3343,7 +3343,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
               <div style={{ background: grandTotal >= 0 ? "#FDEAEA" : "#fcebeb", borderRadius: 16, padding: "24px 28px", border: `3px solid ${grandTotal >= 0 ? "#8B2020" : "#a32d2d"}`, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, color: grandTotal >= 0 ? "#8B2020" : "#a32d2d", marginBottom: 6, fontWeight: 700 }}>เงินหมุนยอดทั้งหมด</div>
                 <div style={{ fontWeight: 700, fontSize: 32, color: grandTotal >= 0 ? "#8B2020" : "#a32d2d" }}>฿{fmt(grandTotal)}</div>
-                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ − เจ้าหนี้</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6 }}>ธนาคาร + เงินสด + เงินมัดจำ + ลูกหนี้ − เจ้าหนี้ + สต๊อก</div>
               </div>
 
               {/* ตารางรายละเอียดธนาคาร */}
@@ -9274,7 +9274,8 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const filteredTransfers = transfers
-    .filter((t) => (t.id || "").includes(search) && (!dateFrom || (t.date || "") >= dateFrom) && (!dateTo || (t.date || "") <= dateTo));
+    .filter((t) => (t.id || "").includes(search) && (!dateFrom || (t.date || "") >= dateFrom) && (!dateTo || (t.date || "") <= dateTo))
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
   const { paged: pagedTransfers, page: transferPage, setPage: setTransferPage, totalPages: transferTotalPages, total: transferTotal, start: transferStart, end: transferEnd } = usePagination(filteredTransfers);
 
