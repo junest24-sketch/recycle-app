@@ -3453,18 +3453,31 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                   </tbody>
                   {bankRows.length > 0 && (
                     <tfoot>
-
                       {(() => {
-                        const depOpening = customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
-                        const depIn = (deposits||[]).reduce((s,d) => s + (Number(d.amount)||0), 0);
-                        const depOut = purchases.reduce((s,po) => s + (po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0);
+                        const depOpening = dateRange
+                          ? (() => {
+                              const ob = customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
+                              const inBefore = (deposits||[]).filter(d => d.date < dateRange.start).reduce((s,d) => s+(Number(d.amount)||0), 0);
+                              const outBefore = purchases.reduce((s,po) => s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT"&&p.date<dateRange.start).reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0);
+                              return ob + inBefore - outBefore;
+                            })()
+                          : customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
+                        const depIn = dateRange
+                          ? (deposits||[]).filter(d => inRange(d.date)).reduce((s,d) => s+(Number(d.amount)||0), 0)
+                          : (deposits||[]).reduce((s,d) => s+(Number(d.amount)||0), 0);
+                        const depOut = dateRange
+                          ? purchases.reduce((s,po) => s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT"&&inRange(p.date)).reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0)
+                          : purchases.reduce((s,po) => s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0);
+                        const depBalance = depOpening + depIn - depOut;
                         return (
-                          <tr style={{ background: "#fff" }}>
-                            <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>เงินมัดจำคงเหลือรวม</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>฿{fmt(depOpening)}</td>
+                          <tr style={{ background: "#fffbeb" }}>
+                            <td colSpan={2} style={{ ...tdStyle, fontWeight: 700, color: "#854f0b", display: "flex", alignItems: "center", gap: 6 }}>
+                              <Wallet size={13} color="#854f0b" /> เงินมัดจำคงเหลือรวม
+                            </td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>{depOpening !== 0 ? `฿${fmt(depOpening)}` : "-"}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020" }}>+฿{fmt(depIn)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(depOut)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(totalDeposit)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(depBalance)}</td>
                           </tr>
                         );
                       })()}
@@ -7148,14 +7161,13 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
         <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>สรุปยอดมัดจำคงเหลือต่อลูกค้า</h3>
         <Card>
           <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
             <thead>
               <tr>
                 <th style={thStyle}>ลูกค้า</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>มัดจำที่จ่ายใหม่</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>มัดจำที่จ่ายรวม</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>หักไปแล้ว (ในใบรับสินค้า)</th>
+                <th style={{ ...thStyle, textAlign: "right", color: "#8B2020" }}>รับเข้า (จ่ายมัดจำใหม่)</th>
+                <th style={{ ...thStyle, textAlign: "right", color: "#993c1d" }}>จ่ายออก (หักในใบซื้อ)</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
               </tr>
             </thead>
@@ -7163,19 +7175,35 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
               {balances.filter((b) => b.totalGiven > 0 || b.opening > 0).map((b) => (
                 <tr key={b.customerId}>
                   <td style={tdStyle}>{b.name}</td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>
+                  <td style={{ ...tdStyle, textAlign: "right", color: "#6b7280" }}>
                     <span style={{ cursor: "pointer", borderBottom: "1px dashed #9ca3af" }} onClick={() => editOpeningModal(b.customerId, b.opening)} title="คลิกเพื่อแก้ไขยอดยกมา">
                       ฿{fmt(b.opening)}
                     </span>
                   </td>
-                  <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(b.newGiven)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(b.totalGiven)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b" }}>฿{fmt(b.totalUsed)}</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: b.remaining > 0 ? "#8B2020" : "#6b7280" }}>฿{fmt(b.remaining)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: "#8B2020", fontWeight: 600 }}>+฿{fmt(b.newGiven)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d", fontWeight: 600 }}>-฿{fmt(b.totalUsed)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: b.remaining > 0 ? "#8B2020" : "#6b7280" }}>฿{fmt(b.remaining)}</td>
                 </tr>
               ))}
+              {balances.filter((b) => b.totalGiven > 0 || b.opening > 0).length > 0 && (
+                <tr style={{ background: "#faeeda", borderTop: "2px solid #854f0b" }}>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>รวมทั้งหมด</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>
+                    ฿{fmt(balances.reduce((s,b) => s + b.opening, 0))}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020" }}>
+                    +฿{fmt(balances.reduce((s,b) => s + b.newGiven, 0))}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>
+                    -฿{fmt(balances.reduce((s,b) => s + b.totalUsed, 0))}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>
+                    ฿{fmt(balances.reduce((s,b) => s + b.remaining, 0))}
+                  </td>
+                </tr>
+              )}
               {balances.every((b) => b.totalGiven === 0 && b.opening === 0) && (
-                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ — กดปุ่ม "เพิ่มยอดยกมา" หรือ "บันทึกจ่ายมัดจำ" ด้านบนเพื่อเริ่มต้น</td></tr>
+                <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ — กดปุ่ม "เพิ่มยอดยกมา" หรือ "บันทึกจ่ายมัดจำ" ด้านบนเพื่อเริ่มต้น</td></tr>
               )}
             </tbody>
           </table>
