@@ -30,6 +30,8 @@ const STATIC_TABLES = new Set([
   'customers', 'assets', 'shareholders', 'bank_transfers',
   'deposits', 'prepayments', 'deliveries', 'dividend_payments',
 ])
+
+const SETTINGS_KEYS = [
   'shopProfile', 'companySettings', 'unitOptions',
   'expenseCategories', 'productCategories',
 ]
