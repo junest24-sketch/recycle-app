@@ -1577,32 +1577,83 @@ export default function App() {
       })
     }
 
-    Promise.all([loadAllFromSupabase(), loadProducts()]).then(([data, prods]) => {
+    // โหลดจาก localStorage cache ก่อนทันที (ให้แอพขึ้นเร็ว)
+    const CACHE_KEY = 'app_cache_v1'
+
+    const applyData = (data, prods, merge = false) => {
       if (prods && prods.length > 0) setProducts(dedup(prods))
-      if (data) {
-        if (data.customers)     setCustomers(dedup(data.customers))
-        if (data.purchases)     setPurchases(dedup(data.purchases))
-        if (data.sales)         setSales(dedup(data.sales))
-        if (data.withdrawals)   setWithdrawals(dedup(data.withdrawals))
-        if (data.deposits)      setDeposits(dedup(data.deposits))
-        if (data.bankTransfers) setBankTransfers(dedup(data.bankTransfers))
-        if (data.expenses)      setExpenses(dedup(data.expenses))
-        if (data.loans)         setLoans(dedup(data.loans))
-        if (data.storeBankAccounts) setStoreBankAccounts(dedup(data.storeBankAccounts))
-        if (data.shopProfile)   setShopProfile(data.shopProfile)
+      if (!data) return
+      const mergeOrSet = (setter, newItems) => {
+        if (!newItems || newItems.length === 0) return
+        if (!merge) { setter(dedup(newItems)); return }
+        setter(prev => {
+          const map = new Map(prev.map(x => [x.id, x]))
+          newItems.forEach(x => { if (x.id) map.set(x.id, x) })
+          return dedup(Array.from(map.values()))
+        })
+      }
+      mergeOrSet(setCustomers, data.customers)
+      mergeOrSet(setPurchases, data.purchases)
+      mergeOrSet(setSales, data.sales)
+      mergeOrSet(setWithdrawals, data.withdrawals)
+      mergeOrSet(setDeposits, data.deposits)
+      mergeOrSet(setBankTransfers, data.bankTransfers)
+      mergeOrSet(setExpenses, data.expenses)
+      mergeOrSet(setLoans, data.loans)
+      mergeOrSet(setStoreBankAccounts, data.storeBankAccounts)
+      mergeOrSet(setAssets, data.assets)
+      mergeOrSet(setDividendPayments, data.dividendPayments)
+      mergeOrSet(setDeliveries, data.deliveries)
+      mergeOrSet(setPrepayments, data.prepayments)
+      if (!merge) {
+        if (data.shopProfile) setShopProfile(data.shopProfile)
         if (data.companySettings) setCompanySettings(data.companySettings)
-        if (data.users)         setUsers(data.users)
-        if (data.unitOptions)   setUnitOptions(data.unitOptions)
+        if (data.users) setUsers(data.users)
+        if (data.unitOptions) setUnitOptions(data.unitOptions)
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories)
         if (data.productCategories) setProductCategories(data.productCategories)
-        if (data.assets) setAssets(dedup(data.assets))
         if (data.shareholders) setShareholders(data.shareholders)
-        if (data.dividendPayments) setDividendPayments(dedup(data.dividendPayments))
-        if (data.deliveries) setDeliveries(dedup(data.deliveries))
-        if (data.prepayments) setPrepayments(dedup(data.prepayments))
       }
+    }
+
+    // โหลด cache ก่อนเพื่อให้แอพขึ้นเร็ว
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { data, prods } = JSON.parse(cached)
+        applyData(data, prods, false)
+        setDbLoaded(true)
+      }
+    } catch (e) {}
+
+    // โหลดทั้งหมดจาก Supabase 1 ครั้ง แล้วปล่อยให้ realtime อัปเดตต่อ
+    Promise.all([loadAllFromSupabase(null), loadProducts()]).then(([data, prods]) => {
+      applyData(data, prods, false)
       setDbLoaded(true)
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data, prods }))
+      } catch (e) {}
     })
+
+    // Auto-refresh เฉพาะ static tables (ที่ปิด realtime) ทุก 5 นาที
+    const STATIC_KEYS = ['customers', 'assets', 'shareholders', 'bankTransfers', 'deposits', 'prepayments', 'deliveries', 'dividendPayments']
+    const refreshStatic = async () => {
+      try {
+        const data = await loadAllFromSupabase(null)
+        if (!data) return
+        STATIC_KEYS.forEach(key => {
+          if (!data[key] || data[key].length === 0) return
+          const setters = {
+            customers: setCustomers, assets: setAssets, shareholders: setShareholders,
+            bankTransfers: setBankTransfers, deposits: setDeposits, prepayments: setPrepayments,
+            deliveries: setDeliveries, dividendPayments: setDividendPayments,
+          }
+          if (setters[key]) setters[key](dedup(data[key]))
+        })
+      } catch (e) {}
+    }
+    const staticInterval = setInterval(refreshStatic, 5 * 60 * 1000)
+    return () => clearInterval(staticInterval)
   }, [])
 
   // ปุ่ม "โหลดข้อมูลล่าสุด" — โหลดจาก Supabase ใหม่ทั้งหมดทันที
@@ -4627,13 +4678,13 @@ function PurchasePdfModal({ po, customer, products, storeBankAccounts, companySe
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "fixed" }}>
           <thead>
             <tr style={{ background: primaryColor + "22" }}>
-              <th style={{ ...thCompact, color: primaryColor, textAlign: "center", width: "6%" }}>ที่</th>
-              <th style={{ ...thCompact, color: primaryColor, width: "29%" }}>สินค้า</th>
-              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวน</th>
-              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>รวมหัก</th>
-              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>สุทธิ</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "center", width: "5%" }}>ที่</th>
+              <th style={{ ...thCompact, color: primaryColor, width: "38%" }}>สินค้า</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "12%" }}>จำนวน</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "8%" }}>รวมหัก</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "10%" }}>สุทธิ</th>
               <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>ราคา/หน่วย</th>
-              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "13%" }}>จำนวนเงิน</th>
+              <th style={{ ...thCompact, color: primaryColor, textAlign: "right", width: "14%" }}>จำนวนเงิน</th>
             </tr>
           </thead>
           <tbody>
