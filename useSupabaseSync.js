@@ -20,7 +20,16 @@ const ARRAY_TABLES = {
   shareholders: 'shareholders',
 }
 
-const SETTINGS_KEYS = [
+// table ที่เปิด realtime (คนหลายคนใช้พร้อมกัน / แดชบอร์ดใช้)
+const REALTIME_TABLES = new Set([
+  'purchases', 'sales', 'expenses', 'withdrawals', 'store_bank_accounts', 'loans',
+])
+
+// table ที่ปิด realtime (ไม่ค่อยเปลี่ยน — ใช้ auto-refresh แทน)
+const STATIC_TABLES = new Set([
+  'customers', 'assets', 'shareholders', 'bank_transfers',
+  'deposits', 'prepayments', 'deliveries', 'dividend_payments',
+])
   'shopProfile', 'companySettings', 'unitOptions',
   'expenseCategories', 'productCategories',
 ]
@@ -79,17 +88,19 @@ async function deleteArrayRow(tableName, id) {
   return !error
 }
 
-async function loadArrayTable(tableName) {
+async function loadArrayTable(tableName, since = null) {
   if (!isSupabaseReady) return []
   const PAGE = 1000
   let all = []
   let from = 0
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(tableName)
-      .select('data')
+      .select('data, id')
       .order('updated_at', { ascending: true })
       .range(from, from + PAGE - 1)
+    if (since) query = query.gt('updated_at', since)
+    const { data, error } = await query
     if (error || !data) break
     all = all.concat(data.map(row => row.data))
     if (data.length < PAGE) break
@@ -120,26 +131,31 @@ async function loadSettings(key) {
 }
 
 // ---------- loadAllFromSupabase ----------
-export async function loadAllFromSupabase() {
+export async function loadAllFromSupabase(since = null) {
   if (!isSupabaseReady) return null
   const result = {}
   await Promise.all(
     Object.entries(ARRAY_TABLES).map(async ([stateKey, tableName]) => {
-      result[stateKey] = await loadArrayTable(tableName)
+      result[stateKey] = await loadArrayTable(tableName, since)
     })
   )
-  await Promise.all(
-    SETTINGS_KEYS.map(async (key) => {
-      const val = await loadSettings(key)
-      if (val !== null) result[key] = val
-    })
-  )
+  // settings โหลดทั้งหมดเสมอ (ข้อมูลเล็กมาก)
+  if (!since) {
+    await Promise.all(
+      SETTINGS_KEYS.map(async (key) => {
+        const val = await loadSettings(key)
+        if (val !== null) result[key] = val
+      })
+    )
+  }
   return result
 }
 
 // ---------- saveToSupabase (เรียกตรงๆ สำหรับกรณีพิเศษ) ----------
 export async function saveToSupabase(key, items) {
   const tableName = ARRAY_TABLES[key]
+  // เคลียร์ cache เมื่อมีการบันทึก เพื่อให้โหลดใหม่จาก Supabase ครั้งถัดไป
+  try { localStorage.removeItem('app_cache_v1') } catch (e) {}
   if (tableName) return await saveArrayTable(tableName, items)
   if (SETTINGS_KEYS.includes(key)) return await saveSettings(key, items)
 }
@@ -205,6 +221,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
           }
           success = ok
           prevValueRef.current = [...current]
+          if (ok) try { localStorage.removeItem('app_cache_v1') } catch (e) {}
         } else if (isSettingsKey) {
           success = await saveSettings(key, valueRef.current)
           prevValueRef.current = valueRef.current
@@ -229,9 +246,11 @@ export function useSupabaseSync(key, value, setValue, loaded) {
     }
   }, [key, value, loaded])
 
-  // ---------- REALTIME ----------
+  // ---------- REALTIME (เฉพาะ table ที่กำหนด) ----------
   useEffect(() => {
     if (!isSupabaseReady || !loaded) return
+    // ปิด realtime สำหรับ table ที่อยู่ใน STATIC_TABLES
+    if (isArrayTable && !REALTIME_TABLES.has(tableName)) return
 
     if (isArrayTable) {
       const channel = supabase
