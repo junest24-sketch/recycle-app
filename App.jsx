@@ -7521,8 +7521,7 @@ function LoansTab({ loans, setLoans, expenses, customers, storeBankAccounts, set
             </Field>
           </div>
 
-          {modal?.mode === "add" && (
-            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
               <div style={{ fontWeight: 600, fontSize: 13, color: "#166534", marginBottom: 8 }}>💰 บัญชีที่รับเงินกู้เข้า (ถ้ามี)</div>
               <select
                 style={{ ...inputStyle, width: "100%" }}
@@ -7538,11 +7537,10 @@ function LoansTab({ loans, setLoans, expenses, customers, storeBankAccounts, set
               </select>
               {form.receiveBankAccountId && (
                 <p style={{ fontSize: 12, color: "#166534", marginTop: 6, marginBottom: 0 }}>
-                  ✓ ระบบจะบันทึกรับเงิน ฿{fmt(Number(form.principal) || 0)} เข้าบัญชีที่เลือกอัตโนมัติ
+                  ✓ บัญชีที่รับเงินกู้: ฿{fmt(Number(form.principal) || 0)}
                 </p>
               )}
             </div>
-          )}
 
           {preview.length > 0 && (
             <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 14 }}>
