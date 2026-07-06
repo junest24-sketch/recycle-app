@@ -10415,18 +10415,18 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const otherIncome = 0;
     const income = totalRev + otherIncome;
 
-    // ต้นทุนขาย = costConsumed จาก movements type "withdraw" (FIFO จริง) ในช่วงเวลานั้น
+    // ต้นทุนขาย = costConsumed จาก movements type "withdraw" ในช่วงเวลานั้น (FIFO จริง)
     const wdCost = movements
       .filter((mv) => mv.type === "withdraw" && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
-    const directSaleCost = 0; // ขายตรงไม่มีต้นทุน (ไม่ผ่านสต๊อก)
     const cost = wdCost;
     const beginInv = stockValueBefore(sd);
-    const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
     const purchInR = movements
       .filter((mv) => mv.type === "in" && !mv.isOpening && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.qty) || 0) * (Number(mv.price) || 0), 0);
     const available = beginInv + purchInR;
+    // สินค้าปลายงวด = ต้นงวด + ซื้อ - ต้นทุนขาย (สอดคล้องกัน)
+    const endInv = available - cost;
     const gross = income - cost;
 
     const expensesInR = expenses.filter((e) => inR(e.billDate || e.date));
