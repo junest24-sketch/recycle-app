@@ -500,12 +500,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
       events.push({ type: "in", date: po.date, ref: po.id, productId: it.productId, qty: it.net, price: it.price });
     });
   });
-  sales.forEach((inv) => {
-    inv.items.forEach((it) => {
-      if (it.fromWithdrawal) return; // สต๊อกถูกตัดไปแล้วตอนเบิก ไม่ต้องตัดซ้ำที่นี่
-      events.push({ type: "out", date: inv.date, ref: inv.id, productId: it.productId, qty: it.net });
-    });
-  });
+  // ตัดสต๊อกเฉพาะจากใบเบิกเท่านั้น ห้ามตัดจากใบขายโดยตรง
   withdrawals.forEach((lot) => {
     (lot.items || []).forEach((it) => {
       events.push({ type: "withdraw", date: lot.date, ref: lot.id, productId: it.sourceProductId, qty: it.qty });
