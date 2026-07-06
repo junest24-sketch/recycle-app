@@ -10420,13 +10420,18 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const otherIncome = 0;
     const income = totalRev + otherIncome;
 
+    // ต้นทุนขาย = costConsumed จาก movements type "withdraw" (FIFO จริง) ในช่วงเวลานั้น
+    const wdCost = movements
+      .filter((mv) => mv.type === "withdraw" && inR(mv.date))
+      .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
+    const directSaleCost = 0; // ขายตรงไม่มีต้นทุน (ไม่ผ่านสต๊อก)
+    const cost = wdCost;
     const beginInv = stockValueBefore(sd);
     const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
     const purchInR = movements
       .filter((mv) => mv.type === "in" && !mv.isOpening && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.qty) || 0) * (Number(mv.price) || 0), 0);
     const available = beginInv + purchInR;
-    const cost = available - endInv;
     const gross = income - cost;
 
     const expensesInR = expenses.filter((e) => inR(e.billDate || e.date));
@@ -10458,7 +10463,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const totalCostWithOpening = cost + addCost;
     const grossWithOpening = totalIncomeWithOpening - totalCostWithOpening;
     const net = grossWithOpening - totalExp;
-    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: totalIncomeWithOpening, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: totalCostWithOpening, grossProfit: grossWithOpening, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net, openingRevenueApplied: addRev, openingCostApplied: addCost };
+    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: totalIncomeWithOpening, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: totalCostWithOpening, wdCost, directSaleCost, grossProfit: grossWithOpening, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net, openingRevenueApplied: addRev, openingCostApplied: addCost };
   };
 
   const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
@@ -10467,7 +10472,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
   const currentMonthPL = computeMonthlyPL(year, month);
   const {
     totalRevenue, totalOtherIncome, totalIncome,
-    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost,
+    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost, wdCost: wdCostDisplay, directSaleCost: directSaleCostDisplay,
     grossProfit, expenseByCategory, totalExpenses, netProfit,
     openingRevenueApplied, openingCostApplied,
   } = currentMonthPL;
@@ -10597,12 +10602,9 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           <Row label="รวมรายได้" value={`฿${fmt(totalIncome)}`} bold />
 
           <div style={{ marginTop: 16, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>ต้นทุนขาย:</div>
-          <Row label="　สินค้าคงเหลือยกมาต้นงวด" value={`฿${fmt(beginningInventory)}`} />
-          <Row label="　บวก ซื้อสินค้า" value={`+฿${fmt(purchasesInRange)}`} />
+          <Row label="　มูลค่าสินค้าจากใบเบิก" value={`฿${fmt(wdCostDisplay)}`} />
+          {directSaleCostDisplay > 0 && <Row label="　ต้นทุนขายตรง (ไม่ผ่านใบเบิก)" value={`+฿${fmt(directSaleCostDisplay)}`} />}
           {openingApplies && Number(openingCost) > 0 && <Row label={`　ต้นทุนยกมา${openingMonth ? " (" + openingMonth + ")" : ""}`} value={`+฿${fmt(Number(openingCost))}`} color="#854f0b" />}
-          <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
-          <Row label="　สินค้าที่มีไว้เพื่อขาย" value={`฿${fmt(goodsAvailableForSale)}`} />
-          <Row label="　หัก สินค้าคงเหลือปลายงวด" value={`-฿${fmt(endingInventory)}`} />
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
           <Row label="　ต้นทุนขาย" value={`฿${fmt(totalCost)}`} bold />
 
