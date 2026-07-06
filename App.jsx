@@ -10421,12 +10421,11 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
     const cost = wdCost;
     const beginInv = stockValueBefore(sd);
+    const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
     const purchInR = movements
       .filter((mv) => mv.type === "in" && !mv.isOpening && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.qty) || 0) * (Number(mv.price) || 0), 0);
     const available = beginInv + purchInR;
-    // สินค้าปลายงวด = ต้นงวด + ซื้อ - ต้นทุนขาย (สอดคล้องกัน)
-    const endInv = available - cost;
     const gross = income - cost;
 
     const expensesInR = expenses.filter((e) => inR(e.billDate || e.date));
@@ -10458,7 +10457,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const totalCostWithOpening = cost + addCost;
     const grossWithOpening = totalIncomeWithOpening - totalCostWithOpening;
     const net = grossWithOpening - totalExp;
-    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: totalIncomeWithOpening, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: totalCostWithOpening, wdCost, directSaleCost, grossProfit: grossWithOpening, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net, openingRevenueApplied: addRev, openingCostApplied: addCost };
+    return { totalRevenue: totalRev, totalOtherIncome: otherIncome, totalIncome: totalIncomeWithOpening, beginningInventory: beginInv, endingInventory: endInv, purchasesInRange: purchInR, goodsAvailableForSale: available, totalCost: totalCostWithOpening, grossProfit: grossWithOpening, expenseByCategory: byCategory, totalExpenses: totalExp, netProfit: net, openingRevenueApplied: addRev, openingCostApplied: addCost };
   };
 
   const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
@@ -10467,7 +10466,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
   const currentMonthPL = computeMonthlyPL(year, month);
   const {
     totalRevenue, totalOtherIncome, totalIncome,
-    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost, wdCost: wdCostDisplay, directSaleCost: directSaleCostDisplay,
+    beginningInventory, endingInventory, purchasesInRange, goodsAvailableForSale, totalCost,
     grossProfit, expenseByCategory, totalExpenses, netProfit,
     openingRevenueApplied, openingCostApplied,
   } = currentMonthPL;
