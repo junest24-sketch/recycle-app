@@ -10602,9 +10602,12 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           <Row label="รวมรายได้" value={`฿${fmt(totalIncome)}`} bold />
 
           <div style={{ marginTop: 16, marginBottom: 4, fontWeight: 600, fontSize: 13, color: "#6b7280" }}>ต้นทุนขาย:</div>
-          <Row label="　มูลค่าสินค้าจากใบเบิก" value={`฿${fmt(wdCostDisplay)}`} />
-          {directSaleCostDisplay > 0 && <Row label="　ต้นทุนขายตรง (ไม่ผ่านใบเบิก)" value={`+฿${fmt(directSaleCostDisplay)}`} />}
+          <Row label="　สินค้าคงเหลือยกมาต้นงวด" value={`฿${fmt(beginningInventory)}`} />
+          <Row label="　บวก ซื้อสินค้า" value={`+฿${fmt(purchasesInRange)}`} />
           {openingApplies && Number(openingCost) > 0 && <Row label={`　ต้นทุนยกมา${openingMonth ? " (" + openingMonth + ")" : ""}`} value={`+฿${fmt(Number(openingCost))}`} color="#854f0b" />}
+          <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
+          <Row label="　สินค้าที่มีไว้เพื่อขาย" value={`฿${fmt(goodsAvailableForSale)}`} />
+          <Row label="　หัก สินค้าคงเหลือปลายงวด" value={`-฿${fmt(endingInventory)}`} />
           <div style={{ borderTop: "1px solid #e5e7eb", margin: "6px 0 6px 16px" }} />
           <Row label="　ต้นทุนขาย" value={`฿${fmt(totalCost)}`} bold />
 
