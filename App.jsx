@@ -3195,6 +3195,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             bankInflowsRange[r.toStoreBankId] = (bankInflowsRange[r.toStoreBankId] || 0) + (Number(r.amount) || 0);
           }
         });
+        // รับเงินกู้ยืมเข้าบัญชี (ตามช่วงวันที่)
+        (loans || []).forEach((loan) => {
           if (loan.receiveBankAccountId && inRange(loan.startDate)) {
             bankInflowsRange[loan.receiveBankAccountId] = (bankInflowsRange[loan.receiveBankAccountId] || 0) + (Number(loan.principal) || 0);
           }
