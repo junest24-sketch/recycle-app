@@ -583,9 +583,10 @@ function computeWithdrawalCost(inventory, sourceProductId, qty) {
 // คำนวณยอดมัดจำคงเหลือของลูกค้าแต่ละราย
 // = ผลรวมเงินมัดจำที่จ่ายให้ลูกค้า (deposits) - ผลรวมเงินมัดจำที่ถูกหักในใบรับสินค้า
 //   (purchases[].payments[] ที่ fromStoreBankId === "DEPOSIT")
-function computeDepositBalances(customers, deposits, purchases) {
-  const given = {}; // customerId -> total given
-  const used = {}; // customerId -> total used in purchases
+function computeDepositBalances(customers, deposits, purchases, depositRefunds = []) {
+  const given = {};
+  const used = {};
+  const refunded = {};
   deposits.forEach((d) => {
     given[d.customerId] = (given[d.customerId] || 0) + (Number(d.amount) || 0);
   });
@@ -596,12 +597,16 @@ function computeDepositBalances(customers, deposits, purchases) {
       }
     });
   });
+  depositRefunds.forEach((r) => {
+    refunded[r.customerId] = (refunded[r.customerId] || 0) + (Number(r.amount) || 0);
+  });
   return customers.map((c) => {
     const opening = Number(c.depositOpening) || 0;
     const newGiven = given[c.id] || 0;
     const totalGiven = opening + newGiven;
     const totalUsed = used[c.id] || 0;
-    return { customerId: c.id, name: c.name, opening, newGiven, totalGiven, totalUsed, remaining: totalGiven - totalUsed };
+    const totalRefunded = refunded[c.id] || 0;
+    return { customerId: c.id, name: c.name, opening, newGiven, totalGiven, totalUsed, totalRefunded, remaining: totalGiven - totalUsed - totalRefunded };
   });
 }
 
@@ -1537,6 +1542,7 @@ export default function App() {
 
   const [withdrawals, setWithdrawals] = useState(initialWithdrawals);
   const [deposits, setDeposits] = useState(initialDeposits);
+  const [depositRefunds, setDepositRefunds] = useState([]);
   const [prepayments, setPrepayments] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
   const [bankTransfers, setBankTransfers] = useState([]);
@@ -1981,7 +1987,7 @@ export default function App() {
       </div>
 
       {/* Main content — independently scrollable */}
-      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} prepayments={prepayments} assets={assets} />}
+      <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} prepayments={prepayments} assets={assets} depositRefunds={depositRefunds} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
         {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
@@ -1990,12 +1996,12 @@ export default function App() {
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} companySettings={companySettings} setCompanySettings={setCompanySettings} bankTransfers={bankTransfers} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} storeBankAccounts={storeBankAccounts} />}
-        {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} />}
+        {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} depositRefunds={depositRefunds} setDepositRefunds={setDepositRefunds} />}
         {tab === "prepayments" && <PrepaymentsTab customers={customers} setCustomers={setCustomers} prepayments={prepayments} setPrepayments={setPrepayments} sales={sales} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} customers={customers} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
         {tab === "loans" && <LoansTab loans={loans} setLoans={setLoans} expenses={expenses} customers={customers} storeBankAccounts={storeBankAccounts} setStoreBankAccounts={setStoreBankAccounts} />}
-        {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} loans={loans} />}
+        {tab === "bankaccounts" && <StoreBankAccountsTab accounts={storeBankAccounts} setAccounts={setStoreBankAccounts} purchases={purchases} sales={sales} expenses={expenses} deposits={deposits} bankTransfers={bankTransfers} customers={customers} loans={loans} depositRefunds={depositRefunds} />}
         {tab === "banktransfer" && <BankTransferTab storeBankAccounts={storeBankAccounts} bankTransfers={bankTransfers} setBankTransfers={setBankTransfers} />}
         {tab === "assets" && <AssetsTab assets={assets} setAssets={setAssets} />}
         {tab === "settings" && <CompanySettingsTab settings={companySettings} setSettings={setCompanySettings} shopProfile={shopProfile} setShopProfile={setShopProfile} />}
@@ -2010,7 +2016,7 @@ export default function App() {
 // ===================================================================
 // DASHBOARD
 // ===================================================================
-function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers, expenseCategories, prepayments, assets }) {
+function Dashboard({ products, customers, purchases, sales, inventory, expenses, loans, storeBankAccounts, deposits, bankTransfers, expenseCategories, prepayments, assets, depositRefunds }) {
   // ---------- หมวดหมู่แดชบอร์ด ----------
   const [dashSubTab, setDashSubTab] = useState("purchases"); // "purchases" | "sales" | "expenses" | "stock" | "loans"
   const [expandedStockTypes, setExpandedStockTypes] = useState({}); // { [type]: bool } ติ๊กเลือกเพื่อดูรายการสินค้าในประเภทนั้น
@@ -2186,8 +2192,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
     (loans || []).forEach((loan) => {
       if (loan.receiveBankAccountId) add(loan.receiveBankAccountId, Number(loan.principal) || 0);
     });
+    // รับคืนเงินมัดจำ
+    (depositRefunds || []).forEach((r) => {
+      if (r.toStoreBankId) add(r.toStoreBankId, Number(r.amount) || 0);
+    });
     return inn;
-  }, [sales, bankTransfers, prepayments, loans]);
+  }, [sales, bankTransfers, prepayments, loans, depositRefunds]);
 
 
   // ---------- ซื้อ/ขาย แบ่งตามประเภทสินค้า และแบ่งตามรายการสินค้า ----------
@@ -3179,8 +3189,12 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             bankInflowsRange[t.toBankId] = (bankInflowsRange[t.toBankId] || 0) + (Number(t.amount) || 0);
           }
         });
-        // รับเงินกู้ยืมเข้าบัญชี (ตามช่วงวันที่)
-        (loans || []).forEach((loan) => {
+        // รับคืนเงินมัดจำในช่วงวันที่
+        (depositRefunds || []).forEach((r) => {
+          if (r.toStoreBankId && inRange(r.date)) {
+            bankInflowsRange[r.toStoreBankId] = (bankInflowsRange[r.toStoreBankId] || 0) + (Number(r.amount) || 0);
+          }
+        });
           if (loan.receiveBankAccountId && inRange(loan.startDate)) {
             bankInflowsRange[loan.receiveBankAccountId] = (bankInflowsRange[loan.receiveBankAccountId] || 0) + (Number(loan.principal) || 0);
           }
@@ -3217,6 +3231,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
             (bankTransfers || []).forEach((t) => {
               if (t.fromBankId === b.id && beforeDate(t.date)) bal -= Number(t.amount) || 0;
               if (t.toBankId === b.id && beforeDate(t.date)) bal += Number(t.amount) || 0;
+            });
+            // รับคืนเงินมัดจำก่อนช่วงที่เลือก
+            (depositRefunds || []).forEach((r) => {
+              if (r.toStoreBankId === b.id && beforeDate(r.date)) bal += Number(r.amount) || 0;
             });
             // รับเงินกู้ยืมก่อนช่วงที่เลือก
             (loans || []).forEach((loan) => {
@@ -5156,7 +5174,28 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
 
       {aggregates.length > 0 && (
         <div style={{ marginTop: 20 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>สรุปยอดต้นทุนรวมที่ไปลงในใบขาย</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>สรุปยอดต้นทุนรวมที่ไปลงในใบขาย</h3>
+            <button style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: 6 }} onClick={() => {
+              const grouped = {};
+              filteredAggregates.forEach((g) => {
+                if (!grouped[g.saleId]) grouped[g.saleId] = [];
+                grouped[g.saleId].push(g);
+              });
+              const rows = [["เลข Invoice", "สินค้า", "จำนวนรวม", "มูลค่ารวม", "ราคาเฉลี่ยใหม่"]];
+              Object.entries(grouped)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .forEach(([saleId, items]) => {
+                  const totalValue = items.reduce((s, g) => s + g.value, 0);
+                  const totalQty = items.reduce((s, g) => s + g.qty, 0);
+                  rows.push([saleId, `${items.length} รายการ`, totalQty, totalValue, ""]);
+                  items.forEach((g) => rows.push(["", prodName(g.productId), g.qty, g.value, g.avgCost]));
+                });
+              exportExcel(rows, "สรุปต้นทุนใบขาย.xlsx", "ต้นทุนใบขาย");
+            }}>
+              <FileSpreadsheet size={14} /> Excel
+            </button>
+          </div>
           <SearchBar value={aggregateSearch} onChange={setAggregateSearch} placeholder="ค้นหาเลข Invoice หรือสินค้า..." />
           <Card>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -5179,7 +5218,9 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                   if (Object.keys(grouped).length === 0) return (
                     <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ไม่พบรายการที่ค้นหา</td></tr>
                   );
-                  return Object.entries(grouped).map(([saleId, items]) => {
+                  return Object.entries(grouped)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .map(([saleId, items]) => {
                     const totalValue = items.reduce((s, g) => s + g.value, 0);
                     const totalQty = items.reduce((s, g) => s + g.qty, 0);
                     const isExpanded = !!expandedGroups[saleId];
@@ -5517,15 +5558,15 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
       </div>
       <div id="tab-export-sales" style={{ flex: 1, overflow: "auto" }}>
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1000, tableLayout: "fixed" }}>
           <thead>
             <tr>
-              <th style={{ ...thStyle, width: "15%" }}>เลข Invoice</th>
+              <th style={{ ...thStyle, width: "13%" }}>เลข Invoice</th>
               <th style={{ ...thStyle, width: "10%" }}>วันที่</th>
               <th style={{ ...thStyle, width: "18%" }}>ลูกค้า</th>
-              <th style={{ ...thStyle, width: "10%" }}>ทะเบียนรถ</th>
+              <th style={{ ...thStyle, width: "9%" }}>ทะเบียนรถ</th>
               <th style={{ ...thStyle, textAlign: "right", width: "13%" }}>ยอดสุทธิ</th>
-              <th style={{ ...thStyle, textAlign: "right", width: "15%" }}>ยอดรับชำระ</th>
+              <th style={{ ...thStyle, textAlign: "right", width: "18%" }}>ยอดรับชำระ</th>
               <th style={{ ...thStyle, width: "10%" }}>สถานะ</th>
               <th style={{ ...thStyle, textAlign: "right", width: "9%" }}>จัดการ</th>
             </tr>
@@ -5545,8 +5586,8 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>{fmt(t.total)} บาท</td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
-                    <div style={{ fontSize: 12, color: "#8B2020" }}>รับแล้ว ฿{fmt(t.paid)}</div>
-                    {livePayStatus !== "ชำระแล้ว" && t.remaining > 0.01 && <div style={{ fontSize: 12, color: "#993c1d" }}>ค้าง ฿{fmt(t.remaining)}</div>}
+                    <div style={{ fontSize: 12, color: "#8B2020", whiteSpace: "nowrap" }}>รับแล้ว ฿{fmt(t.paid)}</div>
+                    {livePayStatus !== "ชำระแล้ว" && t.remaining > 0.01 && <div style={{ fontSize: 12, color: "#993c1d", whiteSpace: "nowrap" }}>ค้าง ฿{fmt(t.remaining)}</div>}
                   </td>
                   <td style={tdStyle}><span style={{ background: sc.bg, color: sc.color, padding: "2px 10px", borderRadius: 6, fontSize: 12, fontWeight: 500 }}>{livePayStatus}</span></td>
                   <td style={{ ...tdStyle, textAlign: "right" }}>
@@ -7080,12 +7121,13 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
 }
 // DEPOSITS TAB (เงินมัดจำจ่ายล่วงหน้าให้ลูกค้า)
 // ===================================================================
-function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts }) {
+function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts, depositRefunds, setDepositRefunds }) {
   const [modal, setModal] = useState(null);
+  const [refundModal, setRefundModal] = useState(null);
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [openingModal, setOpeningModal] = useState(null); // {customerId, amount}
+  const [openingModal, setOpeningModal] = useState(null);
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
 
@@ -7097,10 +7139,22 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
     fromStoreBankId: storeBankAccounts[0]?.id || "",
     note: "",
   });
+
+  const blankRefundForm = () => ({
+    id: genId("DR", depositRefunds),
+    date: new Date().toISOString().slice(0, 10),
+    customerId: "",
+    amount: 0,
+    toStoreBankId: storeBankAccounts[0]?.id || "",
+    note: "",
+  });
+
   const [form, setForm] = useState(blankForm());
+  const [refundForm, setRefundForm] = useState(blankRefundForm());
 
   const openAdd = () => { setForm(blankForm()); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm({ ...item }); setModal({ mode: "edit", item }); };
+  const openRefund = () => { setRefundForm(blankRefundForm()); setRefundModal(true); };
 
   const save = () => {
     if (!form.customerId || !(Number(form.amount) > 0)) return;
@@ -7110,9 +7164,17 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
     setModal(null);
   };
 
-  const remove = (id) => setDeposits(deposits.filter((d) => d.id !== id));
+  const saveRefund = () => {
+    if (!refundForm.customerId || !(Number(refundForm.amount) > 0)) return;
+    const cleaned = { ...refundForm, amount: Number(refundForm.amount) || 0 };
+    setDepositRefunds([...depositRefunds, cleaned]);
+    setRefundModal(null);
+  };
 
-  const balances = useMemo(() => computeDepositBalances(customers, deposits, purchases), [customers, deposits, purchases]);
+  const remove = (id) => setDeposits(deposits.filter((d) => d.id !== id));
+  const removeRefund = (id) => setDepositRefunds(depositRefunds.filter((r) => r.id !== id));
+
+  const balances = useMemo(() => computeDepositBalances(customers, deposits, purchases, depositRefunds), [customers, deposits, purchases, depositRefunds]);
 
   // รายการหักมัดจำที่เกิดขึ้นในใบรับสินค้าทั้งหมด (สำหรับแสดงประวัติการใช้)
   const depositUsages = useMemo(() => {
@@ -7150,6 +7212,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={btnSecondary} onClick={openOpeningModal}><Plus size={16} /> เพิ่มยอดยกมา</button>
           <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> บันทึกจ่ายมัดจำ</button>
+          <button style={{ ...btnSecondary, background: "#fef3c7", border: "1px solid #fcd34d", color: "#854f0b" }} onClick={openRefund}><ArrowDownToLine size={16} /> บันทึกคืนเงินมัดจำ</button>
         </div>
       </Header>
 
@@ -7157,13 +7220,14 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
         <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>สรุปยอดมัดจำคงเหลือต่อลูกค้า</h3>
         <Card>
           <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
             <thead>
               <tr>
                 <th style={thStyle}>ลูกค้า</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>ยอดยกมา</th>
                 <th style={{ ...thStyle, textAlign: "right", color: "#8B2020" }}>รับเข้า (จ่ายมัดจำใหม่)</th>
                 <th style={{ ...thStyle, textAlign: "right", color: "#993c1d" }}>จ่ายออก (หักในใบซื้อ)</th>
+                <th style={{ ...thStyle, textAlign: "right", color: "#854f0b" }}>คืนเงินมัดจำ</th>
                 <th style={{ ...thStyle, textAlign: "right" }}>คงเหลือ</th>
               </tr>
             </thead>
@@ -7178,28 +7242,22 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
                   </td>
                   <td style={{ ...tdStyle, textAlign: "right", color: "#8B2020", fontWeight: 600 }}>+฿{fmt(b.newGiven)}</td>
                   <td style={{ ...tdStyle, textAlign: "right", color: "#993c1d", fontWeight: 600 }}>-฿{fmt(b.totalUsed)}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b", fontWeight: 600 }}>{b.totalRefunded > 0 ? `-฿${fmt(b.totalRefunded)}` : "-"}</td>
                   <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: b.remaining > 0 ? "#8B2020" : "#6b7280" }}>฿{fmt(b.remaining)}</td>
                 </tr>
               ))}
               {balances.filter((b) => b.totalGiven > 0 || b.opening > 0).length > 0 && (
                 <tr style={{ background: "#faeeda", borderTop: "2px solid #854f0b" }}>
                   <td style={{ ...tdStyle, fontWeight: 700, color: "#854f0b" }}>รวมทั้งหมด</td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>
-                    ฿{fmt(balances.reduce((s,b) => s + b.opening, 0))}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020" }}>
-                    +฿{fmt(balances.reduce((s,b) => s + b.newGiven, 0))}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>
-                    -฿{fmt(balances.reduce((s,b) => s + b.totalUsed, 0))}
-                  </td>
-                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>
-                    ฿{fmt(balances.reduce((s,b) => s + b.remaining, 0))}
-                  </td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>฿{fmt(balances.reduce((s,b) => s + b.opening, 0))}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020" }}>+฿{fmt(balances.reduce((s,b) => s + b.newGiven, 0))}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(balances.reduce((s,b) => s + b.totalUsed, 0))}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#854f0b" }}>-฿{fmt(balances.reduce((s,b) => s + b.totalRefunded, 0))}</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(balances.reduce((s,b) => s + b.remaining, 0))}</td>
                 </tr>
               )}
               {balances.every((b) => b.totalGiven === 0 && b.opening === 0) && (
-                <tr><td colSpan={5} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ — กดปุ่ม "เพิ่มยอดยกมา" หรือ "บันทึกจ่ายมัดจำ" ด้านบนเพื่อเริ่มต้น</td></tr>
+                <tr><td colSpan={6} style={{ ...tdStyle, textAlign: "center", color: "#9ca3af" }}>ยังไม่มีการจ่ายมัดจำ</td></tr>
               )}
             </tbody>
           </table>
@@ -7309,6 +7367,33 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
         </Modal>
       )}
 
+      {refundModal && (
+        <Modal title="บันทึกคืนเงินมัดจำ" onClose={() => setRefundModal(null)}>
+          <Field label="ลูกค้า">
+            <CustomerSelect customers={customers} value={refundForm.customerId} onChange={(cid) => setRefundForm({ ...refundForm, customerId: cid })} />
+          </Field>
+          <Field label="วันที่คืนเงิน">
+            <input type="date" style={inputStyle} value={refundForm.date} onChange={(e) => setRefundForm({ ...refundForm, date: e.target.value })} />
+          </Field>
+          <Field label="จำนวนเงินที่คืน (บาท)">
+            <input type="number" style={inputStyle} value={refundForm.amount} onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })} placeholder="0" />
+          </Field>
+          <Field label="โอนจากบัญชี">
+            <select style={inputStyle} value={refundForm.toStoreBankId} onChange={(e) => setRefundForm({ ...refundForm, toStoreBankId: e.target.value })}>
+              <option value="CASH">เงินสดหน้าร้าน</option>
+              {storeBankAccounts.map((b) => <option key={b.id} value={b.id}>{b.bankName} {b.accountNo}</option>)}
+            </select>
+          </Field>
+          <Field label="หมายเหตุ">
+            <input style={inputStyle} value={refundForm.note} onChange={(e) => setRefundForm({ ...refundForm, note: e.target.value })} placeholder="เช่น คืนมัดจำเนื่องจาก..." />
+          </Field>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+            <button style={btnSecondary} onClick={() => setRefundModal(null)}>ยกเลิก</button>
+            <button style={btnPrimary} onClick={saveRefund}><Save size={16} /> บันทึก</button>
+          </div>
+        </Modal>
+      )}
+
       {openingModal && (
         <Modal title="เพิ่ม/แก้ไขยอดยกมา" onClose={() => setOpeningModal(null)}>
           <Field label="ลูกค้า">
@@ -7329,9 +7414,6 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
     </div>
   );
 }
-
-// ===================================================================
-// LOANS TAB (เงินกู้ยืม / เช่าซื้อ)
 // ===================================================================
 function LoansTab({ loans, setLoans, expenses, customers, storeBankAccounts, setStoreBankAccounts }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'schedule', item}
@@ -8915,7 +8997,7 @@ function ExpenseCategoriesTab({ expenseCategories, setExpenseCategories, expense
 // ===================================================================
 // STORE BANK ACCOUNTS TAB (บัญชีธนาคารของร้าน)
 // ===================================================================
-function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expenses, deposits, bankTransfers, customers, loans }) {
+function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expenses, deposits, bankTransfers, customers, loans, depositRefunds }) {
   const [modal, setModal] = useState(null);
   const [statementModal, setStatementModal] = useState(null); // {account}
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
@@ -8986,6 +9068,15 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
         const cust = (customers || []).find((c) => c.id === d.customerId);
         const custLabel = cust ? cust.name : (d.customerId || "ลูกค้า");
         rows.push({ date: d.date, type: "จ่ายมัดจำ", ref: d.id, description: `จ่ายมัดจำให้ ${custLabel}${d.note ? " — " + d.note : ""}`, debit: Number(d.amount) || 0, credit: 0 });
+      }
+    });
+
+    // รับเข้า: คืนเงินมัดจำจากลูกค้า
+    (depositRefunds || []).forEach((r) => {
+      if (r.toStoreBankId === acc.id && inRange(r.date)) {
+        const cust = (customers || []).find((c) => c.id === r.customerId);
+        const custLabel = cust ? cust.name : (r.customerId || "ลูกค้า");
+        rows.push({ date: r.date, type: "รับคืนมัดจำ", ref: r.id, description: `รับคืนเงินมัดจำจาก ${custLabel}${r.note ? " — " + r.note : ""}`, credit: Number(r.amount) || 0, debit: 0 });
       }
     });
 
