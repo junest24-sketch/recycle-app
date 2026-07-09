@@ -5067,7 +5067,9 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   ).filter((w) => (!dateFrom || (w.date || "") >= dateFrom) && (!dateTo || (w.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
    const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
     
-  const lotTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.value) || 0), 0);
+  const lotTotal = (lot) => inventory.movements
+    .filter((mv) => mv.type === "withdraw" && mv.ref === lot.id)
+    .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
   const lotQtyTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   // สรุปยอดรวมของแต่ละใบขาย+สินค้าเป้าหมาย เพื่อแสดงตัวอย่างผลลัพธ์
@@ -5154,19 +5156,24 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                       </tr>
                     </thead>
                     <tbody>
-                      {(lot.items || []).map((it, idx) => (
-                        <tr key={idx}>
-                          <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(it.value)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right" }}>
-                            ฿{fmt(it.avgCost)}
-                            {it.shortfall > 0 && <span style={{ color: "#a32d2d", fontSize: 11, marginLeft: 4 }}>(สต๊อกขาด {fmt(it.shortfall)})</span>}
-                          </td>
-                          <td style={{ ...tdStyle, color: "#9ca3af" }}><ArrowRight size={14} /></td>
-                          <td style={tdStyle}>{prodName(it.targetProductId)}</td>
-                        </tr>
-                      ))}
+                      {(lot.items || []).map((it, idx) => {
+                        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId);
+                        const realValue = mv ? (Number(mv.costConsumed) || 0) : (Number(it.value) || 0);
+                        const realAvgCost = it.qty > 0 ? realValue / it.qty : 0;
+                        return (
+                          <tr key={idx}>
+                            <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(realValue)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right" }}>
+                              ฿{fmt(realAvgCost)}
+                              {it.shortfall > 0 && <span style={{ color: "#a32d2d", fontSize: 11, marginLeft: 4 }}>(สต๊อกขาด {fmt(it.shortfall)})</span>}
+                            </td>
+                            <td style={{ ...tdStyle, color: "#9ca3af" }}><ArrowRight size={14} /></td>
+                            <td style={tdStyle}>{prodName(it.targetProductId)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -10495,13 +10502,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     movements.forEach((m) => {
       if (m.date >= dateExclusive) return;
       if (m.type === "in") value += (Number(m.qty) || 0) * (Number(m.price) || 0);
-    });
-    // หักด้วย it.value จากใบเบิก (ตรงกับ wdCost ที่ใช้ในงบ)
-    (withdrawals || []).forEach((wd) => {
-      if ((wd.date || "") >= dateExclusive) return;
-      (wd.items || []).forEach((it) => {
-        value -= Number(it.value) || 0;
-      });
+      else value -= Number(m.costConsumed) || 0;
     });
     return value;
   };
@@ -10522,10 +10523,10 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const otherIncome = 0;
     const income = totalRev + otherIncome;
 
-    // ต้นทุนขาย = it.value ที่บันทึกในใบเบิก (ตรงกับที่แสดงในหน้าใบเบิก)
-    const wdCost = withdrawals
-      .filter((wd) => inR(wd.date))
-      .reduce((s, wd) => s + (wd.items || []).reduce((s2, it) => s2 + (Number(it.value) || 0), 0), 0);
+    // ต้นทุนขาย = costConsumed จาก movements (FIFO จริง = ตรงกับสต็อกแดชบอร์ด)
+    const wdCost = movements
+      .filter((mv) => mv.type === "withdraw" && inR(mv.date))
+      .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
     const cost = wdCost;
     const beginInv = stockValueBefore(sd);
     const endInv = stockValueBefore(new Date(new Date(ed).getTime() + 86400000).toISOString().slice(0, 10));
