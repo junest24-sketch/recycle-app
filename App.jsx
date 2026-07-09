@@ -528,6 +528,14 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
         remainingToConsume = Math.round((remainingToConsume - take) * 1e6) / 1e6;
       }
       const avgCostUsed = ev.qty > 0 ? costConsumed / ev.qty : 0;
+      // ถ้าสต๊อกไม่พอ ใช้ราคาเฉลี่ยปัจจุบันสำหรับส่วนที่ขาด (เหมือน computeWithdrawalCost)
+      if (remainingToConsume > 0) {
+        const currentLots = lots[ev.productId] || [];
+        const currentQty = currentLots.reduce((s, l) => s + Math.max(0, l.qtyRemaining), 0);
+        const currentVal = currentLots.reduce((s, l) => s + Math.max(0, l.qtyRemaining) * l.unitCost, 0);
+        const fallbackCost = currentQty > 0 ? currentVal / currentQty : 0;
+        costConsumed += remainingToConsume * fallbackCost;
+      }
       movements.push({ ...ev, costConsumed, avgCostUsed, shortfall: remainingToConsume });
     }
   });
@@ -10508,7 +10516,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     const otherIncome = 0;
     const income = totalRev + otherIncome;
 
-    // ต้นทุนขาย = costConsumed จาก movements type "withdraw" ในช่วงเวลานั้น (FIFO จริง)
+    // ต้นทุนขาย = costConsumed จาก movements type "withdraw" (FIFO จริง ตรงกับสต๊อกคงเหลือ)
     const wdCost = movements
       .filter((mv) => mv.type === "withdraw" && inR(mv.date))
       .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
