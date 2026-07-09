@@ -10495,7 +10495,13 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
     movements.forEach((m) => {
       if (m.date >= dateExclusive) return;
       if (m.type === "in") value += (Number(m.qty) || 0) * (Number(m.price) || 0);
-      else value -= Number(m.costConsumed) || 0;
+    });
+    // หักด้วย it.value จากใบเบิก (ตรงกับ wdCost ที่ใช้ในงบ)
+    withdrawals.forEach((wd) => {
+      if ((wd.date || "") >= dateExclusive) return;
+      (wd.items || []).forEach((it) => {
+        value -= Number(it.value) || 0;
+      });
     });
     return value;
   };
