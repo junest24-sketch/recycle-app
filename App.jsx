@@ -523,9 +523,9 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
         const lot = queue[i];
         if (lot.qtyRemaining <= 0) continue;
         const take = Math.min(lot.qtyRemaining, remainingToConsume);
-        lot.qtyRemaining -= take;
+        lot.qtyRemaining = Math.round((lot.qtyRemaining - take) * 1e6) / 1e6;
         costConsumed += take * lot.unitCost;
-        remainingToConsume -= take;
+        remainingToConsume = Math.round((remainingToConsume - take) * 1e6) / 1e6;
       }
       const avgCostUsed = ev.qty > 0 ? costConsumed / ev.qty : 0;
       movements.push({ ...ev, costConsumed, avgCostUsed, shortfall: remainingToConsume });
