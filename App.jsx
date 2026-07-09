@@ -10471,7 +10471,7 @@ function Badge({ text }) {
 // ===================================================================
 // MONTHLY REPORT TAB (รายงานกำไร/ขาดทุน, สรุปรายเดือน, เงินปันผล)
 // ===================================================================
-function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments, companySettings, setCompanySettings }) {
+function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, expenseCategories, shareholders, setShareholders, dividendPayments, setDividendPayments, companySettings, setCompanySettings, withdrawals }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -10497,7 +10497,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       if (m.type === "in") value += (Number(m.qty) || 0) * (Number(m.price) || 0);
     });
     // หักด้วย it.value จากใบเบิก (ตรงกับ wdCost ที่ใช้ในงบ)
-    withdrawals.forEach((wd) => {
+    (withdrawals || []).forEach((wd) => {
       if ((wd.date || "") >= dateExclusive) return;
       (wd.items || []).forEach((it) => {
         value -= Number(it.value) || 0;
