@@ -5067,7 +5067,12 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   ).filter((w) => (!dateFrom || (w.date || "") >= dateFrom) && (!dateTo || (w.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
    const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
     
-  const lotTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.value) || 0), 0);
+  const lotTotal = (lot) => {
+    // คำนวณจาก movements FIFO จริง เพื่อให้ตรงกับงบกำไรขาดทุน
+    return inventory.movements
+      .filter((mv) => mv.type === "withdraw" && mv.ref === lot.id)
+      .reduce((s, mv) => s + (Number(mv.costConsumed) || 0), 0);
+  };
   const lotQtyTotal = (lot) => (lot.items || []).reduce((s, it) => s + (Number(it.qty) || 0), 0);
 
   // สรุปยอดรวมของแต่ละใบขาย+สินค้าเป้าหมาย เพื่อแสดงตัวอย่างผลลัพธ์
@@ -5154,19 +5159,24 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                       </tr>
                     </thead>
                     <tbody>
-                      {(lot.items || []).map((it, idx) => (
+                      {(lot.items || []).map((it, idx) => {
+                        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId);
+                        const realValue = mv ? (Number(mv.costConsumed) || 0) : (Number(it.value) || 0);
+                        const realAvgCost = it.qty > 0 ? realValue / it.qty : 0;
+                        return (
                         <tr key={idx}>
                           <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
-                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(it.value)}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(realValue)}</td>
                           <td style={{ ...tdStyle, textAlign: "right" }}>
-                            ฿{fmt(it.avgCost)}
+                            ฿{fmt(realAvgCost)}
                             {it.shortfall > 0 && <span style={{ color: "#a32d2d", fontSize: 11, marginLeft: 4 }}>(สต๊อกขาด {fmt(it.shortfall)})</span>}
                           </td>
                           <td style={{ ...tdStyle, color: "#9ca3af" }}><ArrowRight size={14} /></td>
                           <td style={tdStyle}>{prodName(it.targetProductId)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
