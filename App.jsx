@@ -1974,7 +1974,7 @@ export default function App() {
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} companySettings={companySettings} setCompanySettings={setCompanySettings} bankTransfers={bankTransfers} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
         {tab === "inventory" && <InventoryTab products={products} inventory={inventory} storeBankAccounts={storeBankAccounts} />}
-        {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} depositRefunds={depositRefunds} setDepositRefunds={setDepositRefunds} />}
+        {tab === "deposits" && <DepositsTab customers={customers} setCustomers={setCustomers} deposits={deposits} setDeposits={setDeposits} purchases={purchases} storeBankAccounts={storeBankAccounts} depositRefunds={depositRefunds} setDepositRefunds={setDepositRefunds} saveToSupabase={saveToSupabase} />}
         {tab === "prepayments" && <PrepaymentsTab customers={customers} setCustomers={setCustomers} prepayments={prepayments} setPrepayments={setPrepayments} sales={sales} storeBankAccounts={storeBankAccounts} />}
         {tab === "expenses" && <ExpensesTab expenses={expenses} setExpenses={setExpenses} storeBankAccounts={storeBankAccounts} loans={loans} setLoans={setLoans} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} companySettings={companySettings} customers={customers} />}
         {tab === "expenseCategories" && <ExpenseCategoriesTab expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} expenses={expenses} setExpenses={setExpenses} />}
@@ -7108,7 +7108,7 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
 }
 // DEPOSITS TAB (เงินมัดจำจ่ายล่วงหน้าให้ลูกค้า)
 // ===================================================================
-function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts, depositRefunds, setDepositRefunds }) {
+function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases, storeBankAccounts, depositRefunds, setDepositRefunds, saveToSupabase }) {
   const [modal, setModal] = useState(null);
   const [refundModal, setRefundModal] = useState(null);
   const [search, setSearch] = useState("");
@@ -7189,7 +7189,9 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
   const editOpeningModal = (customerId, currentValue) => setOpeningModal({ customerId, amount: String(currentValue || 0) });
   const saveOpening = () => {
     if (!openingModal || !openingModal.customerId) return;
-    setCustomers(customers.map((c) => c.id === openingModal.customerId ? { ...c, depositOpening: Number(openingModal.amount) || 0 } : c));
+    const updated = customers.map((c) => c.id === openingModal.customerId ? { ...c, depositOpening: Number(openingModal.amount) || 0 } : c);
+    setCustomers(updated);
+    saveToSupabase('customers', updated);
     setOpeningModal(null);
   };
 
