@@ -1606,6 +1606,7 @@ export default function App() {
       mergeOrSet(setSales, data.sales)
       mergeOrSet(setWithdrawals, data.withdrawals)
       mergeOrSet(setDeposits, data.deposits)
+      mergeOrSet(setDepositRefunds, data.depositRefunds)
       mergeOrSet(setBankTransfers, data.bankTransfers)
       mergeOrSet(setExpenses, data.expenses)
       mergeOrSet(setLoans, data.loans)
@@ -1631,25 +1632,6 @@ export default function App() {
       setDbLoaded(true);
     });
 
-    // Auto-refresh เฉพาะ static tables (ที่ปิด realtime) ทุก 5 นาที
-    const STATIC_KEYS = ['customers', 'assets', 'shareholders', 'bankTransfers', 'deposits', 'prepayments', 'deliveries', 'dividendPayments']
-    const refreshStatic = async () => {
-      try {
-        const data = await loadAllFromSupabase(null)
-        if (!data) return
-        STATIC_KEYS.forEach(key => {
-          if (!data[key] || data[key].length === 0) return
-          const setters = {
-            customers: setCustomers, assets: setAssets, shareholders: setShareholders,
-            bankTransfers: setBankTransfers, deposits: setDeposits, prepayments: setPrepayments,
-            deliveries: setDeliveries, dividendPayments: setDividendPayments,
-          }
-          if (setters[key]) setters[key](dedup(data[key]))
-        })
-      } catch (e) {}
-    }
-    const staticInterval = setInterval(refreshStatic, 5 * 60 * 1000)
-    return () => clearInterval(staticInterval)
   }, [])
 
   // ปุ่ม "โหลดข้อมูลล่าสุด" — โหลดจาก Supabase ใหม่ทั้งหมดทันที
@@ -1690,6 +1672,7 @@ export default function App() {
   useSupabaseSync('sales',             sales,             setSales,             dbLoaded)
   useSupabaseSync('withdrawals',       withdrawals,       setWithdrawals,       dbLoaded)
   useSupabaseSync('deposits',          deposits,          setDeposits,          dbLoaded)
+  useSupabaseSync('depositRefunds',    depositRefunds,    setDepositRefunds,    dbLoaded)
   useSupabaseSync('bankTransfers',     bankTransfers,     setBankTransfers,     dbLoaded)
   useSupabaseSync('expenses',          expenses,          setExpenses,          dbLoaded)
   useSupabaseSync('loans',             loans,             setLoans,             dbLoaded)
