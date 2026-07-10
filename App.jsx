@@ -1606,7 +1606,7 @@ export default function App() {
       mergeOrSet(setSales, data.sales)
       mergeOrSet(setWithdrawals, data.withdrawals)
       mergeOrSet(setDeposits, data.deposits)
-      mergeOrSet(setDepositRefunds, data.depositRefunds)
+      if (data.depositRefunds && data.depositRefunds.length > 0) mergeOrSet(setDepositRefunds, data.depositRefunds)
       mergeOrSet(setBankTransfers, data.bankTransfers)
       mergeOrSet(setExpenses, data.expenses)
       mergeOrSet(setLoans, data.loans)
