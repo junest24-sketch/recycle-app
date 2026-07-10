@@ -10,6 +10,7 @@ const ARRAY_TABLES = {
   expenses: 'expenses',
   withdrawals: 'withdrawals',
   deposits: 'deposits',
+  depositRefunds: 'deposit_refunds',
   prepayments: 'prepayments',
   deliveries: 'deliveries',
   bankTransfers: 'bank_transfers',
@@ -20,16 +21,11 @@ const ARRAY_TABLES = {
   shareholders: 'shareholders',
 }
 
-// table ที่เปิด realtime (คนหลายคนใช้พร้อมกัน / แดชบอร์ดใช้)
-const REALTIME_TABLES = new Set([
-  'purchases', 'sales', 'expenses', 'withdrawals', 'store_bank_accounts', 'loans',
-])
+// เปิด realtime ทุก table เพื่อให้ทุกอุปกรณ์เห็นข้อมูลตรงกันทันที
+const REALTIME_TABLES = new Set(Object.values(ARRAY_TABLES))
 
-// table ที่ปิด realtime (ไม่ค่อยเปลี่ยน — ใช้ auto-refresh แทน)
-const STATIC_TABLES = new Set([
-  'customers', 'assets', 'shareholders', 'bank_transfers',
-  'deposits', 'prepayments', 'deliveries', 'dividend_payments',
-])
+// ไม่มี static tables แล้ว ทุก table ใช้ realtime
+const STATIC_TABLES = new Set([])
 
 const SETTINGS_KEYS = [
   'shopProfile', 'companySettings', 'unitOptions',
