@@ -1586,8 +1586,8 @@ export default function App() {
       })
     }
 
-    // โหลดจาก localStorage cache ก่อนทันที (ให้แอพขึ้นเร็ว)
-    const CACHE_KEY = 'app_cache_v1'
+    // เคลียร์ cache เก่าออก (ถ้ามี) เพื่อให้ทุกอุปกรณ์เห็นข้อมูลตรงกัน
+    try { localStorage.removeItem('app_cache_v1'); } catch (e) {}
 
     const applyData = (data, prods, merge = false) => {
       if (prods && prods.length > 0) setProducts(dedup(prods))
@@ -1625,24 +1625,11 @@ export default function App() {
       }
     }
 
-    // โหลด cache ก่อนเพื่อให้แอพขึ้นเร็ว
-    try {
-      const cached = localStorage.getItem(CACHE_KEY)
-      if (cached) {
-        const { data, prods } = JSON.parse(cached)
-        applyData(data, prods, false)
-        setDbLoaded(true)
-      }
-    } catch (e) {}
-
-    // โหลดทั้งหมดจาก Supabase 1 ครั้ง แล้วปล่อยให้ realtime อัปเดตต่อ
+    // ดึงข้อมูลทั้งหมดจาก Supabase ทุกครั้ง (ไม่ใช้ cache เพื่อให้ทุกอุปกรณ์เห็นข้อมูลตรงกัน)
     Promise.all([loadAllFromSupabase(null), loadProducts()]).then(([data, prods]) => {
-      applyData(data, prods, false)
-      setDbLoaded(true)
-      try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data, prods }))
-      } catch (e) {}
-    })
+      applyData(data, prods, false);
+      setDbLoaded(true);
+    });
 
     // Auto-refresh เฉพาะ static tables (ที่ปิด realtime) ทุก 5 นาที
     const STATIC_KEYS = ['customers', 'assets', 'shareholders', 'bankTransfers', 'deposits', 'prepayments', 'deliveries', 'dividendPayments']
@@ -2031,7 +2018,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
   const [selectedStockTypes, setSelectedStockTypes] = useState({}); // { [type]: bool } เลือกประเภทที่จะแชร์
 
   // ---------- ตัวเลือกช่วงเวลา: รายวัน / ช่วงวันที่ (เลือกเอง) / ทั้งหมด ----------
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10);
   const [periodMode, setPeriodMode] = useState("day"); // "all" | "day" | "range"
   const [periodDate, setPeriodDate] = useState(today);
   const [rangeStart, setRangeStart] = useState(today);
@@ -4111,12 +4098,12 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const blankItem = () => ({ productId: "", qty: 0, deductPct: 0, deductKg: 0, price: 0 });
   const blankPayment = () => ({
     id: "PM" + Date.now().toString().slice(-6),
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     amount: 0,
     fromStoreBankId: storeBankAccounts[0]?.id || "",
     method: PAYMENT_METHODS[0],
   });
-  const blankForm = () => ({ id: "", date: new Date().toISOString().slice(0, 10), customerId: "", status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", items: [blankItem()], payments: [], vatRate: 0, vehiclePlate: "", priceType: "normal" });
+  const blankForm = () => ({ id: "", date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), customerId: "", status: "รออนุมัติ", paymentMethod: PURCHASE_PAYMENT_CHANNELS[0], receivingCustomerBankId: "", items: [blankItem()], payments: [], vatRate: 0, vehiclePlate: "", priceType: "normal" });
   const [form, setForm] = useState(blankForm());
 
   const custName = (id) => customers.find((c) => c.id === id)?.name || id;
@@ -4137,7 +4124,7 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
   };
 
   const openAdd = () => {
-    const _d1 = new Date().toISOString().slice(0, 10);
+    const _d1 = new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10);
     setForm({ ...blankForm(), id: genId("PO", purchases, _d1) });
     setModal({ mode: "add" });
   };
@@ -4924,8 +4911,8 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const blankLineItem = () => ({ sourceProductId: "", qty: 0, targetProductId: "" });
 
   const blankForm = () => ({
-    id: genId("WD", withdrawals, new Date().toISOString().slice(0, 10)),
-    date: new Date().toISOString().slice(0, 10),
+    id: genId("WD", withdrawals, new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10)),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     targetSaleMode: "existing", // existing | new
     targetSaleId: sales[0]?.id || "",
     newSaleId: "",
@@ -5466,9 +5453,9 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const [dateTo, setDateTo] = useState("");
 
   const blankItem = () => ({ productId: "", qty: 0, deduct: 0, price: 0 });
-  const blankPayment = () => ({ id: "SP" + Date.now().toString().slice(-6), date: new Date().toISOString().slice(0, 10), amount: 0, method: PAYMENT_METHODS[0], toStoreBankId: "", note: "" });
+  const blankPayment = () => ({ id: "SP" + Date.now().toString().slice(-6), date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), amount: 0, method: PAYMENT_METHODS[0], toStoreBankId: "", note: "" });
   const blankForm = () => ({
-    id: "", date: new Date().toISOString().slice(0, 10), customerId: "",
+    id: "", date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), customerId: "",
     items: [blankItem()], discount: 0, vatRate: 7, paymentStatus: PAYMENT_STATUSES[0],
     payments: [], vehiclePlate: "",
   });
@@ -5481,7 +5468,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).filter((inv) => (!dateFrom || (inv.date || "") >= dateFrom) && (!dateTo || (inv.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
   const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
     
-  const openAdd = () => { const _d2 = new Date().toISOString().slice(0, 10); setForm({ ...blankForm(), id: genId("INV", sales, _d2) }); setModal({ mode: "add" }); };
+  const openAdd = () => { const _d2 = new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10); setForm({ ...blankForm(), id: genId("INV", sales, _d2) }); setModal({ mode: "add" }); };
   const openEdit = (item) => {
     let payments = item.payments && item.payments.length > 0 ? [...item.payments] : [];
     setForm(JSON.parse(JSON.stringify({ ...item, payments })));
@@ -5986,7 +5973,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
 // ===================================================================
 function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, storeBankAccounts, deposits, expenses, setExpenses, companySettings, setCompanySettings, bankTransfers }) {
   const [showCreditSetting, setShowCreditSetting] = React.useState(false);
-  const [creditDate, setCreditDate] = React.useState(new Date().toISOString().slice(0, 10));
+  const [creditDate, setCreditDate] = React.useState(new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10));
   const [creditManual, setCreditManual] = React.useState(0); // ยอดตกหล่น กรอกมือ
   const [returnBankName, setReturnBankName] = React.useState(""); // ธนาคารโอนคืน
   const [returnBankNo, setReturnBankNo] = React.useState("");   // เลขที่บัญชีโอนคืน
@@ -6154,7 +6141,7 @@ function PaymentsTab({ purchases, setPurchases, sales, setSales, customers, stor
   // ---------- ฟอร์มบันทึกการจ่าย/รับเงิน (รองรับแบ่งจ่ายหลายงวดในครั้งเดียว) ----------
   const blankPaymentRow = (row, isFirst) => ({
     id: (row.kind === "sale" ? "SP" : "PM") + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000),
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     amount: isFirst ? Math.round(row.remaining * 100) / 100 : 0,
     method: PAYMENT_METHODS[0],
     fromStoreBankId: row.kind === "purchase" || row.kind === "expense" ? (storeBankAccounts[0]?.id || "") : undefined,
@@ -6916,7 +6903,7 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
   const [expanded, setExpanded] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [showBasket, setShowBasket] = useState(false);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10);
 
   const totalOpeningStockQty   = products.reduce((s, p) => s + (Number(p.openingQty) || 0), 0);
   const totalOpeningStockValue = products.reduce((s, p) => s + (Number(p.openingQty) || 0) * (Number(p.openingCost) || 0), 0);
@@ -7150,7 +7137,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
 
   const blankForm = () => ({
     id: genId("AE", deposits),
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     customerId: "",
     amount: 0,
     fromStoreBankId: storeBankAccounts[0]?.id || "",
@@ -7159,7 +7146,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
 
   const blankRefundForm = () => ({
     id: genId("DR", depositRefunds),
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     customerId: "",
     amount: 0,
     toStoreBankId: storeBankAccounts[0]?.id || "",
@@ -7447,7 +7434,7 @@ function LoansTab({ loans, setLoans, expenses, customers, storeBankAccounts, set
     annualInterestRate: 0,
     totalInterestAmount: 0,
     totalInstallments: 12,
-    startDate: new Date().toISOString().slice(0, 10),
+    startDate: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     dueDayOfMonth: new Date().getDate(),
     paidInstallments: [],
     receiveBankAccountId: "", // บัญชีที่รับเงินกู้เข้า
@@ -7789,7 +7776,7 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
   const [dateTo, setDateTo] = useState("");
   const [modal, setModal] = useState(null);
   const [openingModal, setOpeningModal] = useState(null);
-  const [form, setForm] = useState({ id: "", date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
+  const [form, setForm] = useState({ id: "", date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
 
   const openOpeningModal = () => setOpeningModal({ customerId: customers[0]?.id || "", amount: "" });
 
@@ -7807,7 +7794,7 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
 
   const openAdd = () => {
     const id = "PP" + Date.now().toString().slice(-8);
-    setForm({ id, date: new Date().toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
+    setForm({ id, date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), customerId: customers[0]?.id || "", amount: 0, toStoreBankId: storeBankAccounts[0]?.id || "", note: "" });
     setModal({ mode: "add" });
   };
 
@@ -7990,7 +7977,7 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     whtRate: 0,
   });
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10);
   const blankForm = () => ({
     id: "EX" + Date.now().toString().slice(-6),
     refNo: genId("EX", expenses, todayStr),
@@ -9020,8 +9007,8 @@ function StoreBankAccountsTab({ accounts, setAccounts, purchases, sales, expense
   const [stmtYear, setStmtYear] = useState(new Date().getFullYear());
   const [stmtMonth, setStmtMonth] = useState(new Date().getMonth() + 1);
   const [stmtMode, setStmtMode] = useState("month"); // "month" | "range"
-  const [stmtDateFrom, setStmtDateFrom] = useState(new Date().toISOString().slice(0, 10));
-  const [stmtDateTo, setStmtDateTo] = useState(new Date().toISOString().slice(0, 10));
+  const [stmtDateFrom, setStmtDateFrom] = useState(new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10));
+  const [stmtDateTo, setStmtDateTo] = useState(new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10));
   const blank = { id: "", bankName: BANK_NAMES[0], accountNo: "", accountName: "", branch: "", openingBalance: 0, accountType: "" };
   const [form, setForm] = useState(blank);
 
@@ -9419,7 +9406,7 @@ function BankTransferTab({ storeBankAccounts, bankTransfers, setBankTransfers })
   const [modal, setModal] = useState(null);
   const blankForm = () => ({
     id: "TF" + Date.now().toString().slice(-6),
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     fromBankId: storeBankAccounts[0]?.id || "",
     toBankId: storeBankAccounts[1]?.id || storeBankAccounts[0]?.id || "",
     amount: 0,
@@ -9559,7 +9546,7 @@ function AssetsTab({ assets, setAssets }) {
 
   const blankForm = () => ({
     id: genId("AS", assets),
-    name: "", category: ASSET_CATEGORIES[0], purchaseDate: new Date().toISOString().slice(0, 10),
+    name: "", category: ASSET_CATEGORIES[0], purchaseDate: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     cost: 0, lifeYears: 5, depreciationMethod: "เส้นตรง", note: "",
   });
   const [form, setForm] = useState(blankForm());
@@ -10221,8 +10208,8 @@ function DeliveryTab({ deliveries, setDeliveries, customers, sales, products, co
 
   const blankItem = () => ({ id: "DI" + Date.now().toString().slice(-6) + Math.floor(Math.random() * 1000), productId: "", qty: 0, containerWeight: 0, containerType: "" });
   const blankForm = () => ({
-    id: genId("DV", deliveries, new Date().toISOString().slice(0, 10)),
-    date: new Date().toISOString().slice(0, 10),
+    id: genId("DV", deliveries, new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10)),
+    date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10),
     customerId: "",
     relatedSaleId: "",
     items: [blankItem()],
@@ -10595,7 +10582,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
   const dividendPaymentsThisYear = (dividendPayments || []).filter((d) => (d.date || "").startsWith(String(year)));
   const totalDividendPaidThisYear = dividendPaymentsThisYear.reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const [divPayForm, setDivPayForm] = useState(null); // {date, amount}
-  const openDivPayForm = () => setDivPayForm({ id: "DIV" + Date.now().toString().slice(-6), date: new Date().toISOString().slice(0, 10), amount: "" });
+  const openDivPayForm = () => setDivPayForm({ id: "DIV" + Date.now().toString().slice(-6), date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), amount: "" });
   const saveDivPayment = () => {
     if (!divPayForm || !(Number(divPayForm.amount) > 0)) return;
     setDividendPayments([...(dividendPayments || []), { ...divPayForm, amount: Number(divPayForm.amount) }]);
