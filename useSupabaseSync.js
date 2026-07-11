@@ -98,7 +98,10 @@ async function loadArrayTable(tableName, since = null) {
       .order('updated_at', { ascending: true })
       .range(from, from + PAGE - 1)
     if (since) query = query.gt('updated_at', since)
-    const { data, error } = await query
+    const { data, error } = await Promise.race([
+      query,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
+    ])
     if (error || !data) break
     all = all.concat(data.map(row => row.data))
     if (data.length < PAGE) break
