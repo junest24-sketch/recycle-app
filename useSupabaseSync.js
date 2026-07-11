@@ -134,15 +134,24 @@ export async function loadAllFromSupabase(since = null) {
   const result = {}
   await Promise.all(
     Object.entries(ARRAY_TABLES).map(async ([stateKey, tableName]) => {
-      result[stateKey] = await loadArrayTable(tableName, since)
+      try {
+        result[stateKey] = await loadArrayTable(tableName, since)
+      } catch (e) {
+        console.warn(`Failed to load table ${tableName}:`, e)
+        result[stateKey] = []
+      }
     })
   )
   // settings โหลดทั้งหมดเสมอ (ข้อมูลเล็กมาก)
   if (!since) {
     await Promise.all(
       SETTINGS_KEYS.map(async (key) => {
-        const val = await loadSettings(key)
-        if (val !== null) result[key] = val
+        try {
+          const val = await loadSettings(key)
+          if (val !== null) result[key] = val
+        } catch (e) {
+          console.warn(`Failed to load setting ${key}:`, e)
+        }
       })
     )
   }
