@@ -10990,7 +10990,9 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
                 cumulative = newCumulative;
                 return (
                   <tr key={m.month}>
-                    <td style={tdStyle}>{m.label}</td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600 }}>{m.label}</div>
+                    </td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>
                       <input
                         type="number"
@@ -11020,7 +11022,18 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalExpenses,0))}</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: yearlyNetProfitTotal >= 0 ? "#8B2020" : "#993c1d" }}>฿{fmt(yearlyNetProfitTotal)}</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#854f0b" }}>-฿{fmt(totalDividendPaidThisYear)}</td>
-              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(yearlyNetProfitTotal - totalDividendPaidThisYear)}</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>
+                {(() => {
+                  let cum = 0;
+                  yearlyMonths.forEach((m) => {
+                    const ym = `${year}-${String(m.month).padStart(2,"0")}`;
+                    const mc = Number(monthlyCarryForward[ym]) || 0;
+                    const div = dividendPaymentsThisYear.filter(d => new Date(d.date).getMonth()+1 === m.month).reduce((s,d) => s+(Number(d.amount)||0), 0);
+                    cum = cum + mc + m.netProfit - div;
+                  });
+                  return `฿${fmt(cum)}`;
+                })()}
+              </td>
             </tr>
           </tfoot>
         </table>
