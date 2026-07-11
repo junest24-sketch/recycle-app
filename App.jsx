@@ -506,9 +506,24 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
       events.push({ type: "withdraw", date: lot.date, ref: lot.id, productId: it.sourceProductId, qty: it.qty });
     });
   });
-  // เรียงตามวันที่ แล้วให้ "withdraw" มาก่อน "in"/"out" ในวันเดียวกัน เพื่อให้ลำดับสอดคล้องกับการตัดสต๊อกทันที
+  // เรียงตามวันที่ → ประเภท (in=0, withdraw=1, out=2) → เลขที่ใบ
+  // รับสินค้าเข้าสต็อกก่อนเสมอ ถึงแม้จะวันเดียวกันกับใบเบิก
   const typeOrder = { in: 0, withdraw: 1, out: 2 };
-  events.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (typeOrder[a.type] ?? 1) - (typeOrder[b.type] ?? 1)));
+  events.sort((a, b) => {
+    // 1. เรียงวันที่ก่อน
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    // 2. ประเภท: in ต้องมาก่อน withdraw ต้องมาก่อน out เสมอ
+    const typeA = typeOrder[a.type] ?? 1;
+    const typeB = typeOrder[b.type] ?? 1;
+    if (typeA !== typeB) return typeA - typeB;
+    // 3. ถ้าประเภทเดียวกัน เรียงตามเลขที่ใบ (stable)
+    const refA = (a.ref || "").replace(/\D/g, "");
+    const refB = (b.ref || "").replace(/\D/g, "");
+    const numA = parseInt(refA) || 0;
+    const numB = parseInt(refB) || 0;
+    if (numA !== numB) return numA - numB;
+    return (a.ref || "").localeCompare(b.ref || "");
+  });
 
   events.forEach((ev) => {
     if (!lots[ev.productId]) lots[ev.productId] = [];
@@ -541,9 +556,9 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
   });
 
   const summary = products.map((p) => {
-    const remaining = (lots[p.id] || []).reduce((s, l) => s + Math.max(0, l.qtyRemaining), 0);
-    const totalCost = (lots[p.id] || []).reduce((s, l) => s + Math.max(0, l.qtyRemaining) * l.unitCost, 0);
-    const avgCost = remaining > 0 ? totalCost / remaining : 0;
+    const remaining = Math.round((lots[p.id] || []).reduce((s, l) => s + Math.max(0, l.qtyRemaining), 0) * 1e6) / 1e6;
+    const totalCost = Math.round((lots[p.id] || []).reduce((s, l) => s + Math.max(0, l.qtyRemaining) * l.unitCost, 0) * 100) / 100;
+    const avgCost = remaining > 0 ? Math.round(totalCost / remaining * 100) / 100 : 0;
     return { productId: p.id, name: p.name, unit: p.unit, qty: remaining, totalCost, avgCost };
   });
 
