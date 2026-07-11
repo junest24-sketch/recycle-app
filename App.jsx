@@ -531,15 +531,15 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
       lots[ev.productId].push({ date: ev.date, ref: ev.ref, qtyRemaining: ev.qty, qtyOriginal: ev.qty, unitCost: ev.price });
       movements.push({ ...ev, balanceQty: null });
     } else {
-      let remainingToConsume = ev.qty;
+      let remainingToConsume = Math.round(ev.qty * 1e6) / 1e6;
       let costConsumed = 0;
       const queue = lots[ev.productId];
-      for (let i = 0; i < queue.length && remainingToConsume > 0; i++) {
+      for (let i = 0; i < queue.length && remainingToConsume > 1e-9; i++) {
         const lot = queue[i];
-        if (lot.qtyRemaining <= 0) continue;
-        const take = Math.min(lot.qtyRemaining, remainingToConsume);
+        if (lot.qtyRemaining <= 1e-9) continue;
+        const take = Math.round(Math.min(lot.qtyRemaining, remainingToConsume) * 1e6) / 1e6;
         lot.qtyRemaining = Math.round((lot.qtyRemaining - take) * 1e6) / 1e6;
-        costConsumed += take * lot.unitCost;
+        costConsumed = Math.round((costConsumed + take * lot.unitCost) * 1e6) / 1e6;
         remainingToConsume = Math.round((remainingToConsume - take) * 1e6) / 1e6;
       }
       const avgCostUsed = ev.qty > 0 ? costConsumed / ev.qty : 0;
@@ -1983,7 +1983,7 @@ export default function App() {
       <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} prepayments={prepayments} assets={assets} depositRefunds={depositRefunds} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
-        {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} />}
+        {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} withdrawals={withdrawals} />}
         {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} companySettings={companySettings} />}
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} companySettings={companySettings} setCompanySettings={setCompanySettings} bankTransfers={bankTransfers} />}
@@ -4086,7 +4086,7 @@ function CustomersTab({ customers, setCustomers }) {
 // ===================================================================
 // PURCHASES TAB (ใบรับสินค้า)
 // ===================================================================
-function PurchasesTab({ products, customers, purchases, setPurchases, storeBankAccounts, deposits, companySettings }) {
+function PurchasesTab({ products, customers, purchases, setPurchases, storeBankAccounts, deposits, companySettings, withdrawals }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -4159,6 +4159,22 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
   };
   const removePayment = (idx) => setForm({ ...form, payments: (form.payments || []).filter((_, i) => i !== idx) });
 
+  // ตรวจสอบว่า PO นี้มีใบเบิกที่อ้างอิงอยู่ไหม
+  const hasWithdrawal = (poId) => (withdrawals || []).some((wd) =>
+    (wd.items || []).some((it) => it.sourceProductId && wd.targetSaleId) ||
+    (wd.items || []).some((it) => it.fromPurchaseId === poId)
+  );
+
+  // ตรวจสอบว่าราคาในใบซื้อเปลี่ยนไหม
+  const isPriceChanged = (original, updated) => {
+    if (!original) return false;
+    return (original.items || []).some((origIt, idx) => {
+      const newIt = (updated.items || [])[idx];
+      if (!newIt) return false;
+      return Number(origIt.price) !== Number(newIt.price);
+    });
+  };
+
   const save = () => {
     if (!form.id.trim() || form.items.length === 0) return;
     const cleaned = {
@@ -4174,6 +4190,27 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
       }),
       payments: (form.payments || []).map((p) => ({ ...p, amount: Number(p.amount) || 0 })),
     };
+
+    // ถ้าแก้ไข ตรวจสอบการชำระและใบเบิก
+    if (modal.mode === "edit") {
+      const hasPaid = (modal.item.payments || []).length > 0;
+      if (hasPaid) {
+        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบรับสินค้า "${modal.item.id}" มีการชำระแล้ว\nกรุณายกเลิกการชำระก่อน จึงจะแก้ไขได้`);
+        return;
+      }
+      // ตรวจสอบราคาที่เปลี่ยน + มีใบเบิก
+      if (isPriceChanged(modal.item, cleaned)) {
+        const poProductIds = (cleaned.items || []).map(it => it.productId);
+        const hasRelatedWD = (withdrawals || []).some(wd =>
+          (wd.items || []).some(it => poProductIds.includes(it.sourceProductId))
+        );
+        if (hasRelatedWD) {
+          alert(`⚠️ ไม่สามารถแก้ไขราคาได้!\n\nสินค้าในใบรับสินค้า "${cleaned.id}" ถูกเบิกออกไปแล้ว\nกรุณาลบใบเบิกที่เกี่ยวข้องก่อน จึงจะแก้ไขราคาได้`);
+          return;
+        }
+      }
+    }
+
     if (modal.mode === "add") setPurchases([...purchases, cleaned]);
     else setPurchases(purchases.map((p) => (p.id === modal.item.id ? cleaned : p)));
     setModal(null);
@@ -5512,6 +5549,14 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
   const save = () => {
     if (!form.id.trim() || form.items.length === 0) return;
+    // ถ้าแก้ไข และมีการรับชำระแล้ว ห้ามแก้
+    if (modal.mode === "edit") {
+      const hasPaid = (modal.item.payments || []).length > 0;
+      if (hasPaid) {
+        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบขาย "${modal.item.id}" มีการรับชำระแล้ว\nกรุณายกเลิกการรับชำระก่อน จึงจะแก้ไขได้`);
+        return;
+      }
+    }
     const cleaned = {
       ...form,
       discount: Number(form.discount) || 0,
@@ -8236,6 +8281,14 @@ function ExpensesTab({ expenses, setExpenses, storeBankAccounts, loans, setLoans
     const items = (form.items || []).map((it) => ({ ...it, amount: Number(it.amount) || 0, vatEnabled: !!it.vatEnabled, whtRate: Number(it.whtRate) || 0 }));
     const totalAmount = items.reduce((s, it) => s + it.amount, 0);
     if (!(totalAmount > 0)) return;
+    // ถ้าแก้ไข และมีการชำระแล้ว ห้ามแก้
+    if (modal.mode === "edit") {
+      const hasPaid = (modal.item.payments || []).length > 0;
+      if (hasPaid) {
+        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nค่าใช้จ่าย "${modal.item.id}" มีการชำระแล้ว\nกรุณายกเลิกการชำระก่อน จึงจะแก้ไขได้`);
+        return;
+      }
+    }
     const cleaned = {
       ...form,
       items,
