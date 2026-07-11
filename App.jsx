@@ -7154,7 +7154,9 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
   const saveRefund = () => {
     if (!refundForm.customerId || !(Number(refundForm.amount) > 0)) return;
     const cleaned = { ...refundForm, amount: Number(refundForm.amount) || 0 };
-    setDepositRefunds([...depositRefunds, cleaned]);
+    const updated = [...depositRefunds, cleaned];
+    setDepositRefunds(updated);
+    saveToSupabase('depositRefunds', updated);
     setRefundModal(null);
   };
 
@@ -7178,6 +7180,18 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
 
   const filtered = deposits.filter((d) => custName(d.customerId).includes(search) || d.id.includes(search)).filter((d) => (!dateFrom || (d.date || "") >= dateFrom) && (!dateTo || (d.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
   const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
+
+  const filteredUsages = depositUsages
+    .filter(u => custName(u.customerId).includes(search) || u.poId.includes(search))
+    .filter(u => (!dateFrom || u.date >= dateFrom) && (!dateTo || u.date <= dateTo))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const { paged: pagedUsages, page: pageUsages, setPage: setPageUsages, totalPages: totalPagesUsages, total: totalUsages, start: startUsages, end: endUsages } = usePagination(filteredUsages);
+
+  const filteredRefunds = depositRefunds
+    .filter(r => custName(r.customerId).includes(search) || r.id.includes(search))
+    .filter(r => (!dateFrom || r.date >= dateFrom) && (!dateTo || r.date <= dateTo))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const { paged: pagedRefunds, page: pageRefunds, setPage: setPageRefunds, totalPages: totalPagesRefunds, total: totalRefunds, start: startRefunds, end: endRefunds } = usePagination(filteredRefunds);
 
   const fromLabel = (id) => {
     if (id === "CASH") return "เงินสดหน้าร้าน";
@@ -7255,7 +7269,28 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
         </Card>
       </div>
 
-      <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาลูกค้า หรือเลขที่รายการมัดจำ..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+        <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาลูกค้า หรือเลขที่รายการมัดจำ..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
+        <button style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: 6 }} onClick={() => {
+          // Excel รวมทุกรายการ
+          const rows = [["ประเภท", "วันที่", "ลูกค้า", "จำนวนเงิน", "บัญชี/จากไหน", "หมายเหตุ"]];
+          // จ่ายมัดจำ
+          [...deposits].sort((a,b) => b.date.localeCompare(a.date)).forEach(d => {
+            rows.push(["จ่ายมัดจำ", d.date, custName(d.customerId), Number(d.amount)||0, fromLabel(d.fromStoreBankId), d.note||""]);
+          });
+          // หักมัดจำ
+          [...depositUsages].sort((a,b) => b.date.localeCompare(a.date)).forEach(u => {
+            rows.push(["หักในใบซื้อ", u.date, custName(u.customerId), -(Number(u.amount)||0), u.poId, ""]);
+          });
+          // คืนมัดจำ
+          [...depositRefunds].sort((a,b) => b.date.localeCompare(a.date)).forEach(r => {
+            rows.push(["คืนเงินมัดจำ", r.date, custName(r.customerId), -(Number(r.amount)||0), fromLabel(r.toStoreBankId), r.note||""]);
+          });
+          exportExcel(rows, "ประวัติเงินมัดจำ.xlsx", "มัดจำ");
+        }}>
+          <FileSpreadsheet size={14} /> Excel ทุกรายการ
+        </button>
+      </div>
 
       <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>ประวัติการจ่ายมัดจำ</h3>
       <Card>
@@ -7301,7 +7336,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
       </Card>
       <Pagination page={page} totalPages={totalPages} setPage={setPage} total={total} start={start} end={end} />
 
-      {depositUsages.length > 0 && (
+      {filteredUsages.length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>ประวัติการหักมัดจำ (จากใบรับสินค้า)</h3>
           <Card>
@@ -7315,7 +7350,7 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
                 </tr>
               </thead>
               <tbody>
-                {depositUsages.map((u) => (
+                {pagedUsages.map((u) => (
                   <tr key={u.id}>
                     <td style={tdStyle}>{u.date}</td>
                     <td style={tdStyle}>{custName(u.customerId)}</td>
@@ -7324,8 +7359,59 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr style={{ background: "#f9fafb", borderTop: "2px solid #e5e7eb" }}>
+                  <td style={{ ...tdStyle, fontWeight: 700 }} colSpan={3}>รวมทั้งหมด ({filteredUsages.length} รายการ)</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(filteredUsages.reduce((s,u) => s+(Number(u.amount)||0), 0))}</td>
+                </tr>
+              </tfoot>
             </table>
           </Card>
+          <Pagination page={pageUsages} totalPages={totalPagesUsages} setPage={setPageUsages} total={totalUsages} start={startUsages} end={endUsages} />
+        </div>
+      )}
+
+      {filteredRefunds.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 10px" }}>ประวัติการคืนเงินมัดจำ</h3>
+          <Card>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>วันที่</th>
+                  <th style={thStyle}>ลูกค้า</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>จำนวนเงินที่คืน</th>
+                  <th style={thStyle}>โอนจากบัญชี</th>
+                  <th style={thStyle}>หมายเหตุ</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedRefunds.map((r) => (
+                  <tr key={r.id}>
+                    <td style={tdStyle}>{r.date}</td>
+                    <td style={tdStyle}>{custName(r.customerId)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: "#854f0b" }}>-฿{fmt(r.amount)}</td>
+                    <td style={tdStyle}>{fromLabel(r.toStoreBankId)}</td>
+                    <td style={{ ...tdStyle, color: "#6b7280" }}>{r.note || "-"}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบรายการคืนมัดจำของ "${custName(r.customerId)}" จำนวน ฿${fmt(r.amount)} ใช่หรือไม่?`, () => removeRefund(r.id))}>
+                        <Trash2 size={14} /> ลบ
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: "#fffbeb", borderTop: "2px solid #e5e7eb" }}>
+                  <td style={{ ...tdStyle, fontWeight: 700 }} colSpan={2}>รวมทั้งหมด ({filteredRefunds.length} รายการ)</td>
+                  <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#854f0b" }}>-฿{fmt(filteredRefunds.reduce((s,r) => s+(Number(r.amount)||0), 0))}</td>
+                  <td colSpan={3} style={tdStyle}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </Card>
+          <Pagination page={pageRefunds} totalPages={totalPagesRefunds} setPage={setPageRefunds} total={totalRefunds} start={startRefunds} end={endRefunds} />
         </div>
       )}
 
