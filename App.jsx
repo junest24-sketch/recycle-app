@@ -10986,7 +10986,8 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
                 const divThisMonth = dividendPaymentsThisYear
                   .filter(d => new Date(d.date).getMonth() + 1 === m.month)
                   .reduce((s, d) => s + (Number(d.amount) || 0), 0);
-                cumulative += m.netProfit - divThisMonth;
+                const newCumulative = carryForward + m.netProfit - divThisMonth;
+                cumulative = newCumulative;
                 return (
                   <tr key={m.month}>
                     <td style={tdStyle}>{m.label}</td>
@@ -11004,7 +11005,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
                     <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalExpenses)}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: m.netProfit >= 0 ? "#8B2020" : "#993c1d" }}>฿{fmt(m.netProfit)}</td>
                     <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b" }}>{divThisMonth > 0 ? `-฿${fmt(divThisMonth)}` : "-"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: (carryForward + m.netProfit - divThisMonth) >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(carryForward + m.netProfit - divThisMonth)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: newCumulative >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(newCumulative)}</td>
                   </tr>
                 );
               });
