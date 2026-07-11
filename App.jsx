@@ -10993,7 +10993,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
                     <td style={{ ...tdStyle, textAlign: "right" }}>
                       <input
                         type="number"
-                        style={{ ...inputStyle, width: 120, textAlign: "right", fontSize: 13 }}
+                        style={{ width: 120, textAlign: "right", fontSize: 13, border: "1px solid #d1d5db", borderRadius: 6, padding: "4px 8px" }}
                         value={manualCarry || ""}
                         placeholder="0"
                         onChange={(e) => setMonthlyCarryForward(ym, e.target.value)}
