@@ -3287,7 +3287,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
           const used = purchases.reduce((s, po) => s + (po.payments || [])
             .filter((p) => p.fromStoreBankId === "DEPOSIT")
             .reduce((s2, p) => s2 + (Number(p.amount) || 0), 0), 0);
-          return Math.max(0, openingTotal + newGiven - used);
+          const refunded = (depositRefunds || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+          return Math.max(0, openingTotal + newGiven - used - refunded);
         })();
 
         // รับล่วงหน้าคงเหลือ (ลูกค้าจ่ายให้ร้านล่วงหน้า)
@@ -3467,7 +3468,8 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                               const ob = customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
                               const inBefore = (deposits||[]).filter(d => d.date < dateRange.start).reduce((s,d) => s+(Number(d.amount)||0), 0);
                               const outBefore = purchases.reduce((s,po) => s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT"&&p.date<dateRange.start).reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0);
-                              return ob + inBefore - outBefore;
+                              const refundBefore = (depositRefunds||[]).filter(r => r.date < dateRange.start).reduce((s,r) => s+(Number(r.amount)||0), 0);
+                              return ob + inBefore - outBefore - refundBefore;
                             })()
                           : customers.reduce((s,c) => s + (Number(c.depositOpening)||0), 0);
                         const depIn = dateRange
@@ -3476,7 +3478,10 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                         const depOut = dateRange
                           ? purchases.reduce((s,po) => s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT"&&inRange(p.date)).reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0)
                           : purchases.reduce((s,po) => s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0), 0);
-                        const depBalance = depOpening + depIn - depOut;
+                        const depRefund = dateRange
+                          ? (depositRefunds||[]).filter(r => inRange(r.date)).reduce((s,r) => s+(Number(r.amount)||0), 0)
+                          : (depositRefunds||[]).reduce((s,r) => s+(Number(r.amount)||0), 0);
+                        const depBalance = depOpening + depIn - depOut - depRefund;
                         return (
                           <tr style={{ background: "#fffbeb" }}>
                             <td style={{ ...tdStyle, fontWeight: 700, color: "#854f0b", display: "flex", alignItems: "center", gap: 6 }}>
@@ -3485,7 +3490,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                             <td style={tdStyle}></td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#6b7280" }}>{depOpening !== 0 ? `฿${fmt(depOpening)}` : "-"}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#8B2020" }}>+฿{fmt(depIn)}</td>
-                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(depOut)}</td>
+                            <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#993c1d" }}>-฿{fmt(depOut)}{depRefund > 0 ? ` / คืน -฿${fmt(depRefund)}` : ""}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, fontSize: 15, color: "#854f0b" }}>฿{fmt(depBalance)}</td>
                           </tr>
                         );
@@ -10610,6 +10615,13 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [reportView, setReportView] = useState("monthly"); // "monthly" | "yearly"
   const [editingShareholders, setEditingShareholders] = useState(false);
+
+  // ยอดยกมารายเดือน: { "2026-01": 100000, "2026-02": 150000, ... }
+  const monthlyCarryForward = companySettings?.monthlyCarryForward || {};
+  const setMonthlyCarryForward = (ym, value) => {
+    const updated = { ...monthlyCarryForward, [ym]: Number(value) || 0 };
+    setCompanySettings((prev) => ({ ...prev, monthlyCarryForward: updated }));
+  };
   const openingRevenue = Number(companySettings?.openingRevenue) || 0;
   const openingCost = Number(companySettings?.openingCost) || 0;
   const openingMonth = companySettings?.openingMonth || "";
@@ -10955,6 +10967,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           <thead>
             <tr>
               <th style={thStyle}>เดือน</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#185fa5" }}>ยอดยกมา</th>
               <th style={{ ...thStyle, textAlign: "right" }}>รวมรายได้</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุนขาย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ค่าใช้จ่าย</th>
@@ -10967,22 +10980,31 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
             {(() => {
               let cumulative = 0;
               return yearlyMonths.map((m) => {
+                const ym = `${year}-${String(m.month).padStart(2,"0")}`;
+                const manualCarry = Number(monthlyCarryForward[ym]) || 0;
+                const carryForward = cumulative + manualCarry;
                 const divThisMonth = dividendPaymentsThisYear
-                  .filter(d => {
-                    const dm = new Date(d.date).getMonth() + 1;
-                    return dm === m.month;
-                  })
+                  .filter(d => new Date(d.date).getMonth() + 1 === m.month)
                   .reduce((s, d) => s + (Number(d.amount) || 0), 0);
                 cumulative += m.netProfit - divThisMonth;
                 return (
                   <tr key={m.month}>
                     <td style={tdStyle}>{m.label}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>
+                      <input
+                        type="number"
+                        style={{ ...inputStyle, width: 120, textAlign: "right", fontSize: 13 }}
+                        value={manualCarry || ""}
+                        placeholder="0"
+                        onChange={(e) => setMonthlyCarryForward(ym, e.target.value)}
+                      />
+                    </td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalIncome)}</td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalCost)}</td>
                     <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalExpenses)}</td>
                     <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: m.netProfit >= 0 ? "#8B2020" : "#993c1d" }}>฿{fmt(m.netProfit)}</td>
                     <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b" }}>{divThisMonth > 0 ? `-฿${fmt(divThisMonth)}` : "-"}</td>
-                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: cumulative >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(cumulative)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: (carryForward + m.netProfit - divThisMonth) >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(carryForward + m.netProfit - divThisMonth)}</td>
                   </tr>
                 );
               });
@@ -10991,6 +11013,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
           <tfoot>
             <tr>
               <td style={{ ...tdStyle, fontWeight: 700 }}>รวมทั้งปี</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>-</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalIncome,0))}</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalCost,0))}</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalExpenses,0))}</td>
