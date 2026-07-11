@@ -1621,7 +1621,7 @@ export default function App() {
       mergeOrSet(setSales, data.sales)
       mergeOrSet(setWithdrawals, data.withdrawals)
       mergeOrSet(setDeposits, data.deposits)
-      if (data.depositRefunds && data.depositRefunds.length > 0) mergeOrSet(setDepositRefunds, data.depositRefunds)
+      if (data.depositRefunds) mergeOrSet(setDepositRefunds, data.depositRefunds)
       mergeOrSet(setBankTransfers, data.bankTransfers)
       mergeOrSet(setExpenses, data.expenses)
       mergeOrSet(setLoans, data.loans)
@@ -10951,7 +10951,7 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "20px 24px", marginBottom: 20 }}>
         <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>กำไรสุทธิรายเดือน — ปี {year}</h3>
         <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
           <thead>
             <tr>
               <th style={thStyle}>เดือน</th>
@@ -10959,18 +10959,34 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
               <th style={{ ...thStyle, textAlign: "right" }}>ต้นทุนขาย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>ค่าใช้จ่าย</th>
               <th style={{ ...thStyle, textAlign: "right" }}>กำไรสุทธิ</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#854f0b" }}>จ่ายปันผล</th>
+              <th style={{ ...thStyle, textAlign: "right", color: "#185fa5" }}>กำไรสะสม</th>
             </tr>
           </thead>
           <tbody>
-            {yearlyMonths.map((m) => (
-              <tr key={m.month}>
-                <td style={tdStyle}>{m.label}</td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalIncome)}</td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalCost)}</td>
-                <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalExpenses)}</td>
-                <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: m.netProfit >= 0 ? "#8B2020" : "#993c1d" }}>฿{fmt(m.netProfit)}</td>
-              </tr>
-            ))}
+            {(() => {
+              let cumulative = 0;
+              return yearlyMonths.map((m) => {
+                const divThisMonth = dividendPaymentsThisYear
+                  .filter(d => {
+                    const dm = new Date(d.date).getMonth() + 1;
+                    return dm === m.month;
+                  })
+                  .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+                cumulative += m.netProfit - divThisMonth;
+                return (
+                  <tr key={m.month}>
+                    <td style={tdStyle}>{m.label}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalIncome)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalCost)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right" }}>฿{fmt(m.totalExpenses)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: m.netProfit >= 0 ? "#8B2020" : "#993c1d" }}>฿{fmt(m.netProfit)}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", color: "#854f0b" }}>{divThisMonth > 0 ? `-฿${fmt(divThisMonth)}` : "-"}</td>
+                    <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600, color: cumulative >= 0 ? "#185fa5" : "#993c1d" }}>฿{fmt(cumulative)}</td>
+                  </tr>
+                );
+              });
+            })()}
           </tbody>
           <tfoot>
             <tr>
@@ -10979,6 +10995,8 @@ function MonthlyReportTab({ purchases, sales, expenses, deposits, inventory, exp
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalCost,0))}</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700 }}>฿{fmt(yearlyMonths.reduce((s,m)=>s+m.totalExpenses,0))}</td>
               <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: yearlyNetProfitTotal >= 0 ? "#8B2020" : "#993c1d" }}>฿{fmt(yearlyNetProfitTotal)}</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#854f0b" }}>-฿{fmt(totalDividendPaidThisYear)}</td>
+              <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5" }}>฿{fmt(yearlyNetProfitTotal - totalDividendPaidThisYear)}</td>
             </tr>
           </tfoot>
         </table>
