@@ -9,7 +9,7 @@ import {
   LayoutDashboard, ShoppingBag, BarChart3, BadgeDollarSign, ArrowLeftRight,
   Building2, ScrollText, PieChart, Settings, Tag, ClipboardList, Banknote
 } from "lucide-react";
-import { isSupabaseReady } from './supabase'
+import { isSupabaseReady, uploadIdCardImage, deleteIdCardImageByUrl } from './supabase'
 import { useSupabaseSync, loadAllFromSupabase, useSyncStatus, saveToSupabase } from './useSupabaseSync'
 import { loadProducts, insertProduct, updateProduct, deleteProduct, useProductsRealtime } from './useProductsSync'
 // ---------- Seed data ----------
@@ -3867,6 +3867,7 @@ function CustomersTab({ customers, setCustomers }) {
   const [viewIdCard, setViewIdCard] = useState(null); // รูปบัตรประชาชนที่เปิดดูเต็ม
   const blank = { id: "", name: "", taxId: "", address: "", phone: "", line: "", email: "", deliveries: 0, bankAccounts: [], idCardImage: "" };
   const [form, setForm] = useState(blank);
+  const [uploadingIdCard, setUploadingIdCard] = useState(false);
 
   const filtered = [...customers].filter((c) => c.name.includes(search) || c.id.includes(search) || (c.phone || "").includes(search)).sort((a, b) => { const na = parseInt((a.id || "").replace(/\D/g, "")) || 0; const nb = parseInt((b.id || "").replace(/\D/g, "")) || 0; return nb - na; });
 
@@ -3882,13 +3883,25 @@ function CustomersTab({ customers, setCustomers }) {
 
   const remove = (id) => setCustomers(customers.filter((c) => c.id !== id));
 
-  // รับรูปภาพบัตรประชาชนและแปลงเป็น base64
-  const handleIdCardImage = (e) => {
+  // อัปโหลดรูปภาพบัตรประชาชนขึ้น Supabase Storage แล้วเก็บแค่ URL ในฟอร์ม
+  // (เดิมแปลงเป็น base64 ฝังในตาราง customers ทำให้แถวข้อมูลบวมจน query timeout)
+  const handleIdCardImage = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setForm((f) => ({ ...f, idCardImage: ev.target.result }));
-    reader.readAsDataURL(file);
+    if (!isSupabaseReady) {
+      alert("ยังไม่ได้ตั้งค่า Supabase — ไม่สามารถอัปโหลดรูปภาพได้");
+      return;
+    }
+    setUploadingIdCard(true);
+    const oldUrl = form.idCardImage;
+    const url = await uploadIdCardImage(file, form.id || "temp");
+    setUploadingIdCard(false);
+    if (!url) {
+      alert("อัปโหลดรูปภาพไม่สำเร็จ ลองใหม่อีกครั้ง");
+      return;
+    }
+    if (oldUrl) deleteIdCardImageByUrl(oldUrl);
+    setForm((f) => ({ ...f, idCardImage: url }));
   };
 
   // --- จัดการบัญชีธนาคารของลูกค้า (หลายบัญชี) ---
@@ -4050,16 +4063,16 @@ function CustomersTab({ customers, setCustomers }) {
                 )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <label style={{ ...btnSecondary, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                  <Download size={14} /> อัปโหลดรูปบัตรประชาชน
-                  <input type="file" accept="image/*" onChange={handleIdCardImage} style={{ display: "none" }} />
+                <label style={{ ...btnSecondary, cursor: uploadingIdCard ? "not-allowed" : "pointer", opacity: uploadingIdCard ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                  <Download size={14} /> {uploadingIdCard ? "กำลังอัปโหลด..." : "อัปโหลดรูปบัตรประชาชน"}
+                  <input type="file" accept="image/*" onChange={handleIdCardImage} disabled={uploadingIdCard} style={{ display: "none" }} />
                 </label>
-                {form.idCardImage && (
-                  <button style={btnDanger} onClick={() => setForm((f) => ({ ...f, idCardImage: "" }))}>
+                {form.idCardImage && !uploadingIdCard && (
+                  <button style={btnDanger} onClick={() => { deleteIdCardImageByUrl(form.idCardImage); setForm((f) => ({ ...f, idCardImage: "" })); }}>
                     <X size={14} /> ลบรูปภาพ
                   </button>
                 )}
-                <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>รองรับ JPG, PNG, WEBP (รูปจะเก็บในระบบ)</p>
+                <p style={{ fontSize: 11, color: "#9ca3af", margin: 0 }}>รองรับ JPG, PNG, WEBP (รูปจะเก็บใน Supabase Storage)</p>
               </div>
             </div>
           </div>
