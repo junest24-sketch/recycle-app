@@ -63,7 +63,12 @@ export function useSyncStatus() {
   return status
 }
 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
 // ---------- Array table helpers ----------
+
+// เพิ่ม retry: ถ้า batch ไหน error จะลองใหม่สูงสุด 3 ครั้งก่อนยอมแพ้
+// (เดิม: error ปุ๊บ return false ทันที ไม่มีการลองใหม่ -> batch ที่เหลือไม่เคยถูกบันทึก)
 async function saveArrayTable(tableName, items) {
   if (!isSupabaseReady || !Array.isArray(items) || items.length === 0) return true
   const rows = items.map(item => ({
@@ -72,10 +77,21 @@ async function saveArrayTable(tableName, items) {
     updated_at: new Date().toISOString(),
   }))
   const BATCH = 50
+  const MAX_ATTEMPTS = 3
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH)
-    const { error } = await supabase.from(tableName).upsert(batch, { onConflict: 'id' })
-    if (error) return false
+    let lastError = null
+    let ok = false
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const { error } = await supabase.from(tableName).upsert(batch, { onConflict: 'id' })
+      if (!error) { ok = true; break }
+      lastError = error
+      if (attempt < MAX_ATTEMPTS) await sleep(500 * attempt) // backoff แบบง่าย
+    }
+    if (!ok) {
+      console.error(`saveArrayTable: บันทึก ${tableName} ล้มเหลวหลัง retry ${MAX_ATTEMPTS} ครั้ง`, lastError)
+      return false // หยุดที่ batch นี้ แต่ batch ก่อนหน้าที่สำเร็จแล้วจะไม่ถูกย้อนกลับ
+    }
   }
   return true
 }
@@ -86,6 +102,13 @@ async function deleteArrayRow(tableName, id) {
   return !error
 }
 
+// สำคัญ: เดิมฟังก์ชันนี้ถ้า error/timeout จะ `break` เงียบๆ แล้วคืนข้อมูล "บางส่วน"
+// ที่โหลดมาได้ ทำให้ผู้เรียก (โดยเฉพาะปุ่ม "โหลดข้อมูลล่าสุด") เอาข้อมูลไม่ครบไป
+// set state ทับของเดิม แล้วระบบ sync ก็เข้าใจผิดว่าแถวที่หายไปคือถูกลบ แล้วไปลบ
+// จริงใน Supabase — นี่คือสาเหตุหลักที่ทำให้ข้อมูลหาย
+//
+// ตอนนี้แก้เป็น: ถ้าโหลดหน้าไหนล้มเหลว จะ throw error ออกไปทันที ไม่คืนข้อมูลบางส่วน
+// ผู้เรียกต้อง catch แล้ว "ไม่" เอาผลลัพธ์ไปทับ state เดิม
 async function loadArrayTable(tableName, since = null) {
   if (!isSupabaseReady) return []
   const PAGE = 1000
@@ -98,11 +121,24 @@ async function loadArrayTable(tableName, since = null) {
       .order('updated_at', { ascending: true })
       .range(from, from + PAGE - 1)
     if (since) query = query.gt('updated_at', since)
-    const { data, error } = await Promise.race([
-      query,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000))
-    ])
-    if (error || !data) break
+
+    let data, error
+    try {
+      const result = await Promise.race([
+        query,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000))
+      ])
+      data = result.data
+      error = result.error
+    } catch (e) {
+      error = e
+    }
+
+    if (error || !data) {
+      // เดิม: break (คืนข้อมูลบางส่วนเงียบๆ) — ตอนนี้: throw เพื่อบังคับให้ผู้เรียกจัดการ
+      throw new Error(`โหลดตาราง ${tableName} ไม่สำเร็จ (from=${from}): ${error?.message || error}`)
+    }
+
     all = all.concat(data.map(row => row.data))
     if (data.length < PAGE) break
     from += PAGE
@@ -132,20 +168,26 @@ async function loadSettings(key) {
 }
 
 // ---------- loadAllFromSupabase ----------
+// เดิม: ถ้าโหลด table ไหนพัง จะ catch แล้วเซ็ตเป็น [] เงียบๆ (ก็อันตรายพอกัน
+// เพราะถ้าใครเอาไปใช้แบบ replace ทั้งก้อน จะเท่ากับลบข้อมูลทั้งตาราง)
+// ตอนนี้: ถ้า table ไหนโหลดพัง จะไม่ใส่ key นั้นใน result เลย (แทนที่จะเป็น [])
+// เพื่อให้โค้ดฝั่งเรียกรู้ชัดเจนว่า "ไม่มีข้อมูลใหม่มา" ไม่ใช่ "ข้อมูลว่างเปล่าจริงๆ"
+// และไม่ควรเอาไปทับ state เดิมที่มีอยู่แล้ว
 export async function loadAllFromSupabase(since = null) {
   if (!isSupabaseReady) return null
   const result = {}
+  const failedTables = []
   await Promise.all(
     Object.entries(ARRAY_TABLES).map(async ([stateKey, tableName]) => {
       try {
         result[stateKey] = await loadArrayTable(tableName, since)
       } catch (e) {
-        console.warn(`Failed to load table ${tableName}:`, e)
-        result[stateKey] = []
+        console.error(`Failed to load table ${tableName}, will NOT overwrite local data:`, e)
+        failedTables.push(stateKey)
+        // ไม่ตั้ง result[stateKey] เลย — ปล่อยให้ผู้เรียกเห็นว่า key นี้ไม่มีข้อมูลใหม่
       }
     })
   )
-  // settings โหลดทั้งหมดเสมอ (ข้อมูลเล็กมาก)
   if (!since) {
     await Promise.all(
       SETTINGS_KEYS.map(async (key) => {
@@ -157,6 +199,9 @@ export async function loadAllFromSupabase(since = null) {
         }
       })
     )
+  }
+  if (failedTables.length > 0) {
+    result._failedTables = failedTables // flag ให้ฝั่งเรียกรู้ว่ามีตารางที่โหลดไม่สำเร็จ
   }
   return result
 }
@@ -170,6 +215,36 @@ export async function saveToSupabase(key, items) {
   if (SETTINGS_KEYS.includes(key)) return await saveSettings(key, items)
 }
 
+// ---------- patchCustomerField ----------
+// ใช้สำหรับแก้ "แค่บางฟิลด์" ของลูกค้า 1 คน (เช่น depositOpening, prepaymentOpening)
+// โดยไม่เอา customers array ทั้งก้อนจาก local state ไปเขียนทับ
+//
+// เหตุผล: ลูกค้าแต่ละคนถูกเก็บเป็น 1 แถว JSON เดียวในตาราง customers ถ้าเขียนทับ
+// ทั้งแถวโดยอิงจากสำเนาในเครื่องที่อาจไม่ทันสมัย (เช่น อีกอุปกรณ์เพิ่งแก้ไปหมาดๆ)
+// ฟิลด์ที่อีกฝั่งเพิ่งตั้งไว้จะหายไปทันที ฟังก์ชันนี้จึงดึงแถวล่าสุดจาก Supabase มา
+// merge เฉพาะฟิลด์ที่ต้องการเปลี่ยน แล้วเขียนกลับเฉพาะแถวนั้นแถวเดียว
+export async function patchCustomerField(customerId, fieldsToMerge) {
+  if (!isSupabaseReady || !customerId) return { ok: false }
+  const { data: row, error: fetchErr } = await supabase
+    .from('customers')
+    .select('data')
+    .eq('id', customerId)
+    .single()
+  if (fetchErr || !row) {
+    console.error('patchCustomerField: ดึงข้อมูลลูกค้าล่าสุดไม่สำเร็จ', fetchErr)
+    return { ok: false }
+  }
+  const merged = { ...row.data, ...fieldsToMerge, _updated_by: DEVICE_ID }
+  const { error } = await supabase
+    .from('customers')
+    .upsert({ id: customerId, data: merged, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+  if (error) {
+    console.error('patchCustomerField: เขียนกลับไม่สำเร็จ', error)
+    return { ok: false }
+  }
+  return { ok: true, customer: merged }
+}
+
 // ---------- useSupabaseSync ----------
 export function useSupabaseSync(key, value, setValue, loaded) {
   const valueRef = useRef(value)
@@ -180,7 +255,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   const maxWaitTimer = useRef(null)
   const isFirstRender = useRef(true)
   const isSaving = useRef(false)
-  const isRealtimeUpdate = useRef(false) // flag: value เปลี่ยนจาก realtime ไม่ต้อง save กลับ
+  const isRealtimeUpdate = useRef(false) // flag: value เปลี่ยนจาก realtime/reload ไม่ต้อง save กลับ
 
   const tableName = ARRAY_TABLES[key]
   const isArrayTable = !!tableName
@@ -195,7 +270,7 @@ export function useSupabaseSync(key, value, setValue, loaded) {
       return
     }
 
-    // ถ้า value เปลี่ยนจาก realtime update → ไม่ต้อง save กลับ
+    // ถ้า value เปลี่ยนจาก realtime update หรือ manual reload → ไม่ต้อง save กลับ
     if (isRealtimeUpdate.current) {
       isRealtimeUpdate.current = false
       prevValueRef.current = value
@@ -259,7 +334,6 @@ export function useSupabaseSync(key, value, setValue, loaded) {
   // ---------- REALTIME (เฉพาะ table ที่กำหนด) ----------
   useEffect(() => {
     if (!isSupabaseReady || !loaded) return
-    // ปิด realtime สำหรับ table ที่อยู่ใน STATIC_TABLES
     if (isArrayTable && !REALTIME_TABLES.has(tableName)) return
 
     if (isArrayTable) {
