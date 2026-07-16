@@ -119,6 +119,11 @@ async function loadArrayTable(tableName, since = null) {
       .from(tableName)
       .select('data, id')
       .order('updated_at', { ascending: true })
+      .order('id', { ascending: true }) // ตัวเรียงลำดับสำรอง กันแถวตกหล่นตอนแบ่งหน้า
+                                          // (ถ้าเรียงแค่ updated_at อย่างเดียว แล้วมีหลายแถว
+                                          // ที่ updated_at เท่ากันเป๊ะ Postgres ไม่การันตีลำดับ
+                                          // เดิมซ้ำทุกครั้ง -> ตอนแบ่งหน้าด้วย range() อาจมีแถว
+                                          // ตกหล่นตรงรอยต่อของหน้าโดยไม่มี error ใดๆ เลย)
       .range(from, from + PAGE - 1)
     if (since) query = query.gt('updated_at', since)
 
@@ -298,14 +303,38 @@ export function useSupabaseSync(key, value, setValue, loaded) {
           const currentIds = new Set(current.filter(x => x.id).map(x => x.id))
           const deleted = prev.filter(x => x.id && !currentIds.has(x.id))
 
+          // ---------- เบรกฉุกเฉิน: กันลบข้อมูลจำนวนมากผิดปกติในทีเดียว ----------
+          // ถ้าบั๊กอื่นที่ยังไม่รู้ตัว (เช่น pagination, race condition ฯลฯ) ทำให้
+          // current ดูเหมือนข้อมูลหายไปเยอะผิดปกติ อย่าเพิ่งเชื่อและลบตาม ให้บล็อกไว้ก่อน
+          // แล้วแจ้งเตือนแทน ดีกว่าลบข้อมูลจริงไปแล้วต้องมานั่งกู้คืนทีหลัง
+          const DELETE_COUNT_THRESHOLD = 10
+          const DELETE_RATIO_THRESHOLD = 0.2 // ลบเกิน 20% ของของเดิมในทีเดียว = น่าสงสัย
+          const suspiciousMassDelete =
+            deleted.length >= DELETE_COUNT_THRESHOLD &&
+            prev.length > 0 &&
+            (deleted.length / prev.length) >= DELETE_RATIO_THRESHOLD
+
           let ok = true
           if (changed.length > 0) ok = await saveArrayTable(tableName, changed)
-          for (const item of deleted) {
-            const r = await deleteArrayRow(tableName, item.id)
-            if (!r) ok = false
+
+          if (suspiciousMassDelete) {
+            console.error(
+              `[SAFETY GUARD] บล็อกการลบข้อมูลจำนวนมากผิดปกติในตาราง "${tableName}": ` +
+              `จะลบ ${deleted.length}/${prev.length} แถว (${Math.round(deleted.length / prev.length * 100)}%) — ` +
+              `ไม่ดำเนินการลบ กรุณาตรวจสอบด้วยตนเองก่อน (อาจเป็นบั๊กโหลดข้อมูลไม่ครบ ไม่ใช่ผู้ใช้ลบจริง)`,
+              deleted
+            )
+            ok = false
+            // ไม่ update prevValueRef ด้วย current (ที่อาจไม่ครบ) เพื่อไม่ให้รอบถัดไป
+            // เข้าใจผิดว่าของที่ "รอด" ตอนนี้คือของครบแล้ว จะได้ยังตรวจจับซ้ำได้อีก
+          } else {
+            for (const item of deleted) {
+              const r = await deleteArrayRow(tableName, item.id)
+              if (!r) ok = false
+            }
+            prevValueRef.current = [...current]
           }
           success = ok
-          prevValueRef.current = [...current]
           if (ok) try { localStorage.removeItem('app_cache_v1') } catch (e) {}
         } else if (isSettingsKey) {
           success = await saveSettings(key, valueRef.current)
