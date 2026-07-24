@@ -10,7 +10,7 @@ import {
   Building2, ScrollText, PieChart, Settings, Tag, ClipboardList, Banknote
 } from "lucide-react";
 import { isSupabaseReady, uploadIdCardImage, deleteIdCardImageByUrl } from './supabase'
-import { useSupabaseSync, loadAllFromSupabase, useSyncStatus, saveToSupabase } from './useSupabaseSync'
+import { useSupabaseSync, loadAllFromSupabase, useSyncStatus, saveToSupabase, patchCustomerField } from './useSupabaseSync'
 import { loadProducts, insertProduct, updateProduct, deleteProduct, useProductsRealtime } from './useProductsSync'
 // ---------- Seed data ----------
 const initialProducts = [];
@@ -3874,11 +3874,25 @@ function CustomersTab({ customers, setCustomers }) {
   const openAdd = () => { setForm({ ...blank, id: genSeqId("C", customers) }); setModal({ mode: "add" }); };
   const openEdit = (item) => { setForm(JSON.parse(JSON.stringify({ ...blank, ...item }))); setModal({ mode: "edit", item }); };
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return;
-    if (modal.mode === "add") setCustomers([...customers, { ...form, deliveries: Number(form.deliveries) || 0 }]);
-    else setCustomers(customers.map((c) => (c.id === modal.item.id ? { ...form, deliveries: Number(form.deliveries) || 0 } : c)));
+    if (modal.mode === "add") {
+      const newCustomer = { ...form, deliveries: Number(form.deliveries) || 0 };
+      setCustomers([...customers, newCustomer]);
+      setModal(null);
+      await saveToSupabase('customers', [newCustomer]);
+      return;
+    }
+    // โหมดแก้ไข: merge เฉพาะฟิลด์ที่ฟอร์มนี้ดูแล เข้ากับข้อมูลลูกค้าล่าสุดจาก Supabase
+    // แทนที่จะเขียนทับทั้งแถวด้วยสำเนาในเครื่อง (กันไม่ให้ฟิลด์อื่น เช่น
+    // depositOpening/prepaymentOpening ที่อีกอุปกรณ์เพิ่งตั้งไว้ หายไปเวลาแก้ข้อมูลพื้นฐาน)
+    const patch = { ...form, deliveries: Number(form.deliveries) || 0 };
+    setCustomers(customers.map((c) => (c.id === modal.item.id ? { ...c, ...patch } : c))); // อัปเดต UI ทันที
     setModal(null);
+    const result = await patchCustomerField(modal.item.id, patch);
+    if (!result.ok) {
+      alert('บันทึกข้อมูลลูกค้าไม่สำเร็จ (เช็คอินเทอร์เน็ต) กรุณาลองใหม่อีกครั้ง');
+    }
   };
 
   const remove = (id) => setCustomers(customers.filter((c) => c.id !== id));
@@ -4111,6 +4125,17 @@ function PurchasesTab({ products, customers, purchases, setPurchases, storeBankA
   const [dateTo, setDateTo] = useState("");
   const [expanded, setExpanded] = useState(null);
 
+  // ใช้เช็คว่า "ใบรับสินค้าใบนี้โดยเฉพาะ" (ไม่ใช่แค่สินค้าชนิดเดียวกันจากใบอื่น)
+  // มีการเบิกออกไปจริงหรือยัง โดยดูจาก lot ของสต๊อกที่ผูกกับเลขที่ใบนี้ตรงๆ
+  // (sales ไม่ถูกใช้ในการคำนวณ FIFO ของฟังก์ชันนี้ จึงส่ง [] แทนได้)
+  const inventory = useMemo(() => computeInventory(products, purchases, [], withdrawals), [products, purchases, withdrawals]);
+  const isPOConsumed = (poId) => {
+    if (!poId) return false;
+    return Object.values(inventory.lots || {}).some((productLots) =>
+      (productLots || []).some((lot) => lot.ref === poId && lot.qtyRemaining < lot.qtyOriginal - 1e-9)
+    );
+  };
+
   const blankItem = () => ({ productId: "", qty: 0, deductPct: 0, deductKg: 0, price: 0 });
   const blankPayment = () => ({
     id: "PM" + Date.now().toString().slice(-6),
@@ -4216,13 +4241,12 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
         alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบรับสินค้า "${modal.item.id}" มีการชำระแล้ว\nกรุณายกเลิกการชำระก่อน จึงจะแก้ไขได้`);
         return;
       }
-      // ตรวจสอบราคาที่เปลี่ยน + มีใบเบิก
+      // ตรวจสอบราคาที่เปลี่ยน + ใบรับสินค้าใบนี้ถูกเบิกออกไปแล้วจริงหรือไม่
+      // (เดิม: เช็คแค่ว่าสินค้า "ชนิดเดียวกัน" เคยถูกเบิกจากใบไหนก็ได้ -> ทำให้ใบรับสินค้าใหม่
+      // ที่ยังไม่เคยถูกแตะเลย แจ้งเตือนผิดพลาดว่าถูกเบิกไปแล้ว ถ้าสินค้าแบบเดียวกันเคยถูกเบิก
+      // จากใบอื่นมาก่อนหน้านี้ ตอนนี้เช็คเฉพาะ lot ที่ผูกกับใบรับสินค้าใบนี้โดยตรงเท่านั้น)
       if (isPriceChanged(modal.item, cleaned)) {
-        const poProductIds = (cleaned.items || []).map(it => it.productId);
-        const hasRelatedWD = (withdrawals || []).some(wd =>
-          (wd.items || []).some(it => poProductIds.includes(it.sourceProductId))
-        );
-        if (hasRelatedWD) {
+        if (isPOConsumed(modal.item.id)) {
           alert(`⚠️ ไม่สามารถแก้ไขราคาได้!\n\nสินค้าในใบรับสินค้า "${cleaned.id}" ถูกเบิกออกไปแล้ว\nกรุณาลบใบเบิกที่เกี่ยวข้องก่อน จึงจะแก้ไขราคาได้`);
           return;
         }
@@ -5567,11 +5591,13 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
   const save = () => {
     if (!form.id.trim() || form.items.length === 0) return;
-    // ถ้าแก้ไข และมีการรับชำระแล้ว ห้ามแก้
+    // ถ้าแก้ไข และรับชำระครบแล้ว ห้ามแก้ (ถ้ายังรับชำระไม่ครบ ยังแก้ไขได้ปกติ)
     if (modal.mode === "edit") {
+      const orig = calcInvoiceTotals(modal.item);
       const hasPaid = (modal.item.payments || []).length > 0;
-      if (hasPaid) {
-        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบขาย "${modal.item.id}" มีการรับชำระแล้ว\nกรุณายกเลิกการรับชำระก่อน จึงจะแก้ไขได้`);
+      const isFullyPaid = hasPaid && orig.remaining <= 0.009; // เผื่อ error ทศนิยมเล็กน้อย
+      if (isFullyPaid) {
+        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบขาย "${modal.item.id}" รับชำระครบแล้ว\nกรุณายกเลิกการรับชำระก่อน จึงจะแก้ไขได้`);
         return;
       }
     }
@@ -7279,12 +7305,18 @@ function DepositsTab({ customers, setCustomers, deposits, setDeposits, purchases
 
   const openOpeningModal = () => setOpeningModal({ customerId: customers[0]?.id || "", amount: "" });
   const editOpeningModal = (customerId, currentValue) => setOpeningModal({ customerId, amount: String(currentValue || 0) });
-  const saveOpening = () => {
+  const saveOpening = async () => {
     if (!openingModal || !openingModal.customerId) return;
-    const updated = customers.map((c) => c.id === openingModal.customerId ? { ...c, depositOpening: Number(openingModal.amount) || 0 } : c);
-    setCustomers(updated);
-    saveToSupabase('customers', updated);
+    const amount = Number(openingModal.amount) || 0;
+    // อัปเดต UI ทันที (optimistic)
+    setCustomers(prev => prev.map((c) => c.id === openingModal.customerId ? { ...c, depositOpening: amount } : c));
     setOpeningModal(null);
+    // เขียนกลับเฉพาะฟิลด์นี้ โดยดึงข้อมูลลูกค้าล่าสุดจาก Supabase มา merge ก่อน
+    // กันไม่ให้ทับฟิลด์อื่นที่อาจเพิ่งถูกแก้จากอีกอุปกรณ์
+    const result = await patchCustomerField(openingModal.customerId, { depositOpening: amount });
+    if (!result.ok) {
+      alert('บันทึกยอดยกมาไม่สำเร็จ (เช็คอินเทอร์เน็ต) กรุณาลองใหม่อีกครั้ง');
+    }
   };
 
   return (
@@ -8092,9 +8124,17 @@ function PrepaymentsTab({ customers, setCustomers, prepayments, setPrepayments, 
           <Field label="ยอดยกมา (บาท)"><NumInput style={{ ...inputStyle, textAlign: "right" }} value={openingModal.amount} onChange={(e) => setOpeningModal({ ...openingModal, amount: e.target.value })} /></Field>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
             <button style={btnSecondary} onClick={() => setOpeningModal(null)}>ยกเลิก</button>
-            <button style={btnPrimary} onClick={() => {
-              setCustomers(customers.map((c) => c.id === openingModal.customerId ? { ...c, prepaymentOpening: Number(openingModal.amount) || 0 } : c));
+            <button style={btnPrimary} onClick={async () => {
+              const amount = Number(openingModal.amount) || 0;
+              const customerId = openingModal.customerId;
+              // อัปเดต UI ทันที (optimistic)
+              setCustomers(prev => prev.map((c) => c.id === customerId ? { ...c, prepaymentOpening: amount } : c));
               setOpeningModal(null);
+              // เขียนกลับเฉพาะฟิลด์นี้ โดยดึงข้อมูลลูกค้าล่าสุดจาก Supabase มา merge ก่อน
+              const result = await patchCustomerField(customerId, { prepaymentOpening: amount });
+              if (!result.ok) {
+                alert('บันทึกยอดยกมาไม่สำเร็จ (เช็คอินเทอร์เน็ต) กรุณาลองใหม่อีกครั้ง');
+              }
             }}><Save size={16} /> บันทึก</button>
           </div>
         </Modal>
