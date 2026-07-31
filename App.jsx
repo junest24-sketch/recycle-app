@@ -533,6 +533,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
     } else {
       let remainingToConsume = Math.round(ev.qty * 1e6) / 1e6;
       let costConsumed = 0;
+      const sources = []; // เก็บว่าเบิกจาก lot ไหนบ้าง (ref ของใบรับสินค้า/ยอดยกมา) เท่าไหร่
       const queue = lots[ev.productId];
       for (let i = 0; i < queue.length && remainingToConsume > 1e-9; i++) {
         const lot = queue[i];
@@ -541,6 +542,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
         lot.qtyRemaining = Math.round((lot.qtyRemaining - take) * 1e6) / 1e6;
         costConsumed = Math.round((costConsumed + take * lot.unitCost) * 1e6) / 1e6;
         remainingToConsume = Math.round((remainingToConsume - take) * 1e6) / 1e6;
+        if (take > 1e-9) sources.push({ ref: lot.ref, date: lot.date, qty: take, unitCost: lot.unitCost });
       }
       const avgCostUsed = ev.qty > 0 ? costConsumed / ev.qty : 0;
       // ถ้าสต๊อกไม่พอ ใช้ราคาเฉลี่ยปัจจุบันสำหรับส่วนที่ขาด (เหมือน computeWithdrawalCost)
@@ -550,8 +552,9 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
         const currentVal = currentLots.reduce((s, l) => s + Math.max(0, l.qtyRemaining) * l.unitCost, 0);
         const fallbackCost = currentQty > 0 ? currentVal / currentQty : 0;
         costConsumed += remainingToConsume * fallbackCost;
+        sources.push({ ref: null, date: null, qty: remainingToConsume, unitCost: fallbackCost, shortfall: true }); // ส่วนที่สต๊อกไม่พอ ไม่มี lot อ้างอิงจริง
       }
-      movements.push({ ...ev, costConsumed, avgCostUsed, shortfall: remainingToConsume });
+      movements.push({ ...ev, costConsumed, avgCostUsed, shortfall: remainingToConsume, sources });
     }
   });
 
@@ -4980,6 +4983,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const toggleGroup = (saleId) => setExpandedGroups((prev) => ({ ...prev, [saleId]: !prev[saleId] }));
   const [expanded, setExpanded] = useState(null);
   const [printLot, setPrintLot] = useState(null); // ใบเบิกสินค้าที่กำลังจะพิมพ์
+  const [selectedIds, setSelectedIds] = useState({}); // เลือกเฉพาะบางใบเบิกเพื่อ export
 
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
@@ -5125,6 +5129,47 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     setWithdrawals(updatedWithdrawals);
   };
 
+  // แยกบางส่วนของรายการที่เบิกไว้แล้ว (มักเบิกรวมกันไว้ตอนแรกโดยยังไม่รู้ว่าจะขายมีแวทหรือไม่)
+  // ออกมาเป็นใบเบิกใหม่ต่างหาก เพื่อไปเปิดบิลขายมีแวท — อัตโนมัติแทนการลบรายการเดิมแล้วพิมพ์ใหม่ทั้งหมดด้วยมือ
+  const splitToVAT = (lot, itemIdx) => {
+    const item = lot.items[itemIdx];
+    if (!item) return;
+    const input = window.prompt(
+      `แยกออกไปเปิดใบเบิกใหม่สำหรับขายมีแวท\nสินค้า: ${prodName(item.sourceProductId)}\nจำนวนในรายการนี้: ${fmt(item.qty)} ${prodUnit(item.sourceProductId)}\n\nต้องการแยกออกกี่หน่วย?`,
+      item.qty
+    );
+    if (input === null) return; // กดยกเลิก
+    const splitQty = Number(input);
+    if (!splitQty || splitQty <= 0) { alert("กรุณาใส่จำนวนที่มากกว่า 0"); return; }
+    if (splitQty > item.qty) { alert(`แยกได้ไม่เกิน ${fmt(item.qty)} ${prodUnit(item.sourceProductId)}`); return; }
+
+    // ลด/ลบรายการนี้ออกจากใบเบิกเดิม
+    const remainQty = Math.round((item.qty - splitQty) * 1e6) / 1e6;
+    const ratio = item.qty > 0 ? remainQty / item.qty : 0;
+    const updatedItems = lot.items
+      .map((it, i) => {
+        if (i !== itemIdx) return it;
+        if (remainQty <= 1e-9) return null; // แยกออกทั้งหมด เหลือ 0 ให้ตัดรายการนี้ทิ้ง
+        return { ...it, qty: remainQty, value: (Number(it.value) || 0) * ratio };
+      })
+      .filter(Boolean);
+
+    const updatedWithdrawals = updatedItems.length === 0
+      ? withdrawals.filter((w) => w.id !== lot.id) // แยกออกหมดทุกรายการในใบ -> ลบใบเบิกเดิมทิ้งไปเลย
+      : withdrawals.map((w) => (w.id === lot.id ? { ...w, items: updatedItems } : w));
+
+    setSales(syncWithdrawalsToSales(sales, updatedWithdrawals));
+    setWithdrawals(updatedWithdrawals);
+
+    // เปิดฟอร์ม "สร้างใบเบิกสินค้าใหม่" พรีฟิลจำนวนที่แยกออกมาให้ทันที
+    // ผู้ใช้แค่เลือก/สร้างใบขาย(มีแวท) ที่จะผูกด้วย แล้วกดบันทึกตามขั้นตอนปกติ
+    setForm({
+      ...blankForm(),
+      items: [{ sourceProductId: item.sourceProductId, qty: splitQty, targetProductId: item.targetProductId }],
+    });
+    setModal({ mode: "add" });
+  };
+
   const filtered = withdrawals.filter((w) =>
     w.id.includes(search) || (w.targetSaleId || "").includes(search) ||
     (w.items || []).some((it) => prodName(it.sourceProductId).includes(search) || prodName(it.targetProductId).includes(search))
@@ -5161,19 +5206,71 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 80px)" }}>
       <div style={{ flexShrink: 0 }}>
       <Header title="เบิกสินค้าเพื่อขาย" subtitle="เบิกสินค้าเป็น LOT (ตัดสต๊อกทันทีตามต้นทุน FIFO) เพื่อนำไปเปิดบิลขาย — 1 LOT เบิกได้หลายรายการ">
+        <button style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: 6 }} onClick={() => {
+          const selectedCount = Object.values(selectedIds).filter(Boolean).length;
+          const exportTargets = selectedCount > 0 ? filtered.filter((l) => selectedIds[l.id]) : filtered;
+          const rows = [["เลขที่ใบเบิก", "วันที่", "เลข Invoice", "เลขที่ใบกำกับภาษี (VAT)", "ลูกค้า", "สินค้าที่เบิก", "เบิกจากใบรับสินค้า", "วันที่ของล็อตต้นทาง", "น้ำหนัก/จำนวนที่เบิกจากล็อตนี้", "ราคาต้นทุนต่อหน่วย", "มูลค่ารวม"]];
+          exportTargets.forEach((lot) => {
+            const sale = sales.find((s) => s.id === lot.targetSaleId);
+            const customerName = sale ? custName(sale.customerId) : "";
+            (lot.items || []).forEach((it) => {
+              const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId);
+              const sources = (mv && mv.sources && mv.sources.length > 0) ? mv.sources : [{ ref: "-", date: "", qty: it.qty, unitCost: it.qty > 0 ? (Number(it.value) || 0) / it.qty : 0 }];
+              sources.forEach((s) => {
+                rows.push([
+                  lot.id,
+                  lot.date,
+                  lot.targetSaleId,
+                  sale?.vatInvoiceNo || "",
+                  customerName,
+                  prodName(it.sourceProductId),
+                  s.shortfall ? "สต๊อกไม่พอ (ใช้ราคาเฉลี่ย)" : (s.ref === "ยอดยกมา" ? "ยอดยกมา" : s.ref),
+                  s.date || "",
+                  s.qty,
+                  s.unitCost,
+                  s.qty * s.unitCost,
+                ]);
+              });
+            });
+          });
+          exportExcel(rows, "ใบเบิก_แหล่งที่มาสต๊อก.xlsx", "แหล่งที่มา");
+        }}>
+          <FileSpreadsheet size={14} />
+          {Object.values(selectedIds).filter(Boolean).length > 0
+            ? `Export ที่เลือก (${Object.values(selectedIds).filter(Boolean).length} ใบ)`
+            : "Export แหล่งที่มาสต๊อก (ทั้งหมด)"}
+        </button>
         <button style={btnPrimary} onClick={openAdd}><Plus size={16} /> สร้างใบเบิกสินค้า (LOT)</button>
       </Header>
 
       <SearchBar value={search} onChange={setSearch} placeholder="ค้นหาเลขที่ LOT, สินค้า หรือเลข Invoice..." dateFrom={dateFrom} dateTo={dateTo} onDateFromChange={setDateFrom} onDateToChange={setDateTo} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8, fontSize: 13, color: "#6b7280" }}>
+        <button style={{ ...btnSecondary, padding: "4px 10px", fontSize: 12 }} onClick={() => {
+          const next = {};
+          filtered.forEach((l) => { next[l.id] = true; });
+          setSelectedIds(next);
+        }}>เลือกทั้งหมดที่กรองอยู่ ({filtered.length} ใบ)</button>
+        <button style={{ ...btnSecondary, padding: "4px 10px", fontSize: 12 }} onClick={() => setSelectedIds({})}>ล้างการเลือก</button>
+        {Object.values(selectedIds).filter(Boolean).length > 0 && (
+          <span>เลือกอยู่ {Object.values(selectedIds).filter(Boolean).length} ใบ</span>
+        )}
+      </div>
       </div>
       <div style={{ flex: 1, overflow: "auto" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((lot) => {
           const isExpanded = expanded === lot.id;
           return (
-            <div key={lot.id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e5e7eb", padding: "14px 18px" }}>
+            <div key={lot.id} style={{ background: "#fff", borderRadius: 12, border: selectedIds[lot.id] ? "1px solid #534ab7" : "1px solid #e5e7eb", padding: "14px 18px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-                <div style={{ minWidth: 0 }}>
+                <div style={{ minWidth: 0, display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <input
+                    type="checkbox"
+                    checked={!!selectedIds[lot.id]}
+                    onChange={() => setSelectedIds((prev) => ({ ...prev, [lot.id]: !prev[lot.id] }))}
+                    style={{ width: 16, height: 16, cursor: "pointer", marginTop: 4, flexShrink: 0 }}
+                  />
+                  <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6, color: "#534ab7" }}>
                       <PackageMinus size={14} /> {lot.id}
@@ -5187,6 +5284,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                     <span>วันที่: {lot.date}</span>
                     <span>{(lot.items || []).length} รายการเบิก</span>
                     <span>รวม {fmt(lotQtyTotal(lot))} หน่วย</span>
+                  </div>
                   </div>
                 </div>
 
@@ -5226,7 +5324,20 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                         const realAvgCost = it.qty > 0 ? realValue / it.qty : 0;
                         return (
                           <tr key={idx}>
-                            <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
+                            <td style={tdStyle}>
+                              {prodName(it.sourceProductId)}
+                              {mv && mv.sources && mv.sources.length > 0 && (
+                                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>
+                                  จาก: {mv.sources.map((s, i) => (
+                                    <span key={i}>
+                                      {i > 0 ? ", " : ""}
+                                      {s.shortfall ? "สต๊อกไม่พอ (ราคาเฉลี่ย)" : (s.ref === "ยอดยกมา" ? "ยอดยกมา" : s.ref)}
+                                      {" "}{fmt(s.qty)} {prodUnit(it.sourceProductId)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(realValue)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>
@@ -5234,7 +5345,16 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                               {it.shortfall > 0 && <span style={{ color: "#a32d2d", fontSize: 11, marginLeft: 4 }}>(สต๊อกขาด {fmt(it.shortfall)})</span>}
                             </td>
                             <td style={{ ...tdStyle, color: "#9ca3af" }}><ArrowRight size={14} /></td>
-                            <td style={tdStyle}>{prodName(it.targetProductId)}</td>
+                            <td style={tdStyle}>
+                              {prodName(it.targetProductId)}
+                              <button
+                                style={{ ...iconBtn, marginLeft: 10, fontSize: 11, width: "auto", padding: "3px 8px", color: "#854f0b", borderColor: "#fde68a" }}
+                                onClick={() => splitToVAT(lot, idx)}
+                                title="แยกรายการนี้บางส่วน/ทั้งหมด ออกไปเปิดใบเบิกใหม่สำหรับขายมีแวท"
+                              >
+                                แยกไปเปิดแวท
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -5534,7 +5654,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const blankForm = () => ({
     id: "", date: new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10), customerId: "",
     items: [blankItem()], discount: 0, vatRate: 7, paymentStatus: PAYMENT_STATUSES[0],
-    payments: [], vehiclePlate: "",
+    payments: [], vehiclePlate: "", vatInvoiceNo: "",
   });
   const [form, setForm] = useState(blankForm());
 
@@ -5542,7 +5662,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
 
-  const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search)).filter((inv) => (!dateFrom || (inv.date || "") >= dateFrom) && (!dateTo || (inv.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
+  const filtered = sales.filter((inv) => inv.id.includes(search) || custName(inv.customerId).includes(search) || (inv.vatInvoiceNo || "").includes(search)).filter((inv) => (!dateFrom || (inv.date || "") >= dateFrom) && (!dateTo || (inv.date || "") <= dateTo)).sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.id.localeCompare(a.id));
   const { paged, page, setPage, totalPages, total, start, end } = usePagination(filtered);
     
   const openAdd = () => { const _d2 = new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10); setForm({ ...blankForm(), id: genId("INV", sales, _d2) }); setModal({ mode: "add" }); };
@@ -5629,10 +5749,10 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             onPDF={() => printAsPDF("tab-export-sales", "ขายสินค้า")}
             onExcel={() => {
               const rows = [
-                ["เลข Invoice", "วันที่", "ลูกค้า", "สถานะ", "สินค้า", "จำนวนสุทธิ", "ราคา/หน่วย", "รวม"],
+                ["เลข Invoice", "เลขที่ใบกำกับภาษี (VAT)", "วันที่", "ลูกค้า", "สถานะ", "สินค้า", "จำนวนสุทธิ", "ราคา/หน่วย", "รวม"],
                 ...filtered.flatMap((inv) =>
                   inv.items.map((it, i) => [
-                    i === 0 ? inv.id : "", i === 0 ? inv.date : "", i === 0 ? custName(inv.customerId) : "", i === 0 ? inv.paymentStatus : "",
+                    i === 0 ? inv.id : "", i === 0 ? (inv.vatInvoiceNo || "") : "", i === 0 ? inv.date : "", i === 0 ? custName(inv.customerId) : "", i === 0 ? inv.paymentStatus : "",
                     prodName(it.productId), it.net, it.price, it.net * it.price,
                   ])
                 ),
@@ -5669,7 +5789,14 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
               const sc = statusColor(livePayStatus);
               return (
                 <tr key={inv.id}>
-                  <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{inv.id}</td>
+                  <td style={{ ...tdStyle, fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>
+                    {inv.id}
+                    {inv.vatInvoiceNo && (
+                      <div style={{ fontSize: 11, color: "#854f0b", fontFamily: "inherit", marginTop: 2 }}>
+                        VAT: {inv.vatInvoiceNo}
+                      </div>
+                    )}
+                  </td>
                   <td style={tdStyle}>{inv.date}</td>
                   <td style={tdStyle}>{custName(inv.customerId)}</td>
                   <td style={tdStyle}>
@@ -5846,6 +5973,9 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
             <Field label="ทะเบียนรถ (ถ้ามี)">
               <input style={inputStyle} value={form.vehiclePlate || ""} onChange={(e) => setForm({ ...form, vehiclePlate: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} placeholder="เช่น กข 1234" />
             </Field>
+            <Field label="เลขที่ใบกำกับภาษี (VAT) ถ้ามี">
+              <input style={inputStyle} value={form.vatInvoiceNo || ""} onChange={(e) => setForm({ ...form, vatInvoiceNo: e.target.value })} onKeyDown={(e) => handleEnterNavigate(e, save)} placeholder="เช่น TAX-000123" />
+            </Field>
           </div>
 
           <div style={{ background: "#f9fafb", borderRadius: 8, padding: "12px 16px", marginTop: 16, fontSize: 14 }}>
@@ -5910,6 +6040,7 @@ function SalesInvoiceModal({ inv, customer, products, storeBankAccounts, company
             <div style={{ fontSize: 16, fontWeight: 700, color: accentColor }}>{cs.salesTitle || "ใบแจ้งหนี้ / Invoice"}</div>
             <div style={{ fontSize: 12, color: "#6b7280" }}>เลขที่: {inv.id}</div>
             <div style={{ fontSize: 12, color: "#6b7280" }}>วันที่: {inv.date}</div>
+            {inv.vatInvoiceNo && <div style={{ fontSize: 12, color: "#854f0b", fontWeight: 600 }}>เลขที่ใบกำกับภาษี: {inv.vatInvoiceNo}</div>}
           </div>
         </div>
 
