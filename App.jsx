@@ -3507,7 +3507,7 @@ function Dashboard({ products, customers, purchases, sales, inventory, expenses,
                           -฿{fmt(bankRows.reduce((s,b)=>s+b.outflow,0) + purchases.reduce((s,po)=>s+(po.payments||[]).filter(p=>p.fromStoreBankId==="DEPOSIT").reduce((s2,p)=>s2+(Number(p.amount)||0),0),0))}
                         </td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: 700, color: "#185fa5", fontSize: 15 }}>
-                          ฿{fmt(totalBankBalance + cashGroupRows.reduce((s,b)=>s+b.balance,0) + unsetGroupRows.reduce((s,b)=>s+b.balance,0) + totalDeposit)}
+                          ฿{fmt(totalBankBalance + totalDeposit)}
                         </td>
                       </tr>
                     </tfoot>
