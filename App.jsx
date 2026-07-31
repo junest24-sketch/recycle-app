@@ -4984,6 +4984,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const [expanded, setExpanded] = useState(null);
   const [printLot, setPrintLot] = useState(null); // ใบเบิกสินค้าที่กำลังจะพิมพ์
   const [selectedIds, setSelectedIds] = useState({}); // เลือกเฉพาะบางใบเบิกเพื่อ export
+  const [splitSelection, setSplitSelection] = useState({}); // เลือกหลายรายการภายในใบเบิกที่ขยายอยู่ เพื่อแยกไปเปิดแวทพร้อมกัน
 
   const prodName = (id) => products.find((p) => p.id === id)?.name || id;
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
@@ -5170,6 +5171,30 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     setModal({ mode: "add" });
   };
 
+  // แยกหลายรายการที่ติ๊กเลือกไว้ (ทั้งรายการ ไม่ถามจำนวนย่อย) ออกมาเป็นใบเบิกใหม่ใบเดียวพร้อมกันทีเดียว
+  const splitSelectedToVAT = (lot) => {
+    const indices = Object.keys(splitSelection).filter((k) => splitSelection[k]).map(Number);
+    if (indices.length === 0) return;
+    const itemsToMove = indices.map((i) => lot.items[i]).filter(Boolean);
+    if (itemsToMove.length === 0) return;
+
+    const remainingItems = lot.items.filter((_, i) => !indices.includes(i));
+    const updatedWithdrawals = remainingItems.length === 0
+      ? withdrawals.filter((w) => w.id !== lot.id) // แยกออกหมดทุกรายการในใบ -> ลบใบเบิกเดิมทิ้งไปเลย
+      : withdrawals.map((w) => (w.id === lot.id ? { ...w, items: remainingItems } : w));
+
+    setSales(syncWithdrawalsToSales(sales, updatedWithdrawals));
+    setWithdrawals(updatedWithdrawals);
+    setSplitSelection({});
+
+    // เปิดฟอร์ม "สร้างใบเบิกสินค้าใหม่" พรีฟิลทุกรายการที่เลือกไว้ให้ทันทีในใบเดียว
+    setForm({
+      ...blankForm(),
+      items: itemsToMove.map((it) => ({ sourceProductId: it.sourceProductId, qty: it.qty, targetProductId: it.targetProductId })),
+    });
+    setModal({ mode: "add" });
+  };
+
   const filtered = withdrawals.filter((w) =>
     w.id.includes(search) || (w.targetSaleId || "").includes(search) ||
     (w.items || []).some((it) => prodName(it.sourceProductId).includes(search) || prodName(it.targetProductId).includes(search))
@@ -5298,7 +5323,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                     <div style={{ fontSize: 18, fontWeight: 700, color: "#534ab7" }}>฿{fmt(lotTotal(lot))}</div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button style={iconBtn} onClick={() => setExpanded(isExpanded ? null : lot.id)} aria-label="รายละเอียด" title="ดูรายละเอียด">
+                    <button style={iconBtn} onClick={() => { setExpanded(isExpanded ? null : lot.id); setSplitSelection({}); }} aria-label="รายละเอียด" title="ดูรายละเอียด">
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
                     <button style={iconBtn} onClick={() => setPrintLot(lot)} aria-label="พิมพ์" title="พิมพ์ใบเบิกสินค้า"><Printer size={16} /></button>
@@ -5310,9 +5335,23 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
 
               {isExpanded && (
                 <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
+                  {Object.values(splitSelection).filter(Boolean).length > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
+                      <span style={{ fontSize: 13, color: "#854f0b" }}>
+                        เลือกไว้ {Object.values(splitSelection).filter(Boolean).length} รายการ เพื่อแยกไปเปิดแวท
+                      </span>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button style={{ ...btnSecondary, padding: "4px 10px", fontSize: 12 }} onClick={() => setSplitSelection({})}>ยกเลิกการเลือก</button>
+                        <button style={{ ...btnPrimary, padding: "4px 12px", fontSize: 12, background: "#854f0b" }} onClick={() => splitSelectedToVAT(lot)}>
+                          แยกรายการที่เลือกไปเปิดแวท
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                       <tr>
+                        <th style={{ ...thStyle, width: 32 }}></th>
                         <th style={thStyle}>สินค้าที่เบิก (ต้นทาง)</th>
                         <th style={{ ...thStyle, textAlign: "right" }}>จำนวนที่เบิก</th>
                         <th style={{ ...thStyle, textAlign: "right" }}>มูลค่าที่เบิก</th>
@@ -5327,7 +5366,15 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                         const realValue = mv ? (Number(mv.costConsumed) || 0) : (Number(it.value) || 0);
                         const realAvgCost = it.qty > 0 ? realValue / it.qty : 0;
                         return (
-                          <tr key={idx}>
+                          <tr key={idx} style={{ background: splitSelection[idx] ? "#fffbeb" : "transparent" }}>
+                            <td style={tdStyle}>
+                              <input
+                                type="checkbox"
+                                checked={!!splitSelection[idx]}
+                                onChange={() => setSplitSelection((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                                style={{ width: 16, height: 16, cursor: "pointer" }}
+                              />
+                            </td>
                             <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(realValue)}</td>
@@ -5336,16 +5383,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                               {it.shortfall > 0 && <span style={{ color: "#a32d2d", fontSize: 11, marginLeft: 4 }}>(สต๊อกขาด {fmt(it.shortfall)})</span>}
                             </td>
                             <td style={{ ...tdStyle, color: "#9ca3af" }}><ArrowRight size={14} /></td>
-                            <td style={tdStyle}>
-                              {prodName(it.targetProductId)}
-                              <button
-                                style={{ ...iconBtn, marginLeft: 10, fontSize: 11, width: "auto", padding: "3px 8px", color: "#854f0b", borderColor: "#fde68a" }}
-                                onClick={() => splitToVAT(lot, idx)}
-                                title="แยกรายการนี้บางส่วน/ทั้งหมด ออกไปเปิดใบเบิกใหม่สำหรับขายมีแวท"
-                              >
-                                แยกไปเปิดแวท
-                              </button>
-                            </td>
+                            <td style={tdStyle}>{prodName(it.targetProductId)}</td>
                           </tr>
                         );
                       })}
