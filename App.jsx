@@ -5209,7 +5209,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
         <button style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: 6 }} onClick={() => {
           const selectedCount = Object.values(selectedIds).filter(Boolean).length;
           const exportTargets = selectedCount > 0 ? filtered.filter((l) => selectedIds[l.id]) : filtered;
-          const rows = [["เลขที่ใบเบิก", "วันที่", "เลข Invoice", "เลขที่ใบกำกับภาษี (VAT)", "ลูกค้า", "สินค้าที่เบิก", "เบิกจากใบรับสินค้า", "วันที่ของล็อตต้นทาง", "น้ำหนัก/จำนวนที่เบิกจากล็อตนี้", "ราคาต้นทุนต่อหน่วย", "มูลค่ารวม"]];
+          const rows = [["เลขที่ใบเบิก", "วันที่", "เลข Invoice", "เลขที่ใบกำกับภาษี (VAT)", "ลูกค้า (ผู้ซื้อ - ใบขาย)", "สินค้าที่เบิก", "เบิกจากใบรับสินค้า", "ลูกค้า (ตามใบรับสินค้าต้นทาง)", "วันที่ของล็อตต้นทาง", "น้ำหนัก/จำนวนที่เบิกจากล็อตนี้", "ราคาต้นทุนต่อหน่วย", "มูลค่ารวม"]];
           exportTargets.forEach((lot) => {
             const sale = sales.find((s) => s.id === lot.targetSaleId);
             const customerName = sale ? custName(sale.customerId) : "";
@@ -5217,6 +5217,9 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
               const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId);
               const sources = (mv && mv.sources && mv.sources.length > 0) ? mv.sources : [{ ref: "-", date: "", qty: it.qty, unitCost: it.qty > 0 ? (Number(it.value) || 0) / it.qty : 0 }];
               sources.forEach((s) => {
+                // ชื่อลูกค้าตามใบรับสินค้า (PO) ที่เป็นแหล่งที่มาของล็อตนี้โดยเฉพาะ
+                const sourcePo = s.ref && s.ref !== "ยอดยกมา" ? purchases.find((po) => po.id === s.ref) : null;
+                const sourceCustomerName = s.shortfall ? "" : (s.ref === "ยอดยกมา" ? "" : (sourcePo ? custName(sourcePo.customerId) : ""));
                 rows.push([
                   lot.id,
                   lot.date,
@@ -5225,6 +5228,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                   customerName,
                   prodName(it.sourceProductId),
                   s.shortfall ? "สต๊อกไม่พอ (ใช้ราคาเฉลี่ย)" : (s.ref === "ยอดยกมา" ? "ยอดยกมา" : s.ref),
+                  sourceCustomerName,
                   s.date || "",
                   s.qty,
                   s.unitCost,
@@ -5324,20 +5328,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                         const realAvgCost = it.qty > 0 ? realValue / it.qty : 0;
                         return (
                           <tr key={idx}>
-                            <td style={tdStyle}>
-                              {prodName(it.sourceProductId)}
-                              {mv && mv.sources && mv.sources.length > 0 && (
-                                <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>
-                                  จาก: {mv.sources.map((s, i) => (
-                                    <span key={i}>
-                                      {i > 0 ? ", " : ""}
-                                      {s.shortfall ? "สต๊อกไม่พอ (ราคาเฉลี่ย)" : (s.ref === "ยอดยกมา" ? "ยอดยกมา" : s.ref)}
-                                      {" "}{fmt(s.qty)} {prodUnit(it.sourceProductId)}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </td>
+                            <td style={tdStyle}>{prodName(it.sourceProductId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>{fmt(it.qty)} {prodUnit(it.sourceProductId)}</td>
                             <td style={{ ...tdStyle, textAlign: "right", fontWeight: 600 }}>฿{fmt(realValue)}</td>
                             <td style={{ ...tdStyle, textAlign: "right" }}>
