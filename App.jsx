@@ -5551,7 +5551,19 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const afterDiscount = subtotal - (Number(form.discount) || 0);
   const vatAmount = afterDiscount * ((Number(form.vatRate) || 0) / 100);
   const grandTotal = afterDiscount + vatAmount;
-  const cogs = form.items.reduce((s, it) => s + (it.fromWithdrawal ? (it.withdrawalValue || 0) : 0), 0);
+  // ต้นทุนจริงแบบสด (FIFO ใหม่จาก inventory.movements) แทนค่าที่บันทึกไว้ตอนเบิก (withdrawalValue)
+  // ซึ่งอาจไม่ทันสมัยแล้ว — ใช้แหล่งเดียวกับคอลัมน์ในหน้ารายการ (invoiceCost) กันไม่ให้ตัวเลข 2 จุดนี้ไม่ตรงกัน
+  const liveWithdrawalValue = (targetProductId) => {
+    if (!form.id) return 0;
+    return withdrawals
+      .filter((lot) => lot.targetSaleId === form.id)
+      .flatMap((lot) => (lot.items || []).filter((wi) => wi.targetProductId === targetProductId).map((wi) => ({ lot, wi })))
+      .reduce((sum, { lot, wi }) => {
+        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === wi.sourceProductId);
+        return sum + (mv ? (Number(mv.costConsumed) || 0) : (Number(wi.value) || 0));
+      }, 0);
+  };
+  const cogs = form.items.reduce((s, it) => s + (it.fromWithdrawal ? liveWithdrawalValue(it.productId) : 0), 0);
   const profit = afterDiscount - cogs;
   const totalPaid = (form.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const remaining = grandTotal - totalPaid;
@@ -5782,7 +5794,7 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
                       </td>
                       <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.price} onChange={(e) => updateItem(idx, "price", e.target.value)} onKeyDown={(e) => handleEnterNavigate(e, save)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: fromW ? "#534ab7" : "#9ca3af", fontWeight: fromW ? 600 : 400 }}>
-                        {fromW ? fmt(it.withdrawalCost || 0) : "—"}
+                        {fromW ? fmt(it.qty > 0 ? liveWithdrawalValue(it.productId) / it.qty : 0) : "—"}
                       </td>
                       <td style={{ ...tdStyle, textAlign: "right", color: insufficient ? "#a32d2d" : "#6b7280" }}>
                         {fromW ? <span style={{ color: "#9ca3af" }}>—</span> : <>{stock ? fmt(stock.qty) : "-"} {prodUnit(it.productId)}</>}
