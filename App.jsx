@@ -502,8 +502,8 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
   });
   // ตัดสต๊อกเฉพาะจากใบเบิกเท่านั้น ห้ามตัดจากใบขายโดยตรง
   withdrawals.forEach((lot) => {
-    (lot.items || []).forEach((it) => {
-      events.push({ type: "withdraw", date: lot.date, ref: lot.id, productId: it.sourceProductId, qty: it.qty });
+    (lot.items || []).forEach((it, itemIndex) => {
+      events.push({ type: "withdraw", date: lot.date, ref: lot.id, productId: it.sourceProductId, qty: it.qty, itemIndex });
     });
   });
   // เรียงตามวันที่ → ประเภท (in=0, withdraw=1, out=2) → เลขที่ใบ
@@ -5197,7 +5197,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                     </thead>
                     <tbody>
                       {(lot.items || []).map((it, idx) => {
-                        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId);
+                        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId && m.itemIndex === idx);
                         const realValue = mv ? (Number(mv.costConsumed) || 0) : (Number(it.value) || 0);
                         const realAvgCost = it.qty > 0 ? realValue / it.qty : 0;
                         return (
@@ -5557,9 +5557,9 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
     if (!form.id) return 0;
     return withdrawals
       .filter((lot) => lot.targetSaleId === form.id)
-      .flatMap((lot) => (lot.items || []).filter((wi) => wi.targetProductId === targetProductId).map((wi) => ({ lot, wi })))
-      .reduce((sum, { lot, wi }) => {
-        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === wi.sourceProductId);
+      .flatMap((lot) => (lot.items || []).map((wi, idx) => ({ lot, wi, idx })).filter(({ wi }) => wi.targetProductId === targetProductId))
+      .reduce((sum, { lot, wi, idx }) => {
+        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === wi.sourceProductId && m.itemIndex === idx);
         return sum + (mv ? (Number(mv.costConsumed) || 0) : (Number(wi.value) || 0));
       }, 0);
   };
@@ -5582,9 +5582,9 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
   const invoiceCost = (inv) => {
     return withdrawals
       .filter((lot) => lot.targetSaleId === inv.id)
-      .flatMap((lot) => (lot.items || []).map((wi) => ({ lot, wi })))
-      .reduce((sum, { lot, wi }) => {
-        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === wi.sourceProductId);
+      .flatMap((lot) => (lot.items || []).map((wi, idx) => ({ lot, wi, idx })))
+      .reduce((sum, { lot, wi, idx }) => {
+        const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === wi.sourceProductId && m.itemIndex === idx);
         return sum + (mv ? (Number(mv.costConsumed) || 0) : (Number(wi.value) || 0));
       }, 0);
   };
