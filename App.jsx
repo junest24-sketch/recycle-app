@@ -533,6 +533,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
     } else {
       let remainingToConsume = Math.round(ev.qty * 1e6) / 1e6;
       let costConsumed = 0;
+      const sources = []; // เก็บว่าเบิกจาก lot ไหนบ้าง (ref ของใบรับสินค้า/ยอดยกมา) เท่าไหร่
       const queue = lots[ev.productId];
       for (let i = 0; i < queue.length && remainingToConsume > 1e-9; i++) {
         const lot = queue[i];
@@ -541,6 +542,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
         lot.qtyRemaining = Math.round((lot.qtyRemaining - take) * 1e6) / 1e6;
         costConsumed = Math.round((costConsumed + take * lot.unitCost) * 1e6) / 1e6;
         remainingToConsume = Math.round((remainingToConsume - take) * 1e6) / 1e6;
+        if (take > 1e-9) sources.push({ ref: lot.ref, date: lot.date, qty: take, unitCost: lot.unitCost });
       }
       const avgCostUsed = ev.qty > 0 ? costConsumed / ev.qty : 0;
       // ถ้าสต๊อกไม่พอ ใช้ราคาเฉลี่ยปัจจุบันสำหรับส่วนที่ขาด (เหมือน computeWithdrawalCost)
@@ -550,8 +552,9 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
         const currentVal = currentLots.reduce((s, l) => s + Math.max(0, l.qtyRemaining) * l.unitCost, 0);
         const fallbackCost = currentQty > 0 ? currentVal / currentQty : 0;
         costConsumed += remainingToConsume * fallbackCost;
+        sources.push({ ref: null, date: null, qty: remainingToConsume, unitCost: fallbackCost, shortfall: true });
       }
-      movements.push({ ...ev, costConsumed, avgCostUsed, shortfall: remainingToConsume });
+      movements.push({ ...ev, costConsumed, avgCostUsed, shortfall: remainingToConsume, sources });
     }
   });
 
@@ -5218,31 +5221,32 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
         <button style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: 6 }} onClick={() => {
           const selectedCount = Object.values(selectedIds).filter(Boolean).length;
           const exportTargets = selectedCount > 0 ? filtered.filter((l) => selectedIds[l.id]) : filtered;
-          const rows = [["เลขที่ใบเบิก", "วันที่", "เลข Invoice", "เลขที่ใบกำกับภาษี (VAT)", "ลูกค้า (ผู้ซื้อ - ใบขาย)", "สินค้าที่เบิก", "เบิกจากใบรับสินค้า", "ลูกค้า (ตามใบรับสินค้าต้นทาง)", "น้ำหนัก/จำนวนที่เบิก", "ราคาต้นทุนต่อหน่วย", "มูลค่ารวม"]];
+          const rows = [["เลขที่ใบเบิก", "วันที่", "เลข Invoice", "เลขที่ใบกำกับภาษี (VAT)", "ลูกค้า (ผู้ซื้อ - ใบขาย)", "สินค้าที่เบิก", "เบิกจากใบรับสินค้า", "ลูกค้า (ตามใบรับสินค้าต้นทาง)", "วันที่ของล็อตต้นทาง", "น้ำหนัก/จำนวนที่เบิกจากล็อตนี้", "ราคาต้นทุนต่อหน่วย", "มูลค่ารวม"]];
           exportTargets.forEach((lot) => {
             const sale = sales.find((s) => s.id === lot.targetSaleId);
             const customerName = sale ? custName(sale.customerId) : "";
             (lot.items || []).forEach((it, idx) => {
               const mv = inventory.movements.find((m) => m.type === "withdraw" && m.ref === lot.id && m.productId === it.sourceProductId && m.itemIndex === idx);
-              const realValue = mv ? (Number(mv.costConsumed) || 0) : (Number(it.value) || 0);
-              const sourcePo = mv && mv.sources && mv.sources.length === 1 && mv.sources[0].ref && mv.sources[0].ref !== "ยอดยกมา"
-                ? purchases.find((po) => po.id === mv.sources[0].ref) : null;
-              const poRefLabel = mv && mv.sources && mv.sources.length > 0
-                ? mv.sources.map((s) => s.shortfall ? "สต๊อกไม่พอ" : (s.ref === "ยอดยกมา" ? "ยอดยกมา" : s.ref)).join(", ")
-                : "-";
-              rows.push([
-                lot.id,
-                lot.date,
-                lot.targetSaleId,
-                sale?.vatInvoiceNo || "",
-                customerName,
-                prodName(it.sourceProductId),
-                poRefLabel,
-                sourcePo ? custName(sourcePo.customerId) : "",
-                it.qty,
-                it.qty > 0 ? realValue / it.qty : 0,
-                realValue,
-              ]);
+              const sources = (mv && mv.sources && mv.sources.length > 0) ? mv.sources : [{ ref: "-", date: "", qty: it.qty, unitCost: it.qty > 0 ? (Number(it.value) || 0) / it.qty : 0 }];
+              sources.forEach((s) => {
+                // ชื่อลูกค้าตามใบรับสินค้า (PO) ที่เป็นแหล่งที่มาของล็อตนี้โดยเฉพาะ
+                const sourcePo = s.ref && s.ref !== "ยอดยกมา" && s.ref !== "-" ? purchases.find((po) => po.id === s.ref) : null;
+                const sourceCustomerName = s.shortfall ? "" : (sourcePo ? custName(sourcePo.customerId) : "");
+                rows.push([
+                  lot.id,
+                  lot.date,
+                  lot.targetSaleId,
+                  sale?.vatInvoiceNo || "",
+                  customerName,
+                  prodName(it.sourceProductId),
+                  s.shortfall ? "สต๊อกไม่พอ (ใช้ราคาเฉลี่ย)" : (s.ref === "ยอดยกมา" ? "ยอดยกมา" : s.ref),
+                  sourceCustomerName,
+                  s.date || "",
+                  s.qty,
+                  s.unitCost,
+                  s.qty * s.unitCost,
+                ]);
+              });
             });
           });
           exportExcel(rows, "ใบเบิก_แหล่งที่มาสต๊อก.xlsx", "แหล่งที่มา");
