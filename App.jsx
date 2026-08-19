@@ -5591,11 +5591,13 @@ function SalesTab({ products, customers, sales, setSales, inventory, withdrawals
 
   const save = () => {
     if (!form.id.trim() || form.items.length === 0) return;
-    // ถ้าแก้ไข และมีการรับชำระแล้ว ห้ามแก้
+    // ถ้าแก้ไข และรับชำระครบแล้ว ห้ามแก้ (ถ้ายังรับชำระไม่ครบ ยังแก้ไขได้ปกติ)
     if (modal.mode === "edit") {
+      const orig = calcInvoiceTotals(modal.item);
       const hasPaid = (modal.item.payments || []).length > 0;
-      if (hasPaid) {
-        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบขาย "${modal.item.id}" มีการรับชำระแล้ว\nกรุณายกเลิกการรับชำระก่อน จึงจะแก้ไขได้`);
+      const isFullyPaid = hasPaid && orig.remaining <= 0.009; // เผื่อ error ทศนิยมเล็กน้อย
+      if (isFullyPaid) {
+        alert(`⚠️ ไม่สามารถแก้ไขได้!\n\nใบขาย "${modal.item.id}" รับชำระครบแล้ว\nกรุณายกเลิกการรับชำระก่อน จึงจะแก้ไขได้`);
         return;
       }
     }
