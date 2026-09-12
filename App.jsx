@@ -7223,6 +7223,32 @@ function InventoryTab({ products, inventory, storeBankAccounts }) {
               <span style={{ background: "#534ab7", color: "#fff", borderRadius: 999, fontSize: 11, fontWeight: 700, padding: "1px 7px", marginLeft: 4 }}>{selectedIds.size}</span>
             </button>
           )}
+          <button style={{ ...btnSecondary, display: "flex", alignItems: "center", gap: 6 }} onClick={() => {
+            // ถ้าติ๊กเลือกสินค้าไว้ ส่งออกเฉพาะสินค้าที่เลือก ถ้าไม่เลือกเลย ส่งออกทุกรายการ
+            const targetProducts = selectedIds.size > 0
+              ? inventory.summary.filter((s) => selectedIds.has(s.productId))
+              : inventory.summary;
+            const rows = [["สินค้า", "วันที่", "เลขที่อ้างอิง", "ประเภท", "จำนวน", "หน่วย", "คงเหลือสะสม", "ราคา/ต้นทุนต่อหน่วย"]];
+            targetProducts.forEach((s) => {
+              const history = inventory.history[s.productId] || [];
+              history.forEach((ev) => {
+                rows.push([
+                  s.name,
+                  ev.date,
+                  ev.ref,
+                  ev.type === "in" ? "รับเข้า" : ev.type === "withdraw" ? "เบิกเพื่อขาย" : "เบิกออก",
+                  ev.type === "in" ? ev.qty : -ev.qty,
+                  s.unit,
+                  ev.balance,
+                  ev.type === "in" ? ev.price : ev.avgCostUsed,
+                ]);
+              });
+            });
+            exportExcel(rows, "สต๊อกเคลื่อนไหว.xlsx", "เคลื่อนไหว");
+          }}>
+            <FileSpreadsheet size={14} />
+            {selectedIds.size > 0 ? `Export เคลื่อนไหวที่เลือก (${selectedIds.size})` : "Export สต็อกเคลื่อนไหว (ทั้งหมด)"}
+          </button>
           <ExportToolbar
             onPDF={() => printAsPDF("tab-export-inventory", "สต๊อกสินค้า")}
             onExcel={() => {
