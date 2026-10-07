@@ -503,7 +503,7 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
   // ตัดสต๊อกเฉพาะจากใบเบิกเท่านั้น ห้ามตัดจากใบขายโดยตรง
   withdrawals.forEach((lot) => {
     (lot.items || []).forEach((it, itemIndex) => {
-      events.push({ type: "withdraw", date: lot.date, ref: lot.id, productId: it.sourceProductId, qty: it.qty, itemIndex });
+      events.push({ type: "withdraw", date: lot.date, ref: lot.id, productId: it.sourceProductId, qty: it.qty, itemIndex, sourcePoId: it.sourcePoId || null });
     });
   });
   // เรียงตามวันที่ → ประเภท (in=0, withdraw=1, out=2) → เลขที่ใบ
@@ -535,8 +535,12 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
       let costConsumed = 0;
       const sources = []; // เก็บว่าเบิกจาก lot ไหนบ้าง (ref ของใบรับสินค้า/ยอดยกมา) เท่าไหร่
       const queue = lots[ev.productId];
-      for (let i = 0; i < queue.length && remainingToConsume > 1e-9; i++) {
-        const lot = queue[i];
+      // ถ้าระบุ PO ต้นทาง ให้ตัดจากล็อตของ PO นั้นก่อน แล้วที่เหลือค่อย FIFO
+      const ordered = ev.sourcePoId
+        ? [...queue.filter((l) => l.ref === ev.sourcePoId), ...queue.filter((l) => l.ref !== ev.sourcePoId)]
+        : queue;
+      for (let i = 0; i < ordered.length && remainingToConsume > 1e-9; i++) {
+        const lot = ordered[i];
         if (lot.qtyRemaining <= 1e-9) continue;
         const take = Math.round(Math.min(lot.qtyRemaining, remainingToConsume) * 1e6) / 1e6;
         lot.qtyRemaining = Math.round((lot.qtyRemaining - take) * 1e6) / 1e6;
@@ -582,8 +586,9 @@ function computeInventory(products, purchases, sales, withdrawals = []) {
 }
 
 // คำนวณต้นทุน FIFO ของจำนวนที่จะเบิก โดยอิงจากสต๊อกคงเหลือปัจจุบัน (ไม่แก้ไข lots จริง)
-function computeWithdrawalCost(inventory, sourceProductId, qty) {
-  const lots = (inventory.lots[sourceProductId] || []).map((l) => ({ ...l }));
+function computeWithdrawalCost(inventory, sourceProductId, qty, sourcePoId = null) {
+  let lots = (inventory.lots[sourceProductId] || []).map((l) => ({ ...l }));
+  if (sourcePoId) lots = [...lots.filter((l) => l.ref === sourcePoId), ...lots.filter((l) => l.ref !== sourcePoId)];
   let remaining = Number(qty) || 0;
   let cost = 0;
   let shortfall = 0;
@@ -1497,6 +1502,8 @@ export default function App() {
   ]);
   const [currentUser, setCurrentUser] = useState(null);
   const [tab, setTab] = useState("dashboard");
+  const [withdrawalPrefill, setWithdrawalPrefill] = useState(null); // ขายต่อจาก PO
+  const sellFromPO = (po) => { setWithdrawalPrefill(po); setTab("withdrawals"); };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [printPreview, setPrintPreview] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -1986,8 +1993,8 @@ export default function App() {
       <div style={{ flex: 1, padding: "28px 32px", overflowY: "auto", overflowX: "auto", minHeight: "100vh", marginLeft: sidebarOpen ? 220 : 64, transition: "margin-left 0.2s ease", boxSizing: "border-box", width: sidebarOpen ? "calc(100vw - 220px)" : "calc(100vw - 64px)" }}>        {tab === "dashboard" && <Dashboard products={products} customers={customers} purchases={purchases} sales={sales} inventory={inventory} expenses={expenses} loans={loans} storeBankAccounts={storeBankAccounts} deposits={deposits} bankTransfers={bankTransfers} expenseCategories={expenseCategories} prepayments={prepayments} assets={assets} depositRefunds={depositRefunds} />}
         {tab === "products" && <ProductsTab products={products} setProducts={setProducts} unitOptions={unitOptions} setUnitOptions={setUnitOptions} productCategories={productCategories} setProductCategories={setProductCategories} />}
         {tab === "customers" && <CustomersTab customers={customers} setCustomers={setCustomers} />}
-        {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} withdrawals={withdrawals} />}
-        {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} companySettings={companySettings} />}
+        {tab === "purchases" && <PurchasesTab products={products} customers={customers} purchases={purchases} setPurchases={setPurchases} storeBankAccounts={storeBankAccounts} deposits={deposits} companySettings={companySettings} withdrawals={withdrawals} onSellFromPO={sellFromPO} />}
+        {tab === "withdrawals" && <WithdrawalsTab products={products} purchases={purchases} sales={sales} setSales={setSales} withdrawals={withdrawals} setWithdrawals={setWithdrawals} inventory={inventory} customers={customers} companySettings={companySettings} prefillPO={withdrawalPrefill} clearPrefill={() => setWithdrawalPrefill(null)} />}
         {tab === "sales" && <SalesTab products={products} customers={customers} sales={sales} setSales={setSales} inventory={inventory} withdrawals={withdrawals} storeBankAccounts={storeBankAccounts} companySettings={companySettings} />}
         {tab === "payments" && <PaymentsTab purchases={purchases} setPurchases={setPurchases} sales={sales} setSales={setSales} customers={customers} storeBankAccounts={storeBankAccounts} deposits={deposits} expenses={expenses} setExpenses={setExpenses} companySettings={companySettings} setCompanySettings={setCompanySettings} bankTransfers={bankTransfers} />}
         {tab === "delivery" && <DeliveryTab deliveries={deliveries} setDeliveries={setDeliveries} products={products} customers={customers} sales={sales} companySettings={companySettings} />}
@@ -4107,7 +4114,7 @@ function CustomersTab({ customers, setCustomers }) {
 // ===================================================================
 // PURCHASES TAB (ใบรับสินค้า)
 // ===================================================================
-function PurchasesTab({ products, customers, purchases, setPurchases, storeBankAccounts, deposits, companySettings, withdrawals }) {
+function PurchasesTab({ products, customers, purchases, setPurchases, storeBankAccounts, deposits, companySettings, withdrawals, onSellFromPO }) {
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'|'view', item}
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -4373,6 +4380,9 @@ const { paged, page, setPage, totalPages, total, start, end } = usePagination(fi
                     <button style={iconBtn} onClick={() => setExpanded(isExpanded ? null : po.id)} aria-label="รายละเอียด" title="ดูรายละเอียด">
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
+                    {po.status === "อนุมัติแล้ว" && onSellFromPO && (
+                      <button style={{ ...iconBtn, fontSize: 12, padding: "4px 8px", color: "#3c3489", fontWeight: 600 }} onClick={() => onSellFromPO(po)} title="ขายต่อจาก PO นี้ (เบิกตัดต้นทุนตรงตาม PO)">ขายต่อ</button>
+                    )}
                     <button style={iconBtn} onClick={() => openView(po)} aria-label="พิมพ์ PDF"><Printer size={16} /></button>
                     <button style={iconBtn} onClick={() => openEdit(po)} aria-label="แก้ไข"><Edit2 size={16} /></button>
                     <button style={btnDanger} onClick={() => confirmAction(`ต้องการลบใบรับสินค้า "${po.id}" ใช่หรือไม่?`, () => remove(po.id))} aria-label="ลบ"><Trash2 size={16} /></button>
@@ -4959,7 +4969,7 @@ function syncWithdrawalsToSales(sales, withdrawalLots) {
   });
 }
 
-function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, setWithdrawals, inventory, customers, companySettings }) {
+function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, setWithdrawals, inventory, customers, companySettings, prefillPO, clearPrefill }) {
   const cs = companySettings || {};
   const [modal, setModal] = useState(null); // {mode:'add'|'edit'}
   const [search, setSearch] = useState("");
@@ -4977,7 +4987,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   const prodUnit = (id) => products.find((p) => p.id === id)?.unit || "";
   const custName = (id) => customers.find((c) => c.id === id)?.name || "";
 
-  const blankLineItem = () => ({ sourceProductId: "", qty: 0, targetProductId: "" });
+  const blankLineItem = () => ({ sourceProductId: "", qty: 0, targetProductId: "", sourcePoId: "" });
 
   const blankForm = () => ({
     id: genId("WD", withdrawals, new Date(new Date().getTime() + 7*60*60*1000).toISOString().slice(0, 10)),
@@ -4999,12 +5009,22 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
   };
 
   const openAdd = () => { setForm(blankForm()); setModal({ mode: "add" }); };
+  useEffect(() => {
+    if (!prefillPO) return;
+    setForm({
+      ...blankForm(),
+      items: (prefillPO.items || []).map((pi) => ({ sourceProductId: pi.productId, qty: pi.net, targetProductId: pi.productId, sourcePoId: prefillPO.id })),
+    });
+    setModal({ mode: "add" });
+    clearPrefill && clearPrefill();
+    // eslint-disable-next-line
+  }, [prefillPO]);
   const openEdit = (lot) => {
     setForm({
       ...JSON.parse(JSON.stringify(lot)),
       targetSaleMode: "existing",
       newSaleId: "",
-      items: lot.items.map((it) => ({ sourceProductId: it.sourceProductId, qty: it.qty, targetProductId: it.targetProductId })),
+      items: lot.items.map((it) => ({ sourceProductId: it.sourceProductId, qty: it.qty, targetProductId: it.targetProductId, sourcePoId: it.sourcePoId || "" })),
     });
     setModal({ mode: "edit", item: lot });
   };
@@ -5028,10 +5048,11 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     });
     const fakeInventory = { ...baseInventory, lots: lotsClone };
     return form.items.map((it) => {
-      const result = computeWithdrawalCost(fakeInventory, it.sourceProductId, Number(it.qty) || 0);
+      const result = computeWithdrawalCost(fakeInventory, it.sourceProductId, Number(it.qty) || 0, it.sourcePoId || null);
       // หักสต๊อกจำลองออกจริง เพื่อให้แถวถัดไปคำนวณต่อเนื่อง
       let remaining = Number(it.qty) || 0;
-      const lots = fakeInventory.lots[it.sourceProductId] || [];
+      let lots = fakeInventory.lots[it.sourceProductId] || [];
+      if (it.sourcePoId) lots = [...lots.filter((l) => l.ref === it.sourcePoId), ...lots.filter((l) => l.ref !== it.sourcePoId)];
       for (let i = 0; i < lots.length && remaining > 0; i++) {
         const lot = lots[i];
         if (lot.qtyRemaining <= 0) continue;
@@ -5081,6 +5102,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
         avgCost: qty > 0 ? value / qty : 0,
         shortfall,
         targetProductId: it.targetProductId,
+        ...(it.sourcePoId ? { sourcePoId: it.sourcePoId } : {}),
       };
     }).filter((it) => it.qty > 0 && it.sourceProductId && it.targetProductId);
 
@@ -5153,7 +5175,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     setForm({
       ...blankForm(),
       date: lot.date,
-      items: [{ sourceProductId: item.sourceProductId, qty: splitQty, targetProductId: item.targetProductId }],
+      items: [{ sourceProductId: item.sourceProductId, qty: splitQty, targetProductId: item.targetProductId, sourcePoId: item.sourcePoId || "" }],
     });
     setModal({ mode: "add" });
   };
@@ -5177,7 +5199,7 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
     setForm({
       ...blankForm(),
       date: lot.date,
-      items: itemsToMove.map((it) => ({ sourceProductId: it.sourceProductId, qty: it.qty, targetProductId: it.targetProductId })),
+      items: itemsToMove.map((it) => ({ sourceProductId: it.sourceProductId, qty: it.qty, targetProductId: it.targetProductId, sourcePoId: it.sourcePoId || "" })),
     });
     setModal({ mode: "add" });
   };
@@ -5511,10 +5533,11 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
 
           <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 600, fontSize: 14 }}>รายการเบิกสินค้า</div>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1050 }}>
               <thead>
                 <tr>
                   <th style={{ ...thStyle, width: "22%" }}>สินค้าที่เบิก (ต้นทาง)</th>
+                  <th style={{ ...thStyle, width: "16%" }}>ตัดจาก PO</th>
                   <th style={{ ...thStyle, textAlign: "right", width: "10%" }}>จำนวนที่เบิก</th>
                   <th style={{ ...thStyle, textAlign: "right", width: "11%" }}>คงเหลือสต๊อก</th>
                   <th style={{ ...thStyle, textAlign: "right", width: "11%" }}>มูลค่าที่เบิก</th>
@@ -5533,7 +5556,17 @@ function WithdrawalsTab({ products, purchases, sales, setSales, withdrawals, set
                   return (
                     <tr key={idx}>
                       <td style={tdStyle}>
-                        <ProductSelect products={products} value={it.sourceProductId} onChange={(pid) => updateLineItem(idx, "sourceProductId", pid)} />
+                        <ProductSelect products={products} value={it.sourceProductId} onChange={(pid) => setForm((f) => { const items = [...f.items]; items[idx] = { ...items[idx], sourceProductId: pid, sourcePoId: "" }; return { ...f, items }; })} />
+                      </td>
+                      <td style={tdStyle}>
+                        <select style={{ ...inputStyle, width: "100%" }} value={it.sourcePoId || ""} onChange={(e) => updateLineItem(idx, "sourcePoId", e.target.value)}>
+                          <option value="">FIFO อัตโนมัติ</option>
+                          {purchases.filter((po) => po.status === "อนุมัติแล้ว" && (po.items || []).some((pi) => pi.productId === it.sourceProductId)).sort((a, b) => (b.date || "").localeCompare(a.date || "")).map((po) => {
+                            const rem = (baseInventory.lots[it.sourceProductId] || []).filter((l) => l.ref === po.id).reduce((s, l) => s + Math.max(0, l.qtyRemaining), 0);
+                            return <option key={po.id} value={po.id}>{po.id} · คงเหลือ {fmt(rem)}</option>;
+                          })}
+                        </select>
+                        {it.sourcePoId && (() => { const po = purchases.find((x) => x.id === it.sourcePoId); return po && form.date < po.date ? <div style={{ color: "#a32d2d", fontSize: 11 }}>วันที่เบิกก่อนวันที่ PO</div> : null; })()}
                       </td>
                       <td style={tdStyle}><input type="number" style={{ ...inputStyle, width: "100%", textAlign: "right" }} value={it.qty} onChange={(e) => updateLineItem(idx, "qty", e.target.value)} /></td>
                       <td style={{ ...tdStyle, textAlign: "right", color: remain < 0 ? "#a32d2d" : "#6b7280" }}>{fmt(remain)} {prodUnit(it.sourceProductId)}</td>
